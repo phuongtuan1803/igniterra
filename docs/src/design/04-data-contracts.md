@@ -20,6 +20,7 @@ rev:
 Dữ liệu chia theo người đọc: SQLite cho trạng thái mà worker và web cùng hỏi ("task nào đang chờ?"), file cho mọi thứ thuộc về một task. Không có gì bị ghi đè: file mới được thêm, chỉ `assets.json` được cập nhật và luôn qua file tạm rồi đổi tên.
 
 <!-- id:s1.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ba nơi lưu: SQLite cho trạng thái, thư mục task cho nội dung, thư mục series cho dữ liệu dùng chung
 direction: right
@@ -47,6 +48,7 @@ db.r -> task.files: "output_path, sha256"
 task.assets -> task.files: "đường dẫn ứng viên"
 task.plan -> series.bible: "series"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s1.b2-dark.svg">
 <img alt="Ba nơi lưu: SQLite cho trạng thái, thư mục task cho nội dung, thư mục series cho dữ liệu dùng chung" src="04-data-contracts.figs/s1.b2-light.svg">
@@ -71,6 +73,7 @@ Table: Ai ghi gì
 ADD-AIVIDEO-003 chỉ chốt "StepRun trong SQLite". Lược đồ dưới đây là đề xuất của tài liệu này; chốt khi viết migration đầu tiên ở Gate 2.
 
 <!-- id:s2.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ba bảng của core; nội dung nằm trong thư mục task, bảng chỉ trỏ tới
 direction: right
@@ -118,6 +121,7 @@ gate_decisions: {
 step_runs.task_id -> tasks.id
 gate_decisions.task_id -> tasks.id
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s2.b2-dark.svg">
 <img alt="Ba bảng của core; nội dung nằm trong thư mục task, bảng chỉ trỏ tới" src="04-data-contracts.figs/s2.b2-light.svg">
@@ -136,6 +140,7 @@ gate_decisions.task_id -> tasks.id
 Core có 5 contract. Mỗi contract mang `schema_version`; Pydantic v2 vừa kiểm dữ liệu vừa làm schema structured output cho LLM.
 
 <!-- id:s3.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Contract và nơi chúng được tạo, đọc
 direction: down
@@ -161,6 +166,7 @@ audio -> rend: "selected"
 img -> cost
 tts -> cost
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s3.b2-dark.svg">
 <img alt="Contract và nơi chúng được tạo, đọc" src="04-data-contracts.figs/s3.b2-light.svg">
@@ -212,6 +218,7 @@ Table: Trường của một scene
 | `start_from` | `null` \| `"prev_last_frame"` | Nối frame, tùy chọn, Gate 4 |
 
 <!-- id:s4.b4 -->
+<!-- report-kit:d2
 ```d2
 # cap: Chuỗi revision của ScenePlan: mỗi sửa đổi một nút mới, không nút nào bị sửa
 direction: right
@@ -223,6 +230,7 @@ r1 -> r2: parent
 r2 -> r3: parent
 cur -> r3: "revision hiện hành"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s4.b4-dark.svg">
 <img alt="Chuỗi revision của ScenePlan: mỗi sửa đổi một nút mới, không nút nào bị sửa" src="04-data-contracts.figs/s4.b4-light.svg">
@@ -245,6 +253,7 @@ Mỗi lần sinh ảnh, audio hay clip là một ứng viên; render chỉ dùng
 ```
 
 <!-- id:s5.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Một scene giữ nhiều ứng viên cho mỗi loại asset; đúng một ứng viên được chọn
 direction: right
@@ -267,6 +276,7 @@ scene -> img
 scene -> vo
 scene -> clip
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s5.b3-dark.svg">
 <img alt="Một scene giữ nhiều ứng viên cho mỗi loại asset; đúng một ứng viên được chọn" src="04-data-contracts.figs/s5.b3-light.svg">
@@ -329,6 +339,7 @@ camera:
 Prompt keyframe được ghép xác định trong `prompt.py`: style + mô tả nhân vật + cụm từ camera + visual + negative, kèm ảnh refs. LLM không bao giờ viết lại mô tả nhân vật.
 
 <!-- id:s7.b4 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ghép prompt keyframe xác định: LLM chỉ đóng góp visual và khóa shot, phần còn lại lấy từ Series Bible
 direction: right
@@ -356,6 +367,7 @@ bible.ng -> comp: 5
 comp -> out: prompt
 bible.rf -> out: refs
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s7.b4-dark.svg">
 <img alt="Ghép prompt keyframe xác định: LLM chỉ đóng góp visual và khóa shot, phần còn lại lấy từ Series Bible" src="04-data-contracts.figs/s7.b4-light.svg">
@@ -416,6 +428,7 @@ data/
 Có hai file cấu hình, theo hai chủ sở hữu. Khóa API chỉ nằm ở file của MPT và biến môi trường cho SDK trực tiếp; `studio.toml` không chứa bí mật.
 
 <!-- id:s9.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thứ tự ưu tiên cấu hình: ghi đè theo task > studio.toml > mặc định trong code
 direction: right
@@ -431,6 +444,7 @@ task -> eff
 mpt -> eff: "adapter MPT đọc"
 env -> eff: "adapter trực tiếp đọc"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s9.b2-dark.svg">
 <img alt="Thứ tự ưu tiên cấu hình: ghi đè theo task &gt; studio.toml &gt; mặc định trong code" src="04-data-contracts.figs/s9.b2-light.svg">
@@ -465,6 +479,7 @@ Ghi đè theo task lưu trong `tasks.overrides` và không đổi cấu hình ch
 Mọi file JSON mang `schema_version`. Thêm trường tùy chọn không tăng version; đổi nghĩa hay bỏ trường thì tăng và thêm hàm đọc bản cũ trong `contracts.py`. Không chuyển đổi file cũ tại chỗ, vì file trong thư mục task là bất biến.
 
 <!-- id:s10.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Đọc file cũ qua hàm chuyển đổi, không sửa file trên đĩa
 direction: right
@@ -473,6 +488,7 @@ up: "contracts.upgrade\nv1 → v2 trong bộ nhớ" {class: gate}
 m: "ScenePlan (v2)" {class: data}
 f1 -> up -> m
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s10.b2-dark.svg">
 <img alt="Đọc file cũ qua hàm chuyển đổi, không sửa file trên đĩa" src="04-data-contracts.figs/s10.b2-light.svg">

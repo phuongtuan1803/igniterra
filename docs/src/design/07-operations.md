@@ -17,6 +17,7 @@ rev:
 ## Triển khai
 
 <!-- id:s1.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Triển khai: một máy chạy 2 process; MPT là thư viện trong cùng môi trường Python, cloud và GPU chỉ là endpoint
 direction: right
@@ -42,6 +43,7 @@ main.worker -> gpu: HTTP
 main.worker -> cloud: HTTPS
 main.data -> backup: "sao lưu định kỳ"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="07-operations.figs/s1.b1-dark.svg">
 <img alt="Triển khai: một máy chạy 2 process; MPT là thư viện trong cùng môi trường Python, cloud và GPU chỉ là endpoint" src="07-operations.figs/s1.b1-light.svg">
@@ -62,6 +64,7 @@ Gate 2 chỉ cần CLI và worker. Web xuất hiện ở Gate 3. GPU tự host c
 ## Cấu hình và bí mật
 
 <!-- id:s2.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Khóa chỉ nằm ở config.toml của MPT và biến môi trường; studio.toml và log không bao giờ chứa khóa
 direction: right
@@ -78,6 +81,7 @@ toml -> worker
 toml -> web
 worker -> log: "không bao giờ ghi khóa" {class: bad}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="07-operations.figs/s2.b1-dark.svg">
 <img alt="Khóa chỉ nằm ở config.toml của MPT và biến môi trường; studio.toml và log không bao giờ chứa khóa" src="07-operations.figs/s2.b1-light.svg">
@@ -95,6 +99,7 @@ worker -> log: "không bao giờ ghi khóa" {class: bad}
 MPT cập nhật gần như hằng ngày. Ghim phiên bản (P-01) và chỉ nâng khi cần một tính năng hay bản sửa; mỗi adapter có test riêng chạy trước khi nâng. Rủi ro lớn nhất của hệ thống là phụ thuộc vào dự án này, được giảm bằng quy trình dưới đây và ranh giới adapter.
 
 <!-- id:s3.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Nâng MPT: chỉ test adapter có thể đỏ; core không ảnh hưởng
 direction: down
@@ -111,6 +116,7 @@ adp -> fix: đỏ
 fix -> adp
 fix -> stay: "không đáng sửa"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="07-operations.figs/s3.b2-dark.svg">
 <img alt="Nâng MPT: chỉ test adapter có thể đỏ; core không ảnh hưởng" src="07-operations.figs/s3.b2-light.svg">
@@ -162,6 +168,7 @@ Chỉ số chính, đo ở mỗi gate: chi phí trên mỗi video được duy�
 ## Sao lưu và dọn dẹp
 
 <!-- id:s5.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Toàn bộ trạng thái là thư mục data/; sao lưu bằng chép, dọn ứng viên không được chọn theo tuổi
 direction: right
@@ -173,6 +180,7 @@ clean: "Dọn ứng viên không được chọn\nsau N ngày; giữ selected,\n
 data -> snap -> copy -> dest
 data -> clean
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="07-operations.figs/s5.b1-dark.svg">
 <img alt="Toàn bộ trạng thái là thư mục data/; sao lưu bằng chép, dọn ứng viên không được chọn theo tuổi" src="07-operations.figs/s5.b1-light.svg">
@@ -209,6 +217,7 @@ Tài liệu này không phải tư vấn pháp lý; nghĩa vụ cụ thể phụ
 Phần lớn hạn chế là đánh đổi có chủ đích để giữ hệ thống nhỏ. Rủi ro lớn nhất là phụ thuộc vào một dự án thay đổi rất nhanh (MPT), được giảm bằng ghim phiên bản và ranh giới adapter.
 
 <!-- id:s7.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Rủi ro chính theo khả năng và ảnh hưởng (đánh giá định tính, chưa có số đo)
 grid-rows: 3
@@ -223,6 +232,7 @@ l1: "Thấp · thấp\n—" {class: plain}
 l2: "Thấp · vừa\nProvider ngừng hoặc đổi giá" {class: gate}
 l3: "Thấp · cao\nTrả tiền hai lần do\nlượt gọi không rõ kết quả" {class: bad}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="07-operations.figs/s7.b2-dark.svg">
 <img alt="Rủi ro chính theo khả năng và ảnh hưởng (đánh giá định tính, chưa có số đo)" src="07-operations.figs/s7.b2-light.svg">
@@ -278,6 +288,7 @@ Table: Triệu chứng, nguyên nhân và cách xử lý
 ## Mở rộng quy mô
 
 <!-- id:s9.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ba bậc mở rộng; bậc 3 sửa phần nhận task và lưu trữ, không chỉ đổi URL
 direction: right
@@ -287,6 +298,7 @@ s3: "Bậc 3\nnhiều máy\nPostgres + S3 / R2" {class: hands}
 s1 -> s2: "thông lượng không đủ"
 s2 -> s3: "cần máy thứ hai"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="07-operations.figs/s9.b1-dark.svg">
 <img alt="Ba bậc mở rộng; bậc 3 sửa phần nhận task và lưu trữ, không chỉ đổi URL" src="07-operations.figs/s9.b1-light.svg">

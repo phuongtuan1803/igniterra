@@ -42,6 +42,7 @@ class VideoProvider(Protocol):                       # tách submit/poll để r
 ```
 
 <!-- id:s1.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Mỗi interface có adapter thật và bản giả; adapter MPT chỉ là một lựa chọn trong số đó
 direction: right
@@ -81,6 +82,7 @@ ifc.vid -> direct.veo
 ifc.vid -> mpt.mvid
 ifc -> fake.fk: "test"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s1.b3-dark.svg">
 <img alt="Mỗi interface có adapter thật và bản giả; adapter MPT chỉ là một lựa chọn trong số đó" src="05-modules-providers.figs/s1.b3-light.svg">
@@ -102,6 +104,7 @@ Table: Lỗi chung
 MPT (khoảng 36.000 dòng Python, MIT, 203 file test, cập nhật gần như hằng ngày) mạnh ở hạ tầng provider và render, yếu đúng ở phần sản phẩm ta cần khác biệt. Vì vậy MPT được dùng như thư viện sau adapter, không phải nền tảng chính.
 
 <!-- id:s2.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Phần của MPT ta dùng, chỉ dùng ở Gate 1, và không dùng
 direction: right
@@ -128,6 +131,7 @@ no: Không dùng {
   x3: "upload_post.py" {class: bad}
 }
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s2.b2-dark.svg">
 <img alt="Phần của MPT ta dùng, chỉ dùng ở Gate 1, và không dùng" src="05-modules-providers.figs/s2.b2-light.svg">
@@ -155,6 +159,7 @@ Table: MPT có gì và ta dùng gì
 Chỉ các file trong `studio/providers/mpt/` được import `app.*`; một test quét import kiểm tra điều này. Bỏ MPT cho một năng lực = viết adapter khác cùng interface, đổi một dòng cấu hình.
 
 <!-- id:s3.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Adapter MPT dịch giữa interface của ta và hàm của MPT; lỗi MPT được đổi thành lỗi chung
 direction: right
@@ -180,6 +185,7 @@ adp.a -> mpt.sub
 adp.v -> mpt.vid
 mpt -> cfg: đọc
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s3.b2-dark.svg">
 <img alt="Adapter MPT dịch giữa interface của ta và hàm của MPT; lỗi MPT được đổi thành lỗi chung" src="05-modules-providers.figs/s3.b2-light.svg">
@@ -223,6 +229,7 @@ class MptTTS(TTSProvider):
 ```
 
 <!-- id:s4.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Một lượt gọi qua MptTTS, từ bước voice tới file giọng và mốc thời gian
 shape: sequence_diagram
@@ -237,6 +244,7 @@ mpt -> tts: "SubMaker (mốc từng từ) hoặc None"
 tts -> step: "AudioTrack(path, words, provider)"
 step -> step: "ghi ứng viên vo_s03_aN, selected"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s4.b2-dark.svg">
 <img alt="Một lượt gọi qua MptTTS, từ bước voice tới file giọng và mốc thời gian" src="05-modules-providers.figs/s4.b2-light.svg">
@@ -249,6 +257,7 @@ step -> step: "ghi ứng viên vo_s03_aN, selected"
 Keyframe có nhân vật dùng adapter gọi thẳng API ảnh hỗ trợ ảnh tham chiếu (ví dụ Nano Banana 2), vì MPT không có khái niệm nhân vật. Adapter nhận prompt đã ghép xác định và đường dẫn ảnh refs từ Series Bible ([04 · Ghép prompt](04-data-contracts.md#s7)), ghi `pending` trước lượt gọi và trả `AssetCandidate`.
 
 <!-- id:s5.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Bước keyframes cho một scene có nhân vật
 direction: right
@@ -264,6 +273,7 @@ refs -> nb: refs
 nb -> cost: "trước lượt gọi"
 nb -> cand: "AssetCandidate"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s5.b2-dark.svg">
 <img alt="Bước keyframes cho một scene có nhân vật" src="05-modules-providers.figs/s5.b2-light.svg">
@@ -344,6 +354,7 @@ Mỗi năng lực mới ở Gate 4 là một adapter mới, không đổi core.
 Core không biết "video" là gì: nó chạy một danh sách bước qua các adapter. Một quy trình mới là một danh sách bước mới, dùng lại adapter sẵn có và thêm 1–2 bước khi cần. Tất cả thuộc Gate 4, chỉ làm khi có workload thật.
 
 <!-- id:s10.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Danh sách bước audiobook: 2 bước mới, 2 gate, giọng qua MptTTS
 direction: down
@@ -356,6 +367,7 @@ ms: "master (mới)\nFFmpeg: chương, âm lượng,\nMP3 / M4B" {class: hands}
 g2: "Gate nghe duyệt" {class: gate}
 in -> ch -> g1 -> vo -> ck -> ms -> g2
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s10.b2-dark.svg">
 <img alt="Danh sách bước audiobook: 2 bước mới, 2 gate, giọng qua MptTTS" src="05-modules-providers.figs/s10.b2-light.svg">
@@ -396,6 +408,7 @@ Table: Các quy trình khác
 Mỗi interface phải có một bản giả để test core không tốn tiền (NFR-04). Test chia ba tầng: core với bản giả chạy mọi lần commit; adapter gọi thật chạy tay trước khi nâng MPT hay đổi model; test chấp nhận T01–T10 chạy ở các gate ([08 · Kiểm thử](08-roadmap.md#s4)).
 
 <!-- id:s11.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ba tầng test: rẻ và thường xuyên ở dưới, đắt và hiếm ở trên
 direction: down
@@ -404,6 +417,7 @@ adp: "Test adapter\ngọi dịch vụ thật, một lượt mỗi adapter\n(trư
 core: "Test core với Fake*\nresume, retry, unknown, selected, revision\n+ test quét import (mỗi commit, CI)" {class: gate}
 acc -> adp -> core
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s11.b2-dark.svg">
 <img alt="Ba tầng test: rẻ và thường xuyên ở dưới, đắt và hiếm ở trên" src="05-modules-providers.figs/s11.b2-light.svg">

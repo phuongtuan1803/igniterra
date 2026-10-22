@@ -20,6 +20,7 @@ rev:
 Chưa viết dòng code nào trước Gate 2, và mỗi cổng đều có lối ra "dừng xây". Các gate thay cho 5 phase cố định của v1.1 (AD-12); mỗi năng lực mới ở Gate 4 là một adapter mới, không đổi core.
 
 <!-- id:s1.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Năm decision gate; code chỉ bắt đầu ở Gate 2, mỗi gate có lối ra dừng xây
 direction: down
@@ -41,6 +42,7 @@ g1 -> x1
 g2 -> x2
 g3 -> x3
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="08-roadmap.figs/s1.b2-dark.svg">
 <img alt="Năm decision gate; code chỉ bắt đầu ở Gate 2, mỗi gate có lối ra dừng xây" src="08-roadmap.figs/s1.b2-light.svg">
@@ -92,6 +94,7 @@ Mẫu nhật ký pilot, mỗi lần chạy một dòng. Chỉ điền số đã 
 Gate 2 là lần duy nhất core được viết. Thứ tự dưới đây đi từ thứ test được không tốn tiền tới thứ gọi dịch vụ thật, để mỗi bước có bản giả trước khi có adapter thật (đề xuất).
 
 <!-- id:s3.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thứ tự công việc Gate 2: contract và bản giả trước, adapter thật sau, đo trên 5 brief cuối cùng
 direction: down
@@ -105,6 +108,7 @@ w7: "7 · Renderer\nvendor/video_project.py\n+ burn-in phụ đề" {class: hand
 w8: "8 · Đo\n5 brief → MP4,\nnhật ký pilot, so MPT" {class: brain}
 w1 -> w2 -> w3 -> w4 -> w5 -> w6 -> w7 -> w8
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="08-roadmap.figs/s3.b2-dark.svg">
 <img alt="Thứ tự công việc Gate 2: contract và bản giả trước, adapter thật sau, đo trên 5 brief cuối cùng" src="08-roadmap.figs/s3.b2-light.svg">
@@ -161,6 +165,7 @@ Table: Kết quả dựng lại của video_project khi chỉ đổi footage s02
 Gate 3 thêm phần người dùng chạm vào; Gate 4 thêm năng lực, mỗi lần một adapter và chỉ khi có nhu cầu định lượng.
 
 <!-- id:s5.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Gate 3 thêm giao diện và Series Bible; Gate 4 thêm adapter, core không đổi
 direction: down
@@ -180,6 +185,7 @@ g4: Gate 4 · Mở rộng (mỗi lần một adapter) {
 }
 g3 -> g4: "giảm sinh lại hoặc phút sửa"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="08-roadmap.figs/s5.b2-dark.svg">
 <img alt="Gate 3 thêm giao diện và Series Bible; Gate 4 thêm adapter, core không đổi" src="08-roadmap.figs/s5.b2-light.svg">
@@ -201,6 +207,7 @@ Table: Điều kiện mở từng hạng mục Gate 4
 Task `t_0042` "Tín hiệu từ năm 2126", series `lyra7`, cấu hình Gate 3 (ảnh tĩnh có chuyển động camera, chưa có image-to-video), ra MP4 1080×1920 khoảng 60 giây với chi phí ước tính khoảng $0,7. Brief: "Người gác cuối cùng trên trạm quỹ đạo nhận tín hiệu từ chính mình của 100 năm sau", 60 giây, tiếng Việt.
 
 <!-- id:s6.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: t_0042 qua các bước: ScenePlan 3 revision, 9 ứng viên ảnh, khoảng 0,66 USD
 direction: down
@@ -215,6 +222,7 @@ fix: "Sửa narration s05\n→ rev 3: voice s05,\nsubtitles, render" {class: pla
 plan -> kf -> g1 -> vo -> sb -> rd -> g2
 g2 -> fix: "sau khi duyệt"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="08-roadmap.figs/s6.b2-dark.svg">
 <img alt="t_0042 qua các bước: ScenePlan 3 revision, 9 ứng viên ảnh, khoảng 0,66 USD" src="08-roadmap.figs/s6.b2-light.svg">

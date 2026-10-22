@@ -18,12 +18,12 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 
 Tài liệu là Markdown của [Report Kit](https://github.com/phuongtuan1803/report-kit); diagram là khối `d2`, file SVG nằm trong thư mục `*.figs/` cạnh nguồn và được commit cùng Markdown. Không sửa tay SVG hay HTML.
 
-Bản Report Kit dùng để viết bộ này: commit `966434a`. Lưu ý: HEAD `246177f` build lỗi vì renderer d2 kết thúc bằng SIGKILL (exit -9) mà runtime chỉ chấp nhận exit 0; dùng `966434a` tới khi lỗi được sửa.
+Bản Report Kit dùng để viết bộ này: commit `cefd883`. Mã D2 nằm trong comment `<!-- report-kit:d2 ... -->` để GitHub Preview chỉ hiện SVG; xem mã ở chế độ Code/Raw. Sau khi thêm khối d2 mới, chạy `report id` để bọc mã và ghi thẻ `<picture>`.
 
 ```sh
 git clone https://github.com/phuongtuan1803/report-kit && cd report-kit
-git checkout 966434a && uv sync && npm ci
-uv run report check  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # kiểm nguồn, SVG cập nhật
+git checkout cefd883 && uv sync && npm ci
+uv run report check  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # kiểm nguồn, SVG cập nhật (thêm --browser để soát bố cục)
 uv run report build  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # SVG + HTML vào docs/html/
 uv run report adr-index ../igniterra/docs/src/adr                           # sau khi sửa ADR
 ```

@@ -40,6 +40,7 @@ rev:
 Nếu `voice` đọc thẳng ScenePlan, nó dính chặt với video; audiobook hay podcast phải sửa `voice`, và dữ liệu task cũ có hình dạng khác bản mới. Hình dạng dữ liệu lưu trong SQLite nên phải chốt trước Phase 1 (nguồn: ADD-AIVIDEO-001 mục 12.4). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Trước và sau: voice không còn biết dữ liệu đến từ quy trình nào
 direction: right
@@ -62,6 +63,7 @@ after: "Chọn" {
   ss -> v2
 }
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="0002-speechscript-contract.figs/summary.b3-dark.svg">
 <img alt="Trước và sau: voice không còn biết dữ liệu đến từ quy trình nào" src="0002-speechscript-contract.figs/summary.b3-light.svg">

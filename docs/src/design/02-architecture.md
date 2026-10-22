@@ -54,6 +54,7 @@ CON-03
 Mũi tên chỉ đi một chiều từ trên xuống: giao diện gọi core, core gọi interface, adapter cài interface, MPT và API chỉ nằm dưới adapter.
 
 <!-- id:s2.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Bốn tầng, phụ thuộc một chiều; MPT chỉ xuất hiện ở tầng dịch vụ, sau adapter
 direction: down
@@ -91,6 +92,7 @@ adp.direct -> svc.gpu
 adp.mpta -> svc.mpt
 adp.rend -> svc.ff
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s2.b2-dark.svg">
 <img alt="Bốn tầng, phụ thuộc một chiều; MPT chỉ xuất hiện ở tầng dịch vụ, sau adapter" src="02-architecture.figs/s2.b2-light.svg">
@@ -112,6 +114,7 @@ Table: Tầng và thành phần
 Toàn bộ chạy trên một máy với 2 process. Web và worker không gọi nhau trực tiếp: chúng chỉ gặp nhau qua SQLite và thư mục `data/`.
 
 <!-- id:s3.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Góc nhìn container: web và worker chỉ chia sẻ studio.db và data/
 direction: right
@@ -141,6 +144,7 @@ host.worker -> host.cfg: đọc
 host.worker -> ext.cloud: HTTPS
 host.worker -> ext.gpu: HTTP
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s3.b2-dark.svg">
 <img alt="Góc nhìn container: web và worker chỉ chia sẻ studio.db và data/" src="02-architecture.figs/s3.b2-light.svg">
@@ -164,6 +168,7 @@ Table: Thành phần chạy và trách nhiệm
 Core là phần ta viết ở Gate 2; adapter là phần cắm thêm theo năng lực. Chi tiết từng phần: worker ở [03](03-runner.md), contract và lưu trữ ở [04](04-data-contracts.md), interface và adapter ở [05](05-modules-providers.md), giao diện ở [06](06-web-ui.md).
 
 <!-- id:s4.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thành phần của core và cách chúng dùng nhau; adapter chỉ thấy interface và contract
 direction: down
@@ -198,6 +203,7 @@ core.stp -> core.costs
 core.stp -> core.contracts
 core.ifaces -> adapters: "được cài đặt bởi"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s4.b2-dark.svg">
 <img alt="Thành phần của core và cách chúng dùng nhau; adapter chỉ thấy interface và contract" src="02-architecture.figs/s4.b2-light.svg">
@@ -224,6 +230,7 @@ Table: Phần core và giới hạn trách nhiệm (tên module là đề xuất
 Phụ thuộc chỉ có một chiều. Core không import adapter cụ thể; chỉ `studio/providers/mpt/` được import package `app` của MPT. Một test quét import kiểm tra quy tắc này trong CI (NFR-01).
 
 <!-- id:s5.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Import được phép (liền) và bị cấm (đỏ)
 direction: right
@@ -245,6 +252,7 @@ core -> app: "CẤM import" {class: bad}
 direct -> app: "CẤM import" {class: bad}
 ui -> app: "CẤM import" {class: bad}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s5.b2-dark.svg">
 <img alt="Import được phép (liền) và bị cấm (đỏ)" src="02-architecture.figs/s5.b2-light.svg">
@@ -289,6 +297,7 @@ igniterra/
 ## Luồng một task qua các thành phần
 
 <!-- id:s6.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Một task từ lúc tạo đến khi xong, qua CLI hoặc web, SQLite, worker, adapter và data/
 shape: sequence_diagram
@@ -316,6 +325,7 @@ wk -> db: "gate final → waiting"
 op -> ui: "duyệt bản cuối"
 ui -> db: "task completed"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s6.b1-dark.svg">
 <img alt="Một task từ lúc tạo đến khi xong, qua CLI hoặc web, SQLite, worker, adapter và data/" src="02-architecture.figs/s6.b1-light.svg">
@@ -328,6 +338,7 @@ ui -> db: "task completed"
 Core không biết "video" là gì: một quy trình mới là một danh sách bước mới, dùng lại adapter sẵn có. Các thay đổi phổ biến nhất nằm ở cấu hình hoặc một adapter.
 
 <!-- id:s7.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thay đổi phổ biến rơi vào cấu hình, adapter hoặc danh sách bước; core không đổi
 direction: right
@@ -354,6 +365,7 @@ ch.c4 -> where.adp: "ComfyImage"
 ch.c5 -> where.lst: "chapterize, master"
 where -> core: "không chạm" {style.stroke-dash: 3}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s7.b2-dark.svg">
 <img alt="Thay đổi phổ biến rơi vào cấu hình, adapter hoặc danh sách bước; core không đổi" src="02-architecture.figs/s7.b2-light.svg">
@@ -376,6 +388,7 @@ Table: Kiểm chứng tính ổn định của core
 Mỗi thành phần có một lựa chọn ưu tiên và tối đa hai phương án thay thế. Toàn bộ hệ thống chỉ cần Python, FFmpeg, gói `mpt` và các API key. Model và adapter mặc định cho từng năng lực ở [05 · Model mặc định](05-modules-providers.md#s6).
 
 <!-- id:s8.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ngăn xếp công nghệ theo tầng
 direction: down
@@ -407,6 +420,7 @@ ui -> app -> store
 app -> prov
 app -> tools
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s8.b2-dark.svg">
 <img alt="Ngăn xếp công nghệ theo tầng" src="02-architecture.figs/s8.b2-light.svg">
@@ -477,6 +491,7 @@ Table: Yêu cầu → thành phần → tài liệu thiết kế
 Kiến trúc lớn lên theo decision gate, không theo phase cố định. Mỗi gate chỉ thêm phần đã được số liệu của gate trước biện minh; mỗi năng lực mới ở Gate 4 là một adapter. Kế hoạch chi tiết ở [08 · Lộ trình](08-roadmap.md).
 
 <!-- id:s11.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thành phần xuất hiện theo gate; core chỉ được viết ở Gate 2 và không đổi ở Gate 4
 grid-rows: 2
@@ -492,6 +507,7 @@ c2: "core (viết mới)" {class: data}
 c3: "core (thêm web)" {class: data}
 c4: "core (không đổi;\nmỗi năng lực một adapter)" {class: data}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="02-architecture.figs/s11.b2-dark.svg">
 <img alt="Thành phần xuất hiện theo gate; core chỉ được viết ở Gate 2 và không đổi ở Gate 4" src="02-architecture.figs/s11.b2-light.svg">

@@ -20,6 +20,7 @@ rev:
 Không có bước build frontend. CLI và web gọi cùng một lớp hành động trong core (`gates.py`, `taskdir.py`), nên mọi thứ làm được trên web cũng làm được bằng CLI. Ảnh, audio, video hiển thị bằng thẻ `<img>`, `<audio>`, `<video>` trỏ tới file trong `data/`.
 
 <!-- id:s1.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: CLI và web dùng chung lớp hành động của core; không ai trong hai gọi provider
 direction: right
@@ -43,6 +44,7 @@ act -> db
 act -> fs: "rev mới, selected,\nứng viên upload"
 web.files -> fs
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="06-web-ui.figs/s1.b2-dark.svg">
 <img alt="CLI và web dùng chung lớp hành động của core; không ai trong hai gọi provider" src="06-web-ui.figs/s1.b2-light.svg">
@@ -63,6 +65,7 @@ NFR-07
 ## Sơ đồ trang
 
 <!-- id:s2.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: 4 trang; Storyboard là nơi làm việc chính ở gate keyframes và gate final
 direction: right
@@ -80,6 +83,7 @@ detail -> story: "sửa scene"
 story -> series: "nhân vật, giọng của series"
 settings -> new: "mặc định cho task mới"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="06-web-ui.figs/s2.b1-dark.svg">
 <img alt="4 trang; Storyboard là nơi làm việc chính ở gate keyframes và gate final" src="06-web-ui.figs/s2.b1-light.svg">
@@ -105,6 +109,7 @@ Table: Trang, nội dung và hành động
 Storyboard gộp kịch bản, ứng viên và hành động sửa vào một chỗ. Bên trái là lưới thẻ scene; bên phải là khung sửa của scene đang chọn với dải ứng viên.
 
 <!-- id:s4.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Bố cục Storyboard: lưới thẻ scene, khung sửa và dải ứng viên của scene đang chọn
 grid-columns: 2
@@ -127,6 +132,7 @@ panel: "Khung sửa · s03" {
   f5: "[Lưu → rev mới] [Chạy lại + ghi chú]\n[Duyệt gate] [Từ chối]" {class: hands}
 }
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="06-web-ui.figs/s4.b2-dark.svg">
 <img alt="Bố cục Storyboard: lưới thẻ scene, khung sửa và dải ứng viên của scene đang chọn" src="06-web-ui.figs/s4.b2-light.svg">
@@ -156,6 +162,7 @@ Table: Hành động và kết quả trong hệ thống
 | Quyết định lượt gọi `unknown` | Sinh lại mục đó hoặc bỏ qua; quyết định ghi vào `gate_decisions` |
 
 <!-- id:s5.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Sửa visual của s03 trên Storyboard: revision mới, worker chỉ chạy lại s03 rồi dừng lại ở gate
 shape: sequence_diagram
@@ -176,6 +183,7 @@ wk -> fs: "img_s03_a2 → selected"
 wk -> db: "gate keyframes (rev 3) → waiting"
 ui -> op: "thẻ s03 cập nhật qua HTMX"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="06-web-ui.figs/s5.b3-dark.svg">
 <img alt="Sửa visual của s03 trên Storyboard: revision mới, worker chỉ chạy lại s03 rồi dừng lại ở gate" src="06-web-ui.figs/s5.b3-light.svg">
