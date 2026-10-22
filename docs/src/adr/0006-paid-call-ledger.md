@@ -33,6 +33,7 @@ rev:
 Thiết kế không hứa "không bao giờ trả tiền hai lần" (bản rà soát F03); nó hứa không tự trả tiền lần hai mà người không biết. Ngân sách đặt trước và `pricing.yaml` bị bỏ vì giá đổi thường xuyên và ước tính lệch hóa đơn (F10). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Vòng đời một dòng chi phí: pending luôn ghi trước, kết quả không rõ thì hỏi người
 direction: right
@@ -46,6 +47,7 @@ p -> failed: "lỗi rõ ràng"
 p -> unk: "worker chết, timeout,\nUnconfirmedTaskError"
 unk -> w
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="0006-paid-call-ledger.figs/summary.b3-dark.svg">
 <img alt="Vòng đời một dòng chi phí: pending luôn ghi trước, kết quả không rõ thì hỏi người" src="0006-paid-call-ledger.figs/summary.b3-light.svg">

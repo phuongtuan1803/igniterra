@@ -21,6 +21,7 @@ rev:
 Bộ tài liệu đi từ thiết kế hệ thống (hệ thống làm gì, cho ai, trong giới hạn nào) xuống thiết kế kiến trúc (hệ thống được dựng thế nào, code nằm ở đâu, chạy ra sao). Mỗi sự thật chỉ nằm ở một tài liệu sở hữu nó; tài liệu khác dẫn lại bằng liên kết hoặc khối `req`. Nguồn duy nhất là ADD-AIVIDEO-003 v3.0; ADD-001 v1.1 và ADD-002 v2.1 chỉ còn giá trị lịch sử.
 
 <!-- id:s1.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Bản đồ bộ tài liệu: hệ thống ở trên, kiến trúc ở giữa, chi tiết và kế hoạch ở dưới
 direction: down
@@ -42,6 +43,7 @@ detail -> plan: "gate nào xây phần nào"
 adr -> arch: chốt lựa chọn
 adr -> detail: chốt lựa chọn
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s1.b2-dark.svg">
 <img alt="Bản đồ bộ tài liệu: hệ thống ở trên, kiến trúc ở giữa, chi tiết và kế hoạch ở dưới" src="01-system-design.figs/s1.b2-light.svg">
@@ -72,6 +74,7 @@ Table: Tài liệu trong bộ và câu hỏi mỗi tài liệu trả lời
 studio (tên package trong repo Igniterra) sản xuất video ngắn bằng AI theo scene, có người duyệt ở các điểm dừng, và mở rộng được sang audiobook và quy trình tương tự. Hệ thống điều phối các dịch vụ AI bên ngoài và MoneyPrinterTurbo (MPT) như một thư viện; nó không tự huấn luyện model.
 
 <!-- id:s2.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ngữ cảnh: một người vận hành, studio trên một máy, MPT và các dịch vụ bên ngoài chỉ được gọi qua adapter
 direction: right
@@ -102,6 +105,7 @@ studio -> local: subprocess
 studio -> gpu: "HTTP API"
 studio -> pub: "upload tay (hoãn)" {style.stroke-dash: 3}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s2.b2-dark.svg">
 <img alt="Ngữ cảnh: một người vận hành, studio trên một máy, MPT và các dịch vụ bên ngoài chỉ được gọi qua adapter" src="01-system-design.figs/s2.b2-light.svg">
@@ -136,6 +140,7 @@ Table: Mục tiêu hệ thống
 | G-06 | Một người phát triển và vận hành được | 2 process, SQLite, thư mục `data/`, FFmpeg, gói `mpt` |
 
 <!-- id:s3.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Phạm vi: phần ta viết, phần dùng lại từ MPT, phần hoãn có điều kiện và phần ngoài phạm vi
 direction: right
@@ -166,6 +171,7 @@ out: Ngoài phạm vi {
 in -> reuse: "gọi qua adapter"
 in -> later: "khi gate cho phép"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s3.b3-dark.svg">
 <img alt="Phạm vi: phần ta viết, phần dùng lại từ MPT, phần hoãn có điều kiện và phần ngoài phạm vi" src="01-system-design.figs/s3.b3-light.svg">
@@ -178,6 +184,7 @@ in -> later: "khi gate cho phép"
 Core không biết "video" là gì: nó chạy một danh sách bước cố định qua các provider interface. Mọi lần sinh là một ứng viên, mọi lần sửa kịch bản là một revision; không có gì bị ghi đè.
 
 <!-- id:s4.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Mô hình miền: task có ScenePlan nhiều revision; mỗi bước sinh ứng viên theo scene; render chỉ dùng ứng viên selected
 direction: down
@@ -202,6 +209,7 @@ cand -> scene: "thuộc, ghi plan_rev"
 scene -> sel: "chọn"
 run -> cost: "pending trước, kết quả sau"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s4.b2-dark.svg">
 <img alt="Mô hình miền: task có ScenePlan nhiều revision; mỗi bước sinh ứng viên theo scene; render chỉ dùng ứng viên selected" src="01-system-design.figs/s4.b2-light.svg">
@@ -231,6 +239,7 @@ Trong bộ tài liệu, "phải" là yêu cầu bắt buộc, "nên" là khuyế
 ## Ca sử dụng chính
 
 <!-- id:s5.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ca sử dụng của người vận hành, theo gate xuất hiện
 direction: right
@@ -257,6 +266,7 @@ op -> uc.u7
 op -> uc.u8
 op -> uc.u9
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s5.b1-dark.svg">
 <img alt="Ca sử dụng của người vận hành, theo gate xuất hiện" src="01-system-design.figs/s5.b1-light.svg">
@@ -266,6 +276,7 @@ op -> uc.u9
 Luồng giá trị chính, từ brief đến MP4, với hai điểm dừng cho người. Giọng đọc chạy trước bước motion để clip được yêu cầu theo độ dài thật của lời đọc.
 
 <!-- id:s5.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Luồng giá trị: gate keyframe đứng trước mọi bước đắt, gate cuối đứng trước khi giao
 direction: down
@@ -281,6 +292,7 @@ g2: "gate: final\nduyệt bản cuối" {class: gate}
 out: "final_9x16.mp4" {class: data}
 brief -> plan -> kf -> g1 -> voice -> sub -> mot -> render -> g2 -> out
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s5.b3-dark.svg">
 <img alt="Luồng giá trị: gate keyframe đứng trước mọi bước đắt, gate cuối đứng trước khi giao" src="01-system-design.figs/s5.b3-light.svg">
@@ -353,6 +365,7 @@ Table: Ràng buộc và giả định
 Mỗi thuộc tính chất lượng được giữ bằng một cơ chế cụ thể, kiểm được bằng test; không thuộc tính nào dựa vào "cẩn thận khi code".
 
 <!-- id:s9.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thuộc tính chất lượng và cơ chế giữ chúng
 direction: right
@@ -378,6 +391,7 @@ q.ctl -> m.m3
 q.cost -> m.m4
 q.simple -> m.m5
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s9.b2-dark.svg">
 <img alt="Thuộc tính chất lượng và cơ chế giữ chúng" src="01-system-design.figs/s9.b2-light.svg">

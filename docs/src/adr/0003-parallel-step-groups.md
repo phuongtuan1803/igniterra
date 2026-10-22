@@ -40,6 +40,7 @@ rev:
 `images` và `voice` không phụ thuộc nhau (cả hai chỉ cần kịch bản), nên chạy cùng lúc sẽ nhanh hơn. Nếu profile chỉ là danh sách phẳng, sau này muốn chạy song song phải đổi định dạng config, kéo theo sửa mọi profile, trang Settings, phần kiểm tra hợp lệ và cách runner xác định "bước tiếp theo" (nguồn: ADD-AIVIDEO-001 mục 12.4). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Cùng một profile; Phase 1 chạy nhóm lần lượt, sau này song song mà không đổi config
 direction: right
@@ -63,6 +64,7 @@ later: "Khi cần nhanh hơn" {
   c2 -> d2
 }
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="0003-parallel-step-groups.figs/summary.b3-dark.svg">
 <img alt="Cùng một profile; Phase 1 chạy nhóm lần lượt, sau này song song mà không đổi config" src="0003-parallel-step-groups.figs/summary.b3-light.svg">

@@ -33,6 +33,7 @@ rev:
 Core lo phần MPT không có: kịch bản theo scene, mẫu nhân vật và từ vựng camera, chọn và duyệt từng scene, nhật ký chi phí. MPT lo phần ta không nên tự viết: 14 provider giọng đọc (có Edge TTS tiếng Việt miễn phí), căn phụ đề, provider video AI. Quyết định chỉ có hiệu lực nếu Gate 1 cho thấy MPT nguyên bản trượt yêu cầu bắt buộc (nguồn: ADD-AIVIDEO-003 mục 1, 2, 10). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Ba phương án: tự xây hết, dùng nguyên MPT, và core + adapter được chọn
 direction: right
@@ -44,6 +45,7 @@ need -> a: "đáp ứng, nhưng xây trước khi có video thật"
 need -> b: "không đáp ứng"
 need -> c: "đáp ứng, dùng lại hạ tầng MPT"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="0004-minimal-core-mpt-adapters.figs/summary.b3-dark.svg">
 <img alt="Ba phương án: tự xây hết, dùng nguyên MPT, và core + adapter được chọn" src="0004-minimal-core-mpt-adapters.figs/summary.b3-light.svg">

@@ -95,6 +95,7 @@ Table: Risk register
 ## Status lifecycle
 
 <!-- id:lifecycle.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: ADR status lifecycle
 direction: right
@@ -111,6 +112,7 @@ pending -> changes
 changes -> pending: resubmit
 approved -> superseded
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="index.figs/lifecycle.b1-dark.svg">
 <img alt="ADR status lifecycle" src="index.figs/lifecycle.b1-light.svg">
@@ -131,6 +133,7 @@ Table: ADR states
 ## Feedback process
 
 <!-- id:process.b1 -->
+<!-- report-kit:d2
 ```d2
 # cap: Decision feedback process
 shape: sequence_diagram
@@ -142,6 +145,7 @@ kit -> kit: Update decisions and history
 kit -> kit: Rebuild register source
 kit -> authority: Updated records for review
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="index.figs/process.b1-dark.svg">
 <img alt="Decision feedback process" src="index.figs/process.b1-light.svg">

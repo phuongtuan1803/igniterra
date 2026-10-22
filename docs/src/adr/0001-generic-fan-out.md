@@ -40,6 +40,7 @@ rev:
 Fan-out là việc runner tách một bước thành nhiều lần chạy nhỏ, ví dụ bước `images` với 8 scene thành 8 lần chạy riêng để chạy song song, retry riêng scene lỗi và resume đúng chỗ. Quyết định này nằm trong cách runner đọc module và cách StepRun lưu vào SQLite, nên phải chốt trước Phase 1 (nguồn: ADD-AIVIDEO-001 mục 12.4). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Cùng một cơ chế cho video (theo scene) và audiobook (theo đoạn)
 direction: right
@@ -57,6 +58,7 @@ r -> o1
 r -> o2
 r -> o3
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="0001-generic-fan-out.figs/summary.b3-dark.svg">
 <img alt="Cùng một cơ chế cho video (theo scene) và audiobook (theo đoạn)" src="0001-generic-fan-out.figs/summary.b3-light.svg">

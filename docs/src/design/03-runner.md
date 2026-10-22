@@ -47,6 +47,7 @@ NFR-10
 Danh sách bước của video là mã Python cố định. Giọng đọc chạy trước bước motion để clip được yêu cầu theo độ dài thật của lời đọc ([Đồng bộ thời lượng](#s9)).
 
 <!-- id:s2.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Danh sách bước video: 2 gate, 4 bước theo scene, motion chỉ cho scene mode motion
 direction: down
@@ -60,6 +61,7 @@ render: "render\nvideo_project\n→ MP4 9:16" {class: hands}
 g2: "gate: final" {class: gate}
 plan -> kf -> g1 -> voice -> sub -> mot -> render -> g2
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s2.b2-dark.svg">
 <img alt="Danh sách bước video: 2 gate, 4 bước theo scene, motion chỉ cho scene mode motion" src="03-runner.figs/s2.b2-light.svg">
@@ -100,6 +102,7 @@ VIDEO_STEPS = [
 Mỗi vòng: nhận một task, đi qua danh sách bước, với mỗi bước đi qua các scene áp dụng, bỏ qua mục đã xong, chạy và kiểm tra mục còn lại. Mọi nhánh lỗi kết thúc ở một trong ba chỗ: thử lại, chờ người, hoặc task `failed`.
 
 <!-- id:s3.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Vòng ngoài: kiểm lượt gọi mồ côi, rồi đi qua từng bước; gate chưa duyệt thì dừng
 direction: down
@@ -123,12 +126,14 @@ gok -> nxt: "rồi" {style.stroke-dash: 3}
 nxt -> fin: "hết bước"
 items -> nxt: "xong bước" {style.stroke-dash: 3}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s3.b2-dark.svg">
 <img alt="Vòng ngoài: kiểm lượt gọi mồ côi, rồi đi qua từng bước; gate chưa duyệt thì dừng" src="03-runner.figs/s3.b2-light.svg">
 </picture>
 
 <!-- id:s3.b3-2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Vòng trong cho một scene: bỏ qua nếu đã xong, chạy, kiểm tra, thử lại hoặc fallback
 direction: down
@@ -147,6 +152,7 @@ check -> retry: "Retryable /\nQualityFail"
 retry -> run: "có: backoff hoặc\nlý do vào prompt" {style.stroke-dash: 3}
 retry -> fb: hết
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s3.b3-2-dark.svg">
 <img alt="Vòng trong cho một scene: bỏ qua nếu đã xong, chạy, kiểm tra, thử lại hoặc fallback" src="03-runner.figs/s3.b3-2-light.svg">
@@ -177,6 +183,7 @@ def run_task(task):
 Task có 5 trạng thái. Chỉ worker chuyển `pending → running`; chỉ người (CLI hoặc web) chuyển `waiting → pending`. Khởi động lại worker đưa mọi task `running` về `pending`.
 
 <!-- id:s4.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Trạng thái task: 5 trạng thái, waiting luôn có lý do và chỉ người đưa task ra khỏi waiting
 direction: right
@@ -193,6 +200,7 @@ waiting -> failed: "người hủy"
 running -> failed: "Fatal"
 running -> pending: "worker khởi động lại"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s4.b2-dark.svg">
 <img alt="Trạng thái task: 5 trạng thái, waiting luôn có lý do và chỉ người đưa task ra khỏi waiting" src="03-runner.figs/s4.b2-light.svg">
@@ -215,6 +223,7 @@ Table: Trạng thái task
 StepRun `done` kèm hash file là checkpoint; không cần lưu state riêng. Một StepRun là một lần chạy một bước cho một scene và một lượt thử. Nó được coi là xong cho đầu vào hiện tại khi `input_hash` khớp và file đầu ra còn đúng SHA-256.
 
 <!-- id:s5.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Trạng thái StepRun; unknown chỉ xuất hiện ở bước trả phí
 direction: right
@@ -228,6 +237,7 @@ running -> unknown: "worker chết sau pending,\nUnconfirmedTaskError"
 failed -> running: "lượt thử mới\n(attempt + 1)" {style.stroke-dash: 3}
 unknown -> running: "người chọn sinh lại\n(attempt + 1)" {style.stroke-dash: 3}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s5.b2-dark.svg">
 <img alt="Trạng thái StepRun; unknown chỉ xuất hiện ở bước trả phí" src="03-runner.figs/s5.b2-light.svg">
@@ -254,6 +264,7 @@ Nhờ `input_hash`, sửa một scene chỉ làm thay đổi đầu vào của c
 Mọi lượt gọi trả phí đi qua `costs.py`: ghi dòng `pending` trước khi gửi và dòng kết quả sau. Khi resume mà còn `pending` không có kết quả, task chuyển `waiting`; người quyết định, hệ thống không tự gửi lại (ADR-0006).
 
 <!-- id:s6.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Lượt gọi trả phí: pending luôn ghi trước, worker chết giữa chừng thì người quyết định
 shape: sequence_diagram
@@ -274,6 +285,7 @@ wk -> cost: "unknown"
 wk -> op: "task waiting: sinh lại s06?"
 op -> wk: "sinh lại hoặc bỏ qua"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s6.b2-dark.svg">
 <img alt="Lượt gọi trả phí: pending luôn ghi trước, worker chết giữa chừng thì người quyết định" src="03-runner.figs/s6.b2-light.svg">
@@ -283,6 +295,7 @@ op -> wk: "sinh lại hoặc bỏ qua"
 Job video bất đồng bộ tách `submit` và `poll` để resume không gửi lại job: `job_id` được lưu vào StepRun ngay sau `submit`, và resume luôn poll job cũ trước.
 
 <!-- id:s6.b4 -->
+<!-- report-kit:d2
 ```d2
 # cap: Bước motion: lưu job_id ngay sau submit; resume poll job cũ, không submit lại
 shape: sequence_diagram
@@ -302,6 +315,7 @@ wk -> vp: "poll(job_id) — không submit mới"
 vp -> wk: "AssetCandidate (clip)"
 wk -> cost: "ok (seconds, est_usd)"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s6.b4-dark.svg">
 <img alt="Bước motion: lưu job_id ngay sau submit; resume poll job cũ, không submit lại" src="03-runner.figs/s6.b4-light.svg">
@@ -314,6 +328,7 @@ wk -> cost: "ok (seconds, est_usd)"
 Gate là điểm dừng chờ người duyệt, từ chối hoặc sửa. Mọi hành động sửa là bản ghi mới (ScenePlan revision, ứng viên, quyết định gate), nên luôn quay lại được bản cũ. Sau một hành động, task về `pending` và worker chạy lại đúng những mục có `input_hash` đổi.
 
 <!-- id:s7.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Phạm vi chạy lại sau từng hành động của người
 direction: right
@@ -341,6 +356,7 @@ rerun.kf -> rerun.rd
 rerun.vo -> rerun.sb
 rerun.sb -> rerun.rd
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s7.b2-dark.svg">
 <img alt="Phạm vi chạy lại sau từng hành động của người" src="03-runner.figs/s7.b2-light.svg">
@@ -370,6 +386,7 @@ Table: Hành động và phạm vi chạy lại
 Adapter chuyển mọi lỗi về 4 loại chung định nghĩa trong `providers/base.py`. Worker chỉ hiểu 4 loại này.
 
 <!-- id:s8.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Bốn loại lỗi chung và cách worker phản ứng
 direction: right
@@ -395,6 +412,7 @@ err.f -> act.f1
 act.r1 -> act.x: hết lượt
 act.q1 -> act.x: hết lượt
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s8.b2-dark.svg">
 <img alt="Bốn loại lỗi chung và cách worker phản ứng" src="03-runner.figs/s8.b2-light.svg">
@@ -419,6 +437,7 @@ Table: Cơ chế chịu lỗi
 Kịch bản không cần khớp chính xác theo giây. LLM đếm giây kém, nên `plan` giới hạn theo số từ (tiếng Việt khoảng 2,5–3 từ/giây) và kiểm tra tổng thời lượng ước tính trong ±10% mục tiêu. Thời lượng thật chỉ biết sau bước `voice`.
 
 <!-- id:s9.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Thời lượng đi một chiều: số từ → ước tính → giọng đo được → độ dài scene và clip
 direction: down
@@ -436,6 +455,7 @@ voice -> clip
 still -> render
 clip -> render
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s9.b2-dark.svg">
 <img alt="Thời lượng đi một chiều: số từ → ước tính → giọng đo được → độ dài scene và clip" src="03-runner.figs/s9.b2-light.svg">
@@ -448,6 +468,7 @@ clip -> render
 Trường `start_from: "prev_last_frame"` trong ScenePlan cho phép dùng frame cuối của clip trước làm ảnh đầu vào của clip sau: cảnh dài hơn một clip, hai shot liền mạch cùng nhân vật và bối cảnh, hoặc chuyển cảnh mượt.
 
 <!-- id:s10.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Nối frame tạo phụ thuộc tuần tự giữa các scene; chỉ dùng cho cảnh cần liền mạch
 direction: right
@@ -459,6 +480,7 @@ s04 -> lf: "trích bằng FFmpeg"
 lf -> s05: "ảnh đầu vào"
 s04 -> s05: "sửa s04 → chạy lại s05" {class: bad}
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s10.b2-dark.svg">
 <img alt="Nối frame tạo phụ thuộc tuần tự giữa các scene; chỉ dùng cho cảnh cần liền mạch" src="03-runner.figs/s10.b2-light.svg">
@@ -474,6 +496,7 @@ s04 -> s05: "sửa s04 → chạy lại s05" {class: bad}
 Các scene trong một bước chạy trong thread pool, giới hạn theo adapter (`studio.toml`, ví dụ `image = 4`, `tts = 2`, `video = 2`); các bước vẫn tuần tự. Chạy song song thêm chỉ khi đo được thời gian chờ là nút thắt. Test T08 đo chi phí khi chạy nhiều scene song song.
 
 <!-- id:s11.b2 -->
+<!-- report-kit:d2
 ```d2
 # cap: Song song chỉ trong một bước; giới hạn đặt theo adapter vì rate limit thuộc provider
 direction: right
@@ -492,6 +515,7 @@ kf.pool -> kf.s3
 kf.pool -> kf.s4
 kf -> voice: "tuần tự"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s11.b2-dark.svg">
 <img alt="Song song chỉ trong một bước; giới hạn đặt theo adapter vì rate limit thuộc provider" src="03-runner.figs/s11.b2-light.svg">

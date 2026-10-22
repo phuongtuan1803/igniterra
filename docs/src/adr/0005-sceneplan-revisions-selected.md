@@ -33,6 +33,7 @@ rev:
 Ba quyết định này định hình mọi file trong thư mục task và cách giao diện sửa, nên phải chốt trước khi viết contract ở Gate 2 (nguồn: ADD-AIVIDEO-003 AD-06, AD-07, AD-08; bản rà soát F02, F04, F05). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
+<!-- report-kit:d2
 ```d2
 # cap: Sửa s03 tạo revision mới và ứng viên mới; render đọc selected, không đọc bản mới nhất
 direction: down
@@ -51,6 +52,7 @@ a1 -> sel: "ứng viên khác" {style.stroke-dash: 3}
 u1 -> sel: "ứng viên khác" {style.stroke-dash: 3}
 sel -> render: "chỉ đọc selected"
 ```
+-->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="0005-sceneplan-revisions-selected.figs/summary.b3-dark.svg">
 <img alt="Sửa s03 tạo revision mới và ứng viên mới; render đọc selected, không đọc bản mới nhất" src="0005-sceneplan-revisions-selected.figs/summary.b3-light.svg">
