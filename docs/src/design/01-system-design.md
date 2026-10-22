@@ -2,48 +2,49 @@
 id: IGN-SYS
 title: Igniterra — Thiết kế hệ thống
 type: design
-ver: "1.0"
+ver: "2.0"
 status: draft
-date: 2026-10-19
+date: 2026-10-22
 owner: Tuan
-sum: Bối cảnh, mục tiêu, phạm vi, mô hình miền, yêu cầu và ràng buộc của hệ thống sản xuất nội dung AI dạng module (Architecture D); điểm vào của bộ tài liệu thiết kế.
-kv: [[Nguồn, "ADD-AIVIDEO-001 v1.1 (19/10/2026)"], [Kiến trúc, "Architecture D — Hybrid"], [Đối tượng, Người phát triển và vận hành]]
+sum: Bối cảnh, mục tiêu, phạm vi, mô hình miền, yêu cầu và ràng buộc của studio, hệ thống sản xuất video ngắn bằng AI theo scene có duyệt thủ công, xây bằng core tối thiểu + adapter trên MoneyPrinterTurbo; điểm vào của bộ tài liệu thiết kế.
+kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 (19/10/2026)"], [Kiến trúc, "Architecture D — core tối thiểu + adapter"], [Đối tượng, Người phát triển và vận hành]]
 defines: [FR, NFR, CON]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
+  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: core tối thiểu + adapter, MPT làm thư viện provider, ScenePlan có revision, ứng viên selected, lộ trình theo decision gate"]
 ---
 
 <!-- id:s1 -->
 ## Bộ tài liệu này
 
 <!-- id:s1.b1 -->
-Bộ tài liệu đi từ thiết kế hệ thống (hệ thống làm gì, cho ai, trong giới hạn nào) xuống thiết kế kiến trúc (hệ thống được dựng thế nào). Mỗi sự thật chỉ nằm ở một tài liệu sở hữu nó; tài liệu khác dẫn lại bằng liên kết hoặc khối `req`.
+Bộ tài liệu đi từ thiết kế hệ thống (hệ thống làm gì, cho ai, trong giới hạn nào) xuống thiết kế kiến trúc (hệ thống được dựng thế nào, code nằm ở đâu, chạy ra sao). Mỗi sự thật chỉ nằm ở một tài liệu sở hữu nó; tài liệu khác dẫn lại bằng liên kết hoặc khối `req`. Nguồn duy nhất là ADD-AIVIDEO-003 v3.0; ADD-001 v1.1 và ADD-002 v2.1 chỉ còn giá trị lịch sử.
 
 <!-- id:s1.b2 -->
 ```d2
-# cap: Bản đồ bộ tài liệu thiết kế, từ hệ thống xuống kiến trúc và kế hoạch
+# cap: Bản đồ bộ tài liệu: hệ thống ở trên, kiến trúc ở giữa, chi tiết và kế hoạch ở dưới
 direction: down
-sys: "Hệ thống\n01 · Thiết kế hệ thống" {class: brain}
-arch: "Kiến trúc\n02 · Kiến trúc tổng thể" {class: brain}
+sys: "01 · Thiết kế hệ thống\nlàm gì, cho ai, đo bằng gì" {class: brain}
+arch: "02 · Kiến trúc tổng thể\n4 tầng, 2 process, quy tắc phụ thuộc" {class: brain}
 detail: Thiết kế chi tiết {
   class: zone
-  run: "03 · Pipeline Runner" {class: gate}
+  run: "03 · Worker và luồng thực thi" {class: gate}
   dat: "04 · Contract và dữ liệu" {class: data}
-  mod: "05 · Module và provider" {class: hands}
-  ui: "06 · Giao diện web" {class: plain}
+  mod: "05 · Provider, adapter và MPT" {class: hands}
+  ui: "06 · Giao diện review" {class: plain}
   ops: "07 · Triển khai và vận hành" {class: plain}
 }
-plan: "08 · Lộ trình triển khai" {class: hands}
+plan: "08 · Lộ trình theo decision gate" {class: hands}
 adr: "ADR · Quyết định kiến trúc" {class: gate}
-sys -> arch: yêu cầu, ràng buộc
-arch -> detail: thành phần, quy tắc
-detail -> plan: phạm vi từng phase
+sys -> arch: "yêu cầu, ràng buộc"
+arch -> detail: "thành phần, quy tắc"
+detail -> plan: "gate nào xây phần nào"
 adr -> arch: chốt lựa chọn
 adr -> detail: chốt lựa chọn
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s1.b2-dark.svg">
-<img alt="Bản đồ bộ tài liệu thiết kế, từ hệ thống xuống kiến trúc và kế hoạch" src="01-system-design.figs/s1.b2-light.svg">
+<img alt="Bản đồ bộ tài liệu: hệ thống ở trên, kiến trúc ở giữa, chi tiết và kế hoạch ở dưới" src="01-system-design.figs/s1.b2-light.svg">
 </picture>
 
 <!-- id:s1.b3 -->
@@ -51,160 +52,177 @@ Table: Tài liệu trong bộ và câu hỏi mỗi tài liệu trả lời
 | Tài liệu | Trả lời câu hỏi | Đọc khi |
 | --- | --- | --- |
 | [01 · Thiết kế hệ thống](01-system-design.md) | Hệ thống làm gì, cho ai, giới hạn nào | Bắt đầu; đánh giá một yêu cầu mới |
-| [02 · Kiến trúc tổng thể](02-architecture.md) | Gồm những phần nào, phụ thuộc ra sao | Thêm thành phần; review thiết kế |
-| [03 · Pipeline Runner](03-runner.md) | Một task được chạy, retry, resume, dừng duyệt thế nào | Làm core; debug task |
-| [04 · Contract và dữ liệu](04-data-contracts.md) | Dữ liệu nào lưu ở đâu, schema ra sao | Viết module; đổi schema |
-| [05 · Module và provider](05-modules-providers.md) | Viết, cắm và kiểm thử module, provider thế nào | Thêm năng lực; đổi model |
-| [06 · Giao diện web](06-web-ui.md) | Người vận hành xem và điều khiển gì | Làm UI và Task API |
-| [07 · Triển khai và vận hành](07-operations.md) | Chạy, sao lưu, bảo mật, mở rộng thế nào | Cài đặt; sự cố |
-| [08 · Lộ trình](08-roadmap.md) | Làm gì trước, khi nào xong một phase | Lập kế hoạch |
-| [ADR](../adr/index.md) | Quyết định nào đã chốt, vì sao | Trước khi đổi một quyết định |
+| [02 · Kiến trúc tổng thể](02-architecture.md) | Gồm những phần nào, ai được gọi ai, chạy ở đâu | Thêm thành phần; review thiết kế |
+| [03 · Worker và luồng thực thi](03-runner.md) | Một task chạy, dừng ở gate, retry, resume thế nào | Viết core; debug task |
+| [04 · Contract và dữ liệu](04-data-contracts.md) | Dữ liệu nào lưu ở đâu, schema ra sao, vì sao không ghi đè | Viết bước; đổi schema |
+| [05 · Provider, adapter và MPT](05-modules-providers.md) | Interface năng lực, adapter nào gọi MPT, thêm provider thế nào | Thêm năng lực; đổi model; nâng MPT |
+| [06 · Giao diện review](06-web-ui.md) | Người dùng xem, chọn, sửa, chạy lại gì | Làm CLI, trang review |
+| [07 · Triển khai và vận hành](07-operations.md) | Chạy, sao lưu, bảo mật, xử lý sự cố thế nào | Cài đặt; sự cố |
+| [08 · Lộ trình](08-roadmap.md) | Gate nào, kiểm chứng gì, khi nào dừng xây | Lập kế hoạch; trước mỗi gate |
+| [ADR](../adr/index.md) | Quyết định nào đã chốt hay bị loại, vì sao | Trước khi đổi một quyết định |
 
 <!-- id:s1.b4 -->
 > [!IMPORTANT]
-> Quy tắc bảo trì: khi code đi lệch tài liệu, sửa tài liệu sở hữu sự thật đó trong cùng PR và tăng `ver` kèm một dòng `rev`. Quyết định khó đảo ngược phải có ADR trước khi code.
+> Quy tắc bảo trì: khi code đi lệch tài liệu, sửa tài liệu sở hữu sự thật đó trong cùng PR và tăng `ver` kèm một dòng `rev`. Quyết định khó đảo ngược phải có ADR trước khi code. Chi tiết đánh dấu "đề xuất" (tên module, lược đồ SQLite, trạng thái chi tiết) được chốt hoặc sửa ở Gate 2.
 
 <!-- id:s2 -->
 ## Bối cảnh hệ thống
 
 <!-- id:s2.b1 -->
-Igniterra là hệ thống sản xuất nội dung tự động bằng AI (video ngắn, audiobook và quy trình tương tự) cho một người hoặc một nhóm nhỏ vận hành trên một máy. Hệ thống điều phối các dịch vụ AI bên ngoài; nó không tự huấn luyện model.
+studio (tên package trong repo Igniterra) sản xuất video ngắn bằng AI theo scene, có người duyệt ở các điểm dừng, và mở rộng được sang audiobook và quy trình tương tự. Hệ thống điều phối các dịch vụ AI bên ngoài và MoneyPrinterTurbo (MPT) như một thư viện; nó không tự huấn luyện model.
 
 <!-- id:s2.b2 -->
 ```d2
-# cap: Bối cảnh hệ thống: một người vận hành, một hệ thống, các dịch vụ bên ngoài qua adapter
+# cap: Ngữ cảnh: một người vận hành, studio trên một máy, MPT và các dịch vụ bên ngoài chỉ được gọi qua adapter
 direction: right
 op: Người vận hành {class: hands}
-cron: "cron\n(lịch sản xuất)" {class: gate}
-ign: "Igniterra\n(web + worker trên một máy)" {class: brain}
+studio: "studio\n(web + worker trên một máy)" {class: brain}
+mpt: "MoneyPrinterTurbo\n(gói pip mpt, ghim phiên bản)" {class: gate}
 cloud: Dịch vụ AI cloud {
   class: zone
-  llm: "LLM\nGemini, Claude" {class: plain}
-  img: "Tạo ảnh\nNano Banana" {class: plain}
-  vid: "Image-to-video\nVeo, Kling" {class: plain}
-  tts: "TTS\nElevenLabs, Gemini TTS" {class: plain}
+  llm: "LLM\nGemini 3.8 Flash, Claude" {class: plain}
+  img: "Ảnh có tham chiếu\nNano Banana 2" {class: plain}
+  vid: "Image-to-video\nVeo 3.1 Fast (Gate 4)" {class: plain}
 }
-gpu: "GPU tự host\nComfyUI (FLUX.2, Wan 2.2)" {class: hands}
-pub: "Nền tảng xuất bản\nYouTube, TikTok" {class: plain}
-local: "Công cụ local\nFFmpeg, faster-whisper" {class: hands}
-op -> ign: brief, duyệt, sửa
-cron -> ign: tạo task theo lịch
-ign -> cloud: lời gọi API
-ign -> gpu: HTTP API
-ign -> local: subprocess
-ign -> pub: upload (Phase 5)
-ign -> op: video, audio, chi phí
+mptsvc: Dịch vụ sau MPT {
+  class: zone
+  tts: "14 provider TTS\nEdge TTS vi-VN miễn phí" {class: plain}
+  whisper: "faster-whisper\n(căn phụ đề, local)" {class: hands}
+  vidp: "Provider video\nSeedance, MiniMax..." {class: plain}
+}
+local: "FFmpeg\n(dựng, burn-in)" {class: hands}
+gpu: "GPU tự host\nComfyUI (Gate 4)" {class: hands}
+pub: "Nền tảng đăng\nYouTube, TikTok (hoãn)" {class: plain}
+op -> studio: "brief, chọn, sửa, duyệt"
+studio -> op: "storyboard, MP4, chi phí"
+studio -> cloud: "SDK trực tiếp"
+studio -> mpt: "chỉ qua studio/providers/mpt/"
+mpt -> mptsvc
+studio -> local: subprocess
+studio -> gpu: "HTTP API"
+studio -> pub: "upload tay (hoãn)" {style.stroke-dash: 3}
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s2.b2-dark.svg">
-<img alt="Bối cảnh hệ thống: một người vận hành, một hệ thống, các dịch vụ bên ngoài qua adapter" src="01-system-design.figs/s2.b2-light.svg">
+<img alt="Ngữ cảnh: một người vận hành, studio trên một máy, MPT và các dịch vụ bên ngoài chỉ được gọi qua adapter" src="01-system-design.figs/s2.b2-light.svg">
 </picture>
 
 <!-- id:s2.b3 -->
 Table: Tác nhân và hệ thống ngoài
 | Tác nhân | Vai trò | Giao tiếp |
 | --- | --- | --- |
-| Người vận hành | Tạo task, duyệt gate, sửa output, chỉnh cấu hình | Web UI trên `localhost` hoặc sau Tailscale |
-| cron | Tạo task theo lịch | Task API (cùng JSON với form) |
-| Dịch vụ AI cloud | LLM, ảnh, video, TTS | Provider adapter, API key trong `.env` |
-| GPU tự host | Ảnh và video bằng model mở | HTTP endpoint ComfyUI |
-| Công cụ local | Dựng video, đo kỹ thuật, STT | subprocess qua command builder |
-| Nền tảng xuất bản | Đăng video, hẹn giờ, gắn cờ nội dung AI | YouTube Data API, TikTok Content Posting API |
+| Người vận hành | Tạo task, chọn ứng viên, sửa scene, duyệt gate, quyết định lượt gọi `unknown` | CLI (Gate 2), trang review trên `localhost` hoặc sau Tailscale (Gate 3) |
+| MoneyPrinterTurbo | Thư viện provider: TTS, căn phụ đề, provider video, stock footage | Import `app.*` chỉ trong `studio/providers/mpt/`; cấu hình trong `config.toml` của MPT |
+| Dịch vụ AI cloud | LLM viết ScenePlan, ảnh keyframe có nhân vật, image-to-video | SDK trực tiếp qua adapter của ta |
+| FFmpeg | Dựng scene, ghép, burn-in phụ đề | subprocess từ renderer `video_project` |
+| GPU tự host | Ảnh và video bằng model mở | HTTP endpoint ComfyUI, chỉ từ Gate 4 |
+| Nền tảng đăng | Đăng video | Hoãn; upload tay cho tới Gate 4 |
 
 <!-- id:s3 -->
 ## Mục tiêu và phạm vi
 
 <!-- id:s3.b1 -->
+Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Mọi con số chi phí và thời gian là ước tính cho tới khi đo ở Gate 1–2.
+
+<!-- id:s3.b2 -->
 Table: Mục tiêu hệ thống
 | ID | Mục tiêu | Đo bằng |
 | --- | --- | --- |
-| G-01 | Từ một brief ra sản phẩm hoàn chỉnh (MP4 9:16 có hình, giọng, phụ đề) không thao tác file thủ công | 5 video 60 giây từ 5 brief ở Phase 1 |
-| G-02 | Core ổn định: thêm model, module, quy trình mà không sửa core | Các tình huống ở [Kiến trúc · Mở rộng](02-architecture.md#s7) không chạm core |
-| G-03 | Chi phí minh bạch và có trần | Chi phí theo task, bước, scene, lượt thử; task dừng ở trần ngân sách |
-| G-04 | Chịu lỗi rẻ: chạy lại đúng phần hỏng, không trả tiền hai lần | Resume sau khi tắt worker không có chi phí trùng |
-| G-05 | Một người phát triển và vận hành được | 2 process, 1 SQLite, 1 thư mục `data/`, 1 file `config.yaml` |
-| G-06 | Người dùng can thiệp được vào mọi bước | Duyệt, từ chối kèm ghi chú, sửa output, thay asset ở gate |
+| G-01 | Từ một brief ra MP4 9:16 có hình theo scene, giọng tiếng Việt, phụ đề, không thao tác file thủ công | 5 brief của Gate 0 ra MP4 ở Gate 2 |
+| G-02 | Hơn MPT nguyên bản trên cùng brief | Số video được duyệt hoặc phút công trên mỗi video được duyệt, so với baseline Gate 1 |
+| G-03 | Người dùng kiểm soát từng scene | Chọn ứng viên, sửa scene, chạy lại riêng scene, duyệt gate |
+| G-04 | Không phụ thuộc cứng vào MPT | Bỏ MPT cho một năng lực = viết adapter khác cùng interface, đổi một dòng cấu hình |
+| G-05 | Chi phí minh bạch theo lượt gọi | `costs.jsonl` có từng lượt gọi trả phí; đối chiếu hóa đơn hằng tháng |
+| G-06 | Một người phát triển và vận hành được | 2 process, SQLite, thư mục `data/`, FFmpeg, gói `mpt` |
 
-<!-- id:s3.b2 -->
+<!-- id:s3.b3 -->
 ```d2
-# cap: Phạm vi: trong hệ thống, ngoài hệ thống và trì hoãn
+# cap: Phạm vi: phần ta viết, phần dùng lại từ MPT, phần hoãn có điều kiện và phần ngoài phạm vi
 direction: right
-in: Trong phạm vi {
+in: Ta viết (core) {
   class: zone
-  a: "Điều phối bước theo profile" {class: gate}
-  b: "Lưu task, artifact, chi phí" {class: data}
-  c: "Module năng lực + provider" {class: hands}
-  d: "Web UI vận hành" {class: plain}
+  a: "ScenePlan theo scene\n+ revision" {class: data}
+  b: "Series Bible\n(nhân vật, camera)" {class: data}
+  c: "Danh sách bước, gate,\nStepRun, selected" {class: gate}
+  d: "Nhật ký chi phí\ncosts.jsonl" {class: data}
+  e: "CLI + trang review" {class: plain}
 }
-later: Trì hoãn (có điều kiện) {
+reuse: Dùng lại từ MPT {
   class: zone
-  e: "Postgres, S3, nhiều máy" {class: plain}
-  f: "Hàng đợi riêng, Temporal" {class: plain}
-  g: "Agent, VLM chấm mọi scene" {class: plain}
+  f: "TTS, căn phụ đề,\nprovider video" {class: hands}
+  g: "video_project.py\n(bản copy)" {class: hands}
+}
+later: Hoãn (Gate 4 hoặc khi có số liệu) {
+  class: zone
+  h: "image-to-video, ComfyUI,\naudiobook, đăng bài" {class: plain}
+  i: "Router, fallback tự động,\nngân sách, VLM chấm" {class: plain}
 }
 out: Ngoài phạm vi {
   class: zone
-  h: "Huấn luyện model" {class: bad}
-  i: "Trình dựng phim (NLE)" {class: bad}
-  j: "Thời gian thực, livestream" {class: bad}
-  k: "Tư vấn pháp lý" {class: bad}
+  j: "Huấn luyện model" {class: bad}
+  k: "Trình dựng phim, livestream" {class: bad}
+  l: "Đa người dùng, tư vấn pháp lý" {class: bad}
 }
-in -> later: khi đủ điều kiện ở 07 và 08
+in -> reuse: "gọi qua adapter"
+in -> later: "khi gate cho phép"
 ```
 <picture>
-<source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s3.b2-dark.svg">
-<img alt="Phạm vi: trong hệ thống, ngoài hệ thống và trì hoãn" src="01-system-design.figs/s3.b2-light.svg">
+<source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s3.b3-dark.svg">
+<img alt="Phạm vi: phần ta viết, phần dùng lại từ MPT, phần hoãn có điều kiện và phần ngoài phạm vi" src="01-system-design.figs/s3.b3-light.svg">
 </picture>
 
 <!-- id:s4 -->
 ## Mô hình miền
 
 <!-- id:s4.b1 -->
-Core không biết "video" là gì: nó chỉ chạy các bước của một profile. Các khái niệm dưới đây là ngôn ngữ chung của mọi tài liệu và của code.
+Core không biết "video" là gì: nó chạy một danh sách bước cố định qua các provider interface. Mọi lần sinh là một ứng viên, mọi lần sửa kịch bản là một revision; không có gì bị ghi đè.
 
 <!-- id:s4.b2 -->
 ```d2
-# cap: Mô hình miền: task chạy một profile, mỗi bước sinh nhiều StepRun theo mục và lượt thử
-direction: right
+# cap: Mô hình miền: task có ScenePlan nhiều revision; mỗi bước sinh ứng viên theo scene; render chỉ dùng ứng viên selected
+direction: down
 series: "Series\n+ Series Bible" {class: data}
 task: Task {class: brain}
-profile: "Profile\n(config.yaml)" {class: gate}
-step: "Step\n(module hoặc gate)" {class: gate}
-module: Module {class: hands}
-provider: Provider {class: hands}
-run: "StepRun\n(bước × mục × lượt)" {class: brain}
-art: "Artifact\n(file trong data/)" {class: data}
+plan: "ScenePlan\n(revision bất biến)" {class: data}
+scene: Scene {class: data}
+stl: "Danh sách bước\n(Python, cố định)" {class: gate}
+run: "StepRun\n(bước × scene × lượt)" {class: gate}
+cand: "Ứng viên\n(AssetCandidate, AudioTrack)" {class: data}
+sel: "selected\n(một ứng viên mỗi scene)" {class: gate}
 cost: CostEvent {class: data}
-contract: "Contract\n(schema có version)" {class: data}
+gate: Gate {class: gate}
 series -> task: "0..1 series / task"
-task -> profile: chạy theo
-profile -> step: "danh sách có thứ tự"
-step -> module: thực thi bằng
-module -> provider: "gọi qua interface năng lực"
-task -> run: "1..n"
-run -> art: sinh ra
-run -> cost: ghi
-module -> contract: "nhận / trả"
+task -> plan: "1..n revision"
+plan -> scene: "1..n"
+task -> stl: "chạy theo"
+stl -> run: "sinh"
+stl -> gate: "dừng chờ người"
+run -> cand: "sinh"
+cand -> scene: "thuộc, ghi plan_rev"
+scene -> sel: "chọn"
+run -> cost: "pending trước, kết quả sau"
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s4.b2-dark.svg">
-<img alt="Mô hình miền: task chạy một profile, mỗi bước sinh nhiều StepRun theo mục và lượt thử" src="01-system-design.figs/s4.b2-light.svg">
+<img alt="Mô hình miền: task có ScenePlan nhiều revision; mỗi bước sinh ứng viên theo scene; render chỉ dùng ứng viên selected" src="01-system-design.figs/s4.b2-light.svg">
 </picture>
 
 <!-- id:s4.b3 -->
 Table: Thuật ngữ
 | Thuật ngữ | Định nghĩa |
 | --- | --- |
-| Task | Một yêu cầu sản xuất (một video, một cuốn audiobook) đi qua hệ thống từ input đến output |
-| Profile | Danh sách bước có thứ tự (có thể có nhóm `parallel:`), khai báo trong `config.yaml`, quyết định task chạy module nào |
-| Step / StepRun | Một bước trong profile; StepRun là một lần chạy bước đó cho một mục (scene, đoạn) và một lượt thử |
-| Module | Thành phần thực hiện một năng lực, giao tiếp chỉ qua contract |
-| Provider | Adapter tới một dịch vụ hoặc công cụ cụ thể (Gemini, ElevenLabs, ComfyUI, FFmpeg) |
-| Contract | Schema Pydantic có `schema_version` mà module nhận và trả (ScenePlan, SpeechScript, SceneVisual...) |
-| Gate | Bước dừng chờ người: duyệt, từ chối kèm ghi chú, hoặc sửa output |
-| Fan-out | Runner tách một bước thành một StepRun cho mỗi phần tử của một danh sách trong contract |
-| Artifact | File do một StepRun sinh ra, lưu trong `data/` |
-| Series Bible | Dữ liệu dùng chung cho một series: phong cách, nhân vật, giọng, từ vựng camera, từ điển phát âm |
+| Core | Phần code của ta: contract, danh sách bước, trạng thái, gate, nhật ký chi phí; không import MPT |
+| Provider interface | Giao diện năng lực do core định nghĩa: `LLMProvider`, `ImageProvider`, `TTSProvider`, `SubtitleAligner`, `VideoProvider` |
+| Adapter | Cài đặt một provider interface, gọi một dịch vụ cụ thể (API trực tiếp hoặc MPT) |
+| MPT | MoneyPrinterTurbo, mã nguồn mở MIT, dùng như thư viện qua gói pip `mpt` (package tên `app`) |
+| Task | Một lần sản xuất (một video) từ brief đến MP4 |
+| StepRun | Một lần chạy một bước cho một scene và một lượt thử; bước đã `done` được bỏ qua khi chạy lại |
+| ScenePlan | Kịch bản có cấu trúc theo scene, có revision; contract kịch bản duy nhất |
+| Ứng viên / selected | Mỗi lần sinh ảnh, audio, clip là một ứng viên; render chỉ dùng ứng viên được chọn |
+| Gate | Điểm dừng chờ người duyệt, từ chối hoặc sửa |
+| Series Bible | Dữ liệu dùng chung cho một series: phong cách, mẫu nhân vật, giọng, từ vựng camera, từ điển phát âm |
+| Revision | Bản bất biến của ScenePlan hoặc của dự án render; sửa luôn tạo revision mới |
+| Decision gate | Mốc kiểm chứng trong lộ trình (Gate 0–4), có lối ra "dừng xây"; khác gate duyệt trong task |
 
 <!-- id:s4.b4 -->
 Trong bộ tài liệu, "phải" là yêu cầu bắt buộc, "nên" là khuyến nghị, "tùy chọn" là thành phần bật hoặc tắt được.
@@ -214,20 +232,20 @@ Trong bộ tài liệu, "phải" là yêu cầu bắt buộc, "nên" là khuyế
 
 <!-- id:s5.b1 -->
 ```d2
-# cap: Ca sử dụng của người vận hành và cron
+# cap: Ca sử dụng của người vận hành, theo gate xuất hiện
 direction: right
 op: Người vận hành {class: hands}
-cron: cron {class: gate}
-uc: Igniterra {
+uc: studio {
   class: zone
-  u1: "Tạo task từ brief" {class: plain}
-  u2: "Theo dõi task và chi phí" {class: plain}
-  u3: "Duyệt / từ chối gate" {class: plain}
-  u4: "Sửa output, thay asset" {class: plain}
-  u5: "Chạy lại bước hoặc scene" {class: plain}
-  u6: "Quản lý Series Bible" {class: plain}
-  u7: "Chỉnh profile và provider" {class: plain}
-  u8: "Tải artifact, xuất bản" {class: plain}
+  u1: "Tạo task từ brief\n(Gate 2, CLI)" {class: plain}
+  u2: "Xem storyboard,\nchọn ứng viên (Gate 3)" {class: plain}
+  u3: "Sửa scene → revision mới\n(Gate 3)" {class: plain}
+  u4: "Upload asset riêng\n(Gate 3)" {class: plain}
+  u5: "Chạy lại scene kèm ghi chú\n(Gate 3)" {class: plain}
+  u6: "Duyệt gate keyframe, gate cuối" {class: plain}
+  u7: "Quyết định lượt gọi unknown" {class: plain}
+  u8: "Quản lý Series Bible\n(Gate 3)" {class: plain}
+  u9: "Xem chi phí, tải artifact" {class: plain}
 }
 op -> uc.u1
 op -> uc.u2
@@ -237,62 +255,63 @@ op -> uc.u5
 op -> uc.u6
 op -> uc.u7
 op -> uc.u8
-cron -> uc.u1: Task API
+op -> uc.u9
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s5.b1-dark.svg">
-<img alt="Ca sử dụng của người vận hành và cron" src="01-system-design.figs/s5.b1-light.svg">
+<img alt="Ca sử dụng của người vận hành, theo gate xuất hiện" src="01-system-design.figs/s5.b1-light.svg">
 </picture>
 
 <!-- id:s5.b2 -->
-Luồng giá trị chính, từ brief đến sản phẩm, với hai điểm dừng cho người:
+Luồng giá trị chính, từ brief đến MP4, với hai điểm dừng cho người. Giọng đọc chạy trước bước motion để clip được yêu cầu theo độ dài thật của lời đọc.
 
 <!-- id:s5.b3 -->
 ```d2
-# cap: Luồng giá trị của profile video: hai gate giữ chất lượng trước bước đắt và trước khi giao
-direction: right
+# cap: Luồng giá trị: gate keyframe đứng trước mọi bước đắt, gate cuối đứng trước khi giao
+direction: down
 brief: Brief {class: plain}
-script: "Kịch bản\n+ shot list" {class: brain}
-img: Keyframe {class: hands}
-g1: "Gate keyframe\nduyệt / từ chối + ghi chú" {class: gate}
-mot: "Chuyển động\n(tùy chọn)" {class: hands}
-voice: Giọng đọc {class: hands}
-asm: "Dựng\nFFmpeg" {class: hands}
-g2: "Gate cuối\nduyệt / chạy lại scene" {class: gate}
-out: "MP4 + phụ đề" {class: data}
-brief -> script -> img -> g1 -> mot -> voice -> asm -> g2 -> out
-
+plan: "plan\nScenePlan rev 1" {class: brain}
+kf: "keyframes\nứng viên ảnh / scene" {class: hands}
+g1: "gate: keyframes\nchọn, sửa, chạy lại" {class: gate}
+voice: "voice\nvo_sXX + mốc thời gian" {class: hands}
+sub: "subtitles\nfull.ass" {class: hands}
+mot: "motion (tùy chọn,\nGate 4)" {class: hands}
+render: "render\nvideo_project + FFmpeg" {class: hands}
+g2: "gate: final\nduyệt bản cuối" {class: gate}
+out: "final_9x16.mp4" {class: data}
+brief -> plan -> kf -> g1 -> voice -> sub -> mot -> render -> g2 -> out
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s5.b3-dark.svg">
-<img alt="Luồng giá trị của profile video: hai gate giữ chất lượng trước bước đắt và trước khi giao" src="01-system-design.figs/s5.b3-light.svg">
+<img alt="Luồng giá trị: gate keyframe đứng trước mọi bước đắt, gate cuối đứng trước khi giao" src="01-system-design.figs/s5.b3-light.svg">
 </picture>
 
 <!-- id:s6 -->
 ## Yêu cầu chức năng
 
 <!-- id:s6.b1 -->
+Cột Gate là decision gate đầu tiên mà yêu cầu phải đạt (xem [08 · Lộ trình](08-roadmap.md)).
+
+<!-- id:s6.b2 -->
 Table: Yêu cầu chức năng
-| ID | Yêu cầu | Phase | Thiết kế ở |
+| ID | Yêu cầu | Gate | Thiết kế ở |
 | --- | --- | --- | --- |
-| FR-01 | Tạo task từ form hoặc Task API với brief, profile, series, ngân sách và ghi đè tùy chọn | 1 | 06, 04 |
-| FR-02 | Chạy các bước của profile theo thứ tự, kiểm tra hợp lệ trước khi chạy | 1 | 03 |
-| FR-03 | Tách một bước theo danh sách khai báo trong contract (fan-out tổng quát) | 1 | 03, ADR-0001 |
-| FR-04 | Lưu checkpoint mỗi StepRun và resume đúng chỗ sau sự cố | 1 | 03 |
-| FR-05 | Retry lỗi tạm thời và retry vì chất lượng chỉ cho mục lỗi; xử lý hết lượt bằng `on_fail` | 1 | 03 |
-| FR-06 | Gate dừng task chờ người; duyệt, từ chối kèm ghi chú thành feedback | 1 | 03, 06 |
-| FR-07 | Ghi từng sự kiện chi phí và chặn lời gọi vượt ngân sách | 1 | 03, 04 |
-| FR-08 | Xem input, output, artifact, log, lỗi của từng bước và từng lượt thử | 1 | 06 |
-| FR-09 | Chạy lại một bước hoặc một scene; chỉ phần phụ thuộc chạy lại | 1 | 03, 06 |
-| FR-10 | Đổi provider của một năng lực chỉ bằng config | 1 | 05 |
-| FR-11 | Series Bible với mẫu nhân vật, từ vựng camera, giọng, lexicon; prompt ghép xác định | 2 | 04, 05 |
-| FR-12 | Màn hình Storyboard: sửa scene, sửa lời đọc, thay asset, chạy lại có hướng dẫn | 2 | 06 |
-| FR-13 | Bật / tắt bước, chọn provider trên trang Settings, kiểm tra trước khi lưu | 2 | 06 |
-| FR-14 | Ghi đè provider, model, bước, ngân sách theo task | 2 | 04 |
-| FR-15 | Image-to-video theo scene với job bất đồng bộ submit / poll và fallback ảnh tĩnh | 3 | 05, 03 |
-| FR-16 | Định tuyến local / cloud theo `tier` của scene, có chuỗi dự phòng | 4 | 05 |
-| FR-17 | Xuất bản lên YouTube, TikTok và nhập analytics | 5 | 05, 07 |
-| FR-18 | Chạy quy trình khác (audiobook, podcast) bằng profile mới | 2+ | 05 |
+| FR-01 | Tạo task từ brief (thời lượng, ngôn ngữ, series, ghi đè adapter/model tùy chọn) | 2 | 06, 04 |
+| FR-02 | Bước `plan` trả ScenePlan theo scene bằng structured output; `shot` là enum lấy từ Series Bible | 2 | 04, 05 |
+| FR-03 | Chạy danh sách bước cố định, lặp theo scene; bỏ qua StepRun `done` có file hợp lệ | 2 | 03 |
+| FR-04 | Mỗi lần sinh là một ứng viên; ứng viên đầu tiên mặc định là selected; render chỉ đọc selected | 2 | 04 |
+| FR-05 | Giọng đọc qua `TTSProvider`; phụ đề từ mốc của TTS, hoặc căn bằng `SubtitleAligner` khi TTS không trả mốc | 2 | 05 |
+| FR-06 | Render MP4 9:16 theo thời lượng giọng từng scene, chuyển động camera theo khóa `movement`, phụ đề burn-in; chỉ dựng lại scene đổi | 2 | 03, 05 |
+| FR-07 | Ghi `pending` vào `costs.jsonl` trước mỗi lượt gọi trả phí, `ok`/`failed`/`unknown` sau | 2 | 03, 04 |
+| FR-08 | Lượt gọi không rõ kết quả: task `waiting`, người quyết định; không tự gửi lại | 2 | 03, 06 |
+| FR-09 | Retry lỗi tạm thời (tối đa 3 lần, backoff); retry vì chất lượng chỉ cho scene lỗi, lý do đưa vào prompt | 2 | 03 |
+| FR-10 | Gate `keyframes` và `final`: dừng task, chờ duyệt, từ chối hoặc sửa | 2 (CLI), 3 (web) | 03, 06 |
+| FR-11 | Sửa narration, visual, góc máy, mode của một scene tạo ScenePlan revision mới; chỉ phần phụ thuộc chạy lại | 3 | 03, 04, 06 |
+| FR-12 | Upload ảnh, clip, nhạc riêng thành ứng viên `provider: user` và chọn được | 3 | 04, 06 |
+| FR-13 | Series Bible: style, mẫu nhân vật 2–3 ảnh tham chiếu, giọng, từ vựng camera, lexicon; prompt keyframe ghép xác định | 3 | 04 |
+| FR-14 | Trang review: Tasks, Storyboard, Task detail, Series; Settings đơn giản | 3 | 06 |
+| FR-15 | Image-to-video theo scene `mode: motion`, job bất đồng bộ submit/poll, lỗi thì giữ ảnh tĩnh | 4 | 03, 05 |
+| FR-16 | Quy trình khác (audiobook) bằng danh sách bước mới, dùng lại adapter | 4 | 05 |
 
 <!-- id:s7 -->
 ## Yêu cầu phi chức năng
@@ -301,16 +320,16 @@ Table: Yêu cầu chức năng
 Table: Yêu cầu phi chức năng
 | ID | Yêu cầu | Đo bằng | Thiết kế ở |
 | --- | --- | --- | --- |
-| NFR-01 | Core không import module cụ thể; module không import module khác | Test kiểm tra import trong CI | 02 |
-| NFR-02 | Resume không gửi lại job đã gửi, không ghi chi phí trùng | Tắt worker giữa job video rồi bật lại: ledger một dòng | 03 |
-| NFR-03 | Chi phí ước tính lệch hóa đơn không quá mức chấp nhận | Đối chiếu hóa đơn hằng tháng với `cost_events` | 04, 07 |
-| NFR-04 | Mọi module kiểm thử được độc lập, không tốn tiền | CLI `run-step` với provider giả | 05 |
-| NFR-05 | Vận hành bởi một người trên một máy | Sao lưu bằng chép `data/`; 2 process | 07 |
-| NFR-06 | Lỗi cấu hình và schema lộ ra trước khi tốn tiền | Kiểm tra lúc tạo task | 03, 04 |
-| NFR-07 | API key không xuất hiện trên UI, log hay artifact | Review và test log | 07 |
-| NFR-08 | Mọi lần chạy ghi lại provider và model thật | `StepRun.meta` luôn có `provider`, `model` | 04 |
-| NFR-09 | Không ghi đè: mỗi lần sửa hoặc chạy lại là một lượt thử mới | Tên file `step/item_aN.ext` | 03, 04 |
-| NFR-10 | Tôn trọng rate limit của provider | Giới hạn `concurrency` theo provider | 03, 05 |
+| NFR-01 | Chỉ file trong `studio/providers/mpt/` được import `app.*`; core không import adapter cụ thể | Test quét import chạy trong CI | 02, 05 |
+| NFR-02 | Không tự gửi lại lượt gọi trả phí khi kết quả không rõ | T05, T06: tắt worker giữa lượt gọi, chạy lại → `unknown`, không có lượt gọi mới | 03 |
+| NFR-03 | Không ghi đè: sửa tạo revision mới, sinh lại tạo ứng viên mới | Mọi file trong thư mục task chỉ được thêm | 04 |
+| NFR-04 | Mỗi provider interface có bản giả để test core không tốn tiền | `FakeTTS`, `FakeImage`... trong `tests/` | 05 |
+| NFR-05 | Mọi ứng viên và dòng chi phí ghi provider và model thật | Trường `provider`, `model` luôn có | 04 |
+| NFR-06 | Vận hành bởi một người trên một máy | 2 process, sao lưu bằng chép `data/` | 07 |
+| NFR-07 | API key không xuất hiện trên UI, log hay artifact | Review, test log | 07 |
+| NFR-08 | Đổi provider của một năng lực chỉ bằng cấu hình | T07: đổi adapter TTS chỉ bằng cấu hình | 05 |
+| NFR-09 | Nâng phiên bản MPT không ảnh hưởng core | Test riêng từng adapter chạy trước khi nâng | 05, 07 |
+| NFR-10 | Tôn trọng rate limit provider | Thread pool giới hạn theo adapter | 03 |
 
 <!-- id:s8 -->
 ## Ràng buộc và giả định
@@ -319,18 +338,19 @@ Table: Yêu cầu phi chức năng
 Table: Ràng buộc và giả định
 | ID | Ràng buộc / giả định | Hệ quả thiết kế |
 | --- | --- | --- |
-| CON-01 | Một người vận hành, một máy | Modular monolith, không broker, không microservice |
-| CON-02 | Python 3.12, FFmpeg và API key là toàn bộ phụ thuộc nền | Stack ở [Kiến trúc · Công nghệ](02-architecture.md#s8) |
-| CON-03 | Giá và sự tồn tại của provider thay đổi thường xuyên | Giá trong `pricing.yaml`; adapter theo năng lực |
-| CON-04 | Chính sách nền tảng (YouTube, TikTok, ACX, EU AI Act Điều 50) | Gate cuối do người; cờ nội dung AI; hồ sơ quyền |
-| CON-05 | Model tự host có giấy phép khác nhau | Chỉ dùng Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại |
-| CON-06 | Giá trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Kiểm tra lại khi lập ngân sách |
+| CON-01 | Một người vận hành, một máy | Modular monolith, không broker, không microservice (AD-01) |
+| CON-02 | Python 3.11+, FFmpeg, gói `mpt`, API key là toàn bộ phụ thuộc nền | Stack ở [02 · Công nghệ](02-architecture.md#s8) |
+| CON-03 | MPT cập nhật gần như hằng ngày; gói `mpt` dùng tên package `app` | Ghim phiên bản; package của ta tên `studio`; ranh giới adapter |
+| CON-04 | Giá và sự tồn tại của provider thay đổi thường xuyên (OpenAI gỡ Sora 2 khỏi API ngày 24/09/2026) | Chỉ ghi nhật ký chi phí, giới hạn chi tiêu ở tài khoản provider (AD-10) |
+| CON-05 | Chính sách nền tảng (YouTube, TikTok, ACX, EU AI Act Điều 50 từ 02/08/2026) | Gate cuối do người; không tự đăng trước Gate 4 |
+| CON-06 | Model tự host có giấy phép khác nhau | Chỉ Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại |
+| CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Gate 1 đo baseline; mọi con số là ước tính tới khi đo |
 
 <!-- id:s9 -->
 ## Thuộc tính chất lượng
 
 <!-- id:s9.b1 -->
-Mỗi thuộc tính chất lượng được giữ bằng một cơ chế cụ thể; không có thuộc tính nào dựa vào "cẩn thận khi code".
+Mỗi thuộc tính chất lượng được giữ bằng một cơ chế cụ thể, kiểm được bằng test; không thuộc tính nào dựa vào "cẩn thận khi code".
 
 <!-- id:s9.b2 -->
 ```d2
@@ -338,25 +358,25 @@ Mỗi thuộc tính chất lượng được giữ bằng một cơ chế cụ t
 direction: right
 q: Thuộc tính {
   class: zone
-  ext: Mở rộng được {class: brain}
-  rel: Chịu lỗi {class: brain}
-  cost: Kiểm soát chi phí {class: brain}
+  ind: Độc lập với MPT {class: brain}
+  rel: Chịu lỗi, không trả tiền hai lần {class: brain}
+  ctl: Kiểm soát từng scene {class: brain}
+  cost: Chi phí minh bạch {class: brain}
   simple: Đơn giản {class: brain}
-  ctl: Kiểm soát của người {class: brain}
 }
 m: Cơ chế {
   class: zone
-  m1: "Contract + registry\n+ quy tắc phụ thuộc" {class: gate}
-  m2: "StepRun là checkpoint\n+ submit / poll" {class: gate}
-  m3: "Cost ledger\n+ reserve trước lời gọi đắt" {class: gate}
-  m4: "2 process, SQLite,\n1 file config" {class: gate}
-  m5: "Gate + lượt thử mới\nkhi sửa" {class: gate}
+  m1: "5 provider interface\n+ test quét import" {class: gate}
+  m2: "StepRun là checkpoint\n+ pending trước lượt gọi\n+ submit / poll" {class: gate}
+  m3: "ScenePlan revision\n+ selected + gate" {class: gate}
+  m4: "costs.jsonl theo lượt gọi\n+ đối chiếu hóa đơn" {class: gate}
+  m5: "Danh sách bước Python,\n2 process, SQLite" {class: gate}
 }
-q.ext -> m.m1
+q.ind -> m.m1
 q.rel -> m.m2
-q.cost -> m.m3
-q.simple -> m.m4
-q.ctl -> m.m5
+q.ctl -> m.m3
+q.cost -> m.m4
+q.simple -> m.m5
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="01-system-design.figs/s9.b2-dark.svg">
@@ -365,24 +385,28 @@ q.ctl -> m.m5
 
 <!-- id:s9.b3 -->
 Table: Kịch bản chất lượng
-| Kịch bản | Kích thích | Phản ứng mong đợi | Đo |
+| Kịch bản | Kích thích | Phản ứng mong đợi | Test |
 | --- | --- | --- | --- |
-| Đổi TTS | Sửa `tts: {use: gemini_tts}` | Task mới dùng provider mới, không sửa code core hay module | Diff chỉ ở config và adapter |
-| Worker chết | Khởi động lại khi job Veo đang chạy | Runner bỏ qua mục `done`, poll job cũ | Một dòng chi phí cho scene đó |
-| Scene hỏng | Check trả `QualityFail` | Chỉ scene đó chạy lại, có feedback | Scene khác giữ nguyên lượt thử |
-| Vượt ngân sách | Đã tiêu + ước tính > `budget_usd` | Task `waiting` lý do "budget" | Không có lời gọi đắt sau mốc |
-| Quy trình mới | Thêm profile audiobook | Chỉ thêm module `chapterize`, `master` | Core không đổi |
+| Đổi TTS | Đổi adapter TTS trong cấu hình | Task mới dùng provider mới; core và bước không đổi | T07 |
+| Worker chết sau khi gửi lượt gọi trả phí | Tắt worker ngay sau `pending` | Chạy lại: dòng `unknown`, task `waiting`, không gửi lại | T05 |
+| Worker chết khi đang poll job video | Tắt worker giữa poll | Chạy lại: poll `job_id` cũ, không submit mới | T06 |
+| Sửa một scene | Đổi narration s05 | ScenePlan rev mới; chỉ voice s05, subtitles, render chạy lại; 7 scene khác dùng lại | T02 |
+| Lỗi tạm thời | 429 / 5xx / timeout | Thử lại cùng đầu vào, backoff, tối đa 3 lần | T04 |
+| MPT đổi chữ ký hàm | Nâng phiên bản `mpt` | Chỉ test adapter liên quan đỏ; core không ảnh hưởng | Test adapter |
 
 <!-- id:s10 -->
 ## Hạn chế và quyết định mở
 
 <!-- id:s10.b1 -->
-Các hạn chế phần lớn là đánh đổi có chủ đích. Chi tiết hạn chế kỹ thuật, chất lượng và pháp lý nằm ở [Vận hành · Rủi ro](07-operations.md#s7). Ba quyết định dưới đây phải chốt trước Phase 1 vì chúng định hình dữ liệu và config lưu lâu dài.
+Phần lớn hạn chế là đánh đổi có chủ đích để giữ hệ thống nhỏ; chi tiết ở [07 · Rủi ro](07-operations.md#s7). Ba quyết định kiến trúc khó đảo ngược đang chờ duyệt trước Gate 2; ba đề xuất của v1.1 đã bị loại.
 
 <!-- id:s10.b2 -->
-Table: Quyết định cần chốt trước Phase 1
-| ADR | Quyết định | Vì sao phải chốt sớm |
+Table: Quyết định kiến trúc trong sổ ADR
+| ADR | Quyết định | Trạng thái |
 | --- | --- | --- |
-| [ADR-0001](../adr/0001-generic-fan-out.md) | Fan-out tổng quát theo danh sách khai báo trong contract | Viết cứng "theo scene" khiến audiobook phải sửa runner |
-| [ADR-0002](../adr/0002-speechscript-contract.md) | `voice` nhận contract `SpeechScript` trung lập | Đọc thẳng ScenePlan khóa `voice` vào video |
-| [ADR-0003](../adr/0003-parallel-step-groups.md) | Cú pháp nhóm `parallel:` trong profile từ Phase 1 | Đổi định dạng profile sau này chạm runner, Settings và mọi profile |
+| [ADR-0004](../adr/0004-minimal-core-mpt-adapters.md) | Core tối thiểu + adapter; MPT là thư viện provider ghim phiên bản; copy duy nhất `video_project.py` | {chip:wait} Chờ duyệt trước Gate 2 |
+| [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) | ScenePlan là contract kịch bản duy nhất, có revision; render dùng ứng viên selected | {chip:wait} Chờ duyệt trước Gate 2 |
+| [ADR-0006](../adr/0006-paid-call-ledger.md) | Ghi `pending` trước lượt gọi trả phí; nhật ký chi phí thay cho ngân sách đặt trước | {chip:wait} Chờ duyệt trước Gate 2 |
+| [ADR-0001](../adr/0001-generic-fan-out.md) | Fan-out tổng quát theo danh sách trong contract | {chip:bad} Bị loại (AD-05) |
+| [ADR-0002](../adr/0002-speechscript-contract.md) | Contract `SpeechScript` riêng cho `voice` | {chip:bad} Bị loại (AD-06) |
+| [ADR-0003](../adr/0003-parallel-step-groups.md) | Cú pháp nhóm `parallel:` trong profile | {chip:bad} Bị loại (AD-05) |

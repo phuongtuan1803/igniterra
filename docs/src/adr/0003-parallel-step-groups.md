@@ -2,12 +2,14 @@
 id: ADR-0003
 title: Cú pháp nhóm parallel trong profile từ Phase 1
 type: adr
-ver: "0.1"
+ver: "0.2"
 status: draft
 date: 2026-10-19
 owner: Tuan
 adr:
-  state: pending
+  state: rejected
+  decided: 2026-10-19
+  reason: "AD-05: các bước chạy tuần tự, chỉ song song giữa các scene trong một bước; bỏ cú pháp parallel (bản rà soát F01, F06). Thêm lại khi đo được thời gian chờ là nút thắt."
   week: W1
   deadline: 2026-10-26
   impact: mid
@@ -20,10 +22,15 @@ adr:
   informed: "—"
 rev:
   - ["0.1", 2026-10-19, "Đề xuất, tách từ ADD-AIVIDEO-001 v1.1 mục 12.1 và 12.4"]
+  - ["0.2", 2026-10-22, "Bị loại theo ADD-AIVIDEO-003 AD-05"]
 ---
 
 <!-- id:summary -->
 ## Tóm tắt
+
+<!-- id:summary.b1-2 -->
+> [!WARNING]
+> Bị loại ngày 19/10/2026 theo ADD-AIVIDEO-003. AD-05: các bước chạy tuần tự, chỉ song song giữa các scene trong một bước; bỏ cú pháp parallel (bản rà soát F01, F06). Thêm lại khi đo được thời gian chờ là nút thắt. Giữ lại làm hồ sơ lịch sử.
 
 <!-- id:summary.b1 -->
 > [!IMPORTANT]
