@@ -2,12 +2,14 @@
 id: ADR-0002
 title: Module voice nhận contract SpeechScript trung lập
 type: adr
-ver: "0.1"
+ver: "0.2"
 status: draft
 date: 2026-10-19
 owner: Tuan
 adr:
-  state: pending
+  state: rejected
+  decided: 2026-10-19
+  reason: "AD-06: ScenePlan là contract kịch bản duy nhất; lời đọc lấy từ trường narration (bản rà soát F02). Audiobook trả về ScenePlan với mỗi scene là một đoạn."
   week: W1
   deadline: 2026-10-26
   impact: high
@@ -20,10 +22,15 @@ adr:
   informed: "—"
 rev:
   - ["0.1", 2026-10-19, "Đề xuất, tách từ ADD-AIVIDEO-001 v1.1 mục 4.6 và 12.4"]
+  - ["0.2", 2026-10-22, "Bị loại theo ADD-AIVIDEO-003 AD-06"]
 ---
 
 <!-- id:summary -->
 ## Tóm tắt
+
+<!-- id:summary.b1-2 -->
+> [!WARNING]
+> Bị loại ngày 19/10/2026 theo ADD-AIVIDEO-003. AD-06: ScenePlan là contract kịch bản duy nhất; lời đọc lấy từ trường narration (bản rà soát F02). Audiobook trả về ScenePlan với mỗi scene là một đoạn. Giữ lại làm hồ sơ lịch sử.
 
 <!-- id:summary.b1 -->
 > [!IMPORTANT]

@@ -1,445 +1,514 @@
 ---
 id: IGN-RUN
-title: Igniterra — Pipeline Runner và luồng thực thi
+title: Igniterra — Worker và luồng thực thi
 type: design
-ver: "1.0"
+ver: "2.0"
 status: draft
-date: 2026-10-19
+date: 2026-10-22
 owner: Tuan
-sum: Runner là một vòng lặp trên SQLite; checkpoint, resume, retry, gate, ngân sách và fan-out đều là nhánh của vòng lặp này, không cần workflow engine.
-kv: [[Nguồn, "ADD-AIVIDEO-001 v1.1 · mục 4.5, 4.6, 5, 12.4"], [Thuộc, Core], [Phase, "1 (toàn bộ)"]]
+sum: Worker là một vòng lặp đơn giản qua danh sách bước cố định — bỏ qua bước đã xong, dừng ở gate, chạy bước qua adapter, kiểm tra, lưu checkpoint; retry, resume, lượt gọi trả phí không rõ kết quả và chạy lại một scene đều là nhánh của vòng lặp này.
+kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.1, 7"], [Thành phần, "studio/pipeline.py, gates.py, costs.py"], [Gate xây, "2 (CLI), 3 (sửa trên web), 4 (motion)"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
+  - ["1.0", 2026-10-19, "Bản đầu (Pipeline Runner tổng quát), tách từ ADD-AIVIDEO-001 v1.1"]
+  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: danh sách bước cố định, giọng đọc là đồng hồ chủ, pending trước lượt gọi trả phí, bỏ fan-out tổng quát, parallel, ngân sách"]
 ---
 
 <!-- id:s1 -->
 ## Trách nhiệm
 
 <!-- id:s1.b1 -->
-Runner đọc profile, chạy từng bước, tách bước theo mục, lưu checkpoint, retry, dừng ở gate và kiểm tra ngân sách. Runner không biết model nào và không gọi API.
+Worker nhận task đang chờ, chạy lần lượt các bước, lặp theo scene trong bước, và dừng ở gate để người quyết định. Nó không biết provider nào đang chạy và không cần workflow engine: trạng thái là các StepRun trong SQLite cùng file trong thư mục task.
 
 <!-- id:s1.b2 -->
+Table: Worker làm và không làm
+| Làm | Không làm |
+| --- | --- |
+| Chạy danh sách bước cố định, lặp theo scene | Đọc profile YAML hay tìm module động (AD-05) |
+| Bỏ qua StepRun `done` có file hợp lệ và cùng đầu vào | Lưu state riêng ngoài StepRun và file |
+| Retry lỗi tạm thời và lỗi chất lượng cho từng scene | Tự fallback giữa provider |
+| Ghi `pending` trước lượt gọi trả phí qua `costs.py` | Chặn theo ngân sách (AD-10) |
+| Dừng ở gate và khi có lượt gọi `unknown` | Tự gửi lại lượt gọi không rõ kết quả |
+| Song song các scene trong một bước, giới hạn theo adapter | Chạy hai bước cùng lúc |
+
+<!-- id:s1.b3 -->
 ```req
-FR-02
 FR-03
-FR-04
-FR-05
-FR-06
 FR-07
+FR-08
 FR-09
 NFR-02
-NFR-06
-NFR-09
 NFR-10
 ```
 
 <!-- id:s2 -->
-## Vòng lặp runner
+## Danh sách bước
 
 <!-- id:s2.b1 -->
-```d2
-# cap: Vòng lặp chính của worker: một task, từng bước, từng mục
-direction: down
-pick: "Nhận task pending\n→ running" {class: gate}
-next: "Bước kế tiếp\ntrong profile?" {shape: diamond; class: gate}
-done: "Task completed" {class: data}
-isgate: "Bước là gate?" {shape: diamond; class: gate}
-wait: "Task waiting\n(gate)" {class: hands}
-items: "Lấy danh sách mục\n(fan_out hoặc \"_\")" {class: gate}
-skip: "Bỏ qua mục\nđã done" {class: plain}
-run: "Chạy module.run(ctx, item)\ntrong thread pool" {class: brain}
-res: "Kết quả?" {shape: diamond; class: gate}
-ok: "StepRun done = checkpoint\n↺ mọi mục done: về bước kế tiếp" {class: data}
-err: "Xử lý lỗi (retry / on_fail)\n↺ còn lượt: chạy lại mục đó" {class: bad}
-pick -> next
-next -> done: hết bước
-next -> isgate: còn
-isgate -> wait: có
-isgate -> items: không
-items -> skip
-skip -> run: mục chưa xong
-run -> res
-res -> ok: Result
-res -> err: "Retryable, QualityFail, Fatal"
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s2.b1-dark.svg">
-<img alt="Vòng lặp chính của worker: một task, từng bước, từng mục" src="03-runner.figs/s2.b1-light.svg">
-</picture>
+Danh sách bước của video là mã Python cố định. Giọng đọc chạy trước bước motion để clip được yêu cầu theo độ dài thật của lời đọc ([Đồng bộ thời lượng](#s9)).
 
 <!-- id:s2.b2 -->
-Vòng lặp chạy các bước tuần tự; song song chỉ xảy ra giữa các mục của một bước (và, khi được bật, giữa các bước trong một nhóm `parallel:`, xem mục Song song). Worker hỏi SQLite định kỳ để nhận task `pending`; không có broker.
-
-<!-- id:s3 -->
-## Trạng thái của task
-
-<!-- id:s3.b1 -->
 ```d2
-# cap: Task có 5 trạng thái; waiting dùng cho cả gate và ngân sách
-direction: right
-pending: pending {class: plain}
-running: running {class: brain}
-waiting: "waiting\n(gate | budget | on_fail: wait)" {class: hands}
-completed: completed {class: data}
-failed: failed {class: bad}
-pending -> running: "worker nhận"
-running -> waiting: "gặp gate, vượt ngân sách"
-waiting -> pending: "duyệt, nâng ngân sách"
-running -> completed: "hết bước"
-running -> failed: "Fatal, on_fail: fail"
-running -> pending: "worker khởi động lại"
-completed -> pending: "sửa output, chạy lại"
-failed -> pending: "chạy lại từ UI"
-waiting -> failed: "hủy"
+# cap: Danh sách bước video: 2 gate, 4 bước theo scene, motion chỉ cho scene mode motion
+direction: down
+plan: "plan\nLLMProvider\n→ ScenePlan rev 1" {class: brain}
+kf: "keyframes\n(theo scene)\nImageProvider" {class: hands}
+g1: "gate: keyframes\n(tùy chọn)" {class: gate}
+voice: "voice\n(theo scene)\nTTSProvider" {class: hands}
+sub: "subtitles\nmốc TTS hoặc\nSubtitleAligner" {class: hands}
+mot: "motion\n(scene mode: motion)\nVideoProvider, Gate 4" {class: hands}
+render: "render\nvideo_project\n→ MP4 9:16" {class: hands}
+g2: "gate: final" {class: gate}
+plan -> kf -> g1 -> voice -> sub -> mot -> render -> g2
 ```
 <picture>
-<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s3.b1-dark.svg">
-<img alt="Task có 5 trạng thái; waiting dùng cho cả gate và ngân sách" src="03-runner.figs/s3.b1-light.svg">
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s2.b2-dark.svg">
+<img alt="Danh sách bước video: 2 gate, 4 bước theo scene, motion chỉ cho scene mode motion" src="03-runner.figs/s2.b2-light.svg">
 </picture>
 
+<!-- id:s2.b3 -->
+Table: Bước, interface và đầu ra
+| Bước | Theo scene | Interface dùng | Đầu ra | Gate xây |
+| --- | --- | --- | --- | --- |
+| `plan` | Không | `LLMProvider` | ScenePlan revision 1 | 2 |
+| `keyframes` | Có | `ImageProvider` | Ứng viên ảnh; ứng viên đầu tiên mặc định là selected | 2 |
+| gate `keyframes` | — | — | Người chọn, sửa, chạy lại; tùy chọn | 2 (CLI), 3 (web) |
+| `voice` | Có | `TTSProvider` | `vo_sXX` + mốc thời gian | 2 |
+| `subtitles` | Không | `SubtitleAligner` (khi TTS không trả mốc) | File phụ đề cả video | 2 |
+| `motion` (tùy chọn) | Có, chỉ scene `mode: motion` | `VideoProvider` | Ứng viên clip; lỗi thì giữ ảnh tĩnh | 4 |
+| `render` | Không | Renderer `video_project` | MP4 9:16, phụ đề burn-in | 2 |
+| gate `final` | — | — | Duyệt bản cuối | 2 |
+
+<!-- id:s2.b4 -->
+```python
+# studio/pipeline.py (đề xuất) — danh sách bước là dữ liệu Python, không phải YAML
+VIDEO_STEPS = [
+    Step("plan",      run=steps.plan,      per_scene=False),
+    Step("keyframes", run=steps.keyframes, per_scene=True,  paid=True),
+    Gate("keyframes", optional=True),
+    Step("voice",     run=steps.voice,     per_scene=True),
+    Step("subtitles", run=steps.subtitles, per_scene=False),
+    Step("motion",    run=steps.motion,    per_scene=True,  paid=True, applies=lambda s: s.mode == "motion"),
+    Step("render",    run=steps.render,    per_scene=False),
+    Gate("final"),
+]
+```
+
+<!-- id:s3 -->
+## Vòng lặp worker
+
+<!-- id:s3.b1 -->
+Mỗi vòng: nhận một task, đi qua danh sách bước, với mỗi bước đi qua các scene áp dụng, bỏ qua mục đã xong, chạy và kiểm tra mục còn lại. Mọi nhánh lỗi kết thúc ở một trong ba chỗ: thử lại, chờ người, hoặc task `failed`.
+
 <!-- id:s3.b2 -->
-Table: Chuyển trạng thái của task
-| Từ | Sang | Khi | Ai gây ra |
-| --- | --- | --- | --- |
-| pending | running | Worker nhận task | Worker |
-| running | waiting | Gặp bước `gate`; hoặc `ctx.reserve` vượt `budget_usd`; hoặc hết lượt với `on_fail: wait` | Runner |
-| waiting | pending | Duyệt gate, từ chối kèm ghi chú, nâng ngân sách | Người vận hành |
-| running | completed | Không còn bước | Runner |
-| running | failed | Lỗi `Fatal` hoặc hết lượt với `on_fail: fail` | Runner |
-| running | pending | Worker khởi động lại (resume) | Worker lúc khởi động |
-| completed, failed | pending | Sửa output, chạy lại bước hoặc scene | Người vận hành |
+```d2
+# cap: Vòng ngoài: kiểm lượt gọi mồ côi, rồi đi qua từng bước; gate chưa duyệt thì dừng
+direction: down
+pick: "Nhận task pending → running" {class: gate}
+orphan: "Còn pending mồ côi\ntrong costs.jsonl?" {shape: diamond; class: gate}
+unk: "Ghi unknown,\ntask waiting" {class: bad}
+nxt: "Lấy bước tiếp theo" {class: gate}
+isgate: "Là gate?" {shape: diamond; class: gate}
+gok: "Đã duyệt cho\nrevision này?" {shape: diamond; class: gate}
+wait: "task waiting\n(gate:keyframes / final)" {class: gate}
+items: "Xử lý từng scene\n(hình kế tiếp)" {class: hands}
+fin: "Hết bước → completed" {class: data}
+pick -> orphan
+orphan -> unk: có
+orphan -> nxt: không
+nxt -> isgate
+isgate -> gok: có
+gok -> wait: chưa
+isgate -> items: không
+gok -> nxt: "rồi" {style.stroke-dash: 3}
+nxt -> fin: "hết bước"
+items -> nxt: "xong bước" {style.stroke-dash: 3}
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s3.b2-dark.svg">
+<img alt="Vòng ngoài: kiểm lượt gọi mồ côi, rồi đi qua từng bước; gate chưa duyệt thì dừng" src="03-runner.figs/s3.b2-light.svg">
+</picture>
+
+<!-- id:s3.b3-2 -->
+```d2
+# cap: Vòng trong cho một scene: bỏ qua nếu đã xong, chạy, kiểm tra, thử lại hoặc fallback
+direction: down
+done: "StepRun done, cùng input_hash,\nfile đúng SHA-256?" {shape: diamond; class: gate}
+skip: "Bỏ qua" {class: plain}
+run: "Chạy qua adapter\n(pending trước nếu trả phí)" {class: hands}
+check: "Kiểm tra\nkết quả" {shape: diamond; class: gate}
+save: "Ghi ứng viên,\nassets.json, StepRun done" {class: data}
+retry: "Còn lượt thử?" {shape: diamond; class: gate}
+fb: "Fallback (clip → ảnh tĩnh)\nhoặc waiting" {class: bad}
+done -> skip: có
+done -> run: không
+run -> check
+check -> save: đạt
+check -> retry: "Retryable /\nQualityFail"
+retry -> run: "có: backoff hoặc\nlý do vào prompt" {style.stroke-dash: 3}
+retry -> fb: hết
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s3.b3-2-dark.svg">
+<img alt="Vòng trong cho một scene: bỏ qua nếu đã xong, chạy, kiểm tra, thử lại hoặc fallback" src="03-runner.figs/s3.b3-2-light.svg">
+</picture>
+
+<!-- id:s3.b3 -->
+```python
+# Phác thảo (đề xuất). Lỗi Fatal không bắt ở đây: nó làm task failed.
+def run_task(task):
+    if costs.orphan_pending(task):            # lượt gọi trả phí đã gửi, chưa có kết quả
+        return gates.wait(task, reason="unknown_call")
+    for step in VIDEO_STEPS:
+        if isinstance(step, Gate):
+            if not gates.approved(task, step):
+                return gates.wait(task, reason=f"gate:{step.name}")
+            continue
+        for scene in items_for(task, step):   # một mục "_" nếu per_scene=False
+            if store.is_done(task, step, scene, input_hash(task, step, scene)):
+                continue
+            run_with_retry(task, step, scene) # thread pool khi per_scene=True
+    store.complete(task)
+```
 
 <!-- id:s4 -->
-## Trạng thái của StepRun
+## Trạng thái của task
 
 <!-- id:s4.b1 -->
-Mỗi StepRun là một lần chạy của một bước cho một mục và một lượt thử. Khóa của StepRun là `(task_id, step, item, attempt)`.
+Task có 5 trạng thái. Chỉ worker chuyển `pending → running`; chỉ người (CLI hoặc web) chuyển `waiting → pending`. Khởi động lại worker đưa mọi task `running` về `pending`.
 
 <!-- id:s4.b2 -->
 ```d2
-# cap: Vòng đời của một StepRun
+# cap: Trạng thái task: 5 trạng thái, waiting luôn có lý do và chỉ người đưa task ra khỏi waiting
 direction: right
 pending: pending {class: plain}
-running: running {class: brain}
-done: "done\n(checkpoint)" {class: data}
+running: running {class: hands}
+waiting: "waiting\n(gate:keyframes, gate:final,\nunknown_call, retries_exhausted)" {class: gate}
+completed: completed {class: data}
 failed: failed {class: bad}
-waiting: "waiting\n(gate, job ngoài)" {class: hands}
-skipped: "skipped\n(mục không áp dụng)" {class: plain}
-pending -> running
-running -> done: Result
-running -> failed: "lỗi; lượt mới attempt+1"
-running -> waiting: "chờ người hoặc poll"
-waiting -> running: "duyệt, job xong"
-pending -> skipped: "module bỏ qua mục"
+pending -> running: "worker nhận"
+running -> waiting: "gặp gate, unknown,\nhết lượt thử"
+waiting -> pending: "người duyệt, sửa,\nquyết định"
+waiting -> completed: "duyệt gate final"
+waiting -> failed: "người hủy"
+running -> failed: "Fatal"
+running -> pending: "worker khởi động lại"
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s4.b2-dark.svg">
-<img alt="Vòng đời của một StepRun" src="03-runner.figs/s4.b2-light.svg">
+<img alt="Trạng thái task: 5 trạng thái, waiting luôn có lý do và chỉ người đưa task ra khỏi waiting" src="03-runner.figs/s4.b2-light.svg">
 </picture>
 
 <!-- id:s4.b3 -->
-> [!NOTE]
-> Lượt thử mới không ghi đè lượt cũ: tạo StepRun mới với `attempt + 1` và file `step/item_aN.ext` mới. Bản dùng cho bước sau là StepRun `done` có `attempt` lớn nhất (hoặc lượt người dùng chọn trên UI).
+Table: Trạng thái task
+| Trạng thái | Nghĩa | Ai chuyển ra |
+| --- | --- | --- |
+| `pending` | Chờ worker nhận | Worker |
+| `running` | Worker đang chạy một bước | Worker; khởi động lại worker đưa về `pending` |
+| `waiting` | Chờ người; trường `wait_reason` cho biết vì sao | Người (CLI, trang review) |
+| `completed` | Gate `final` đã duyệt; MP4 là sản phẩm | — (sửa sau khi duyệt đưa task về `pending`) |
+| `failed` | Lỗi `Fatal` hoặc người hủy | Người có thể tạo task mới từ cùng brief |
 
 <!-- id:s5 -->
-## Fan-out tổng quát
+## StepRun, checkpoint và resume
 
 <!-- id:s5.b1 -->
-Fan-out là việc runner tách một bước thành nhiều lần chạy nhỏ, một cho mỗi phần tử của danh sách mà module khai báo. Video tách theo scene, audiobook tách theo đoạn, cùng một cơ chế. Quyết định ở [ADR-0001](../adr/0001-generic-fan-out.md).
+StepRun `done` kèm hash file là checkpoint; không cần lưu state riêng. Một StepRun là một lần chạy một bước cho một scene và một lượt thử. Nó được coi là xong cho đầu vào hiện tại khi `input_hash` khớp và file đầu ra còn đúng SHA-256.
 
 <!-- id:s5.b2 -->
 ```d2
-# cap: Module khai báo fan_out; runner tạo một StepRun cho mỗi phần tử theo id
+# cap: Trạng thái StepRun; unknown chỉ xuất hiện ở bước trả phí
 direction: right
-plan: "ScenePlan.scenes\n[s01 … s08]" {class: data}
-speech: "SpeechScript.segments\n[s01 … | ch01_p003 …]" {class: data}
-img: "images\nfan_out: ScenePlan.scenes" {class: hands}
-voice: "voice\nfan_out: SpeechScript.segments" {class: hands}
-asm: "assemble\nfan_out: None" {class: hands}
-runs: StepRun {
-  class: zone
-  r1: "images · s01 · a1" {class: brain}
-  r2: "images · s02 · a1" {class: brain}
-  r3: "images · … · a1" {class: brain}
-  v1: "voice · s01 · a1" {class: brain}
-  v2: "voice · … · a1" {class: brain}
-  a1: "assemble · _ · a1" {class: brain}
-}
-plan -> img
-speech -> voice
-img -> runs.r1
-img -> runs.r2
-img -> runs.r3
-voice -> runs.v1
-voice -> runs.v2
-asm -> runs.a1
+running: running {class: hands}
+done: "done\n(output_sha256)" {class: data}
+failed: "failed\n(error, reason)" {class: bad}
+unknown: "unknown\n(lượt gọi trả phí\nkhông rõ kết quả)" {class: bad}
+running -> done: "kiểm tra đạt"
+running -> failed: "Retryable / QualityFail /\nFatal"
+running -> unknown: "worker chết sau pending,\nUnconfirmedTaskError"
+failed -> running: "lượt thử mới\n(attempt + 1)" {style.stroke-dash: 3}
+unknown -> running: "người chọn sinh lại\n(attempt + 1)" {style.stroke-dash: 3}
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s5.b2-dark.svg">
-<img alt="Module khai báo fan_out; runner tạo một StepRun cho mỗi phần tử theo id" src="03-runner.figs/s5.b2-light.svg">
+<img alt="Trạng thái StepRun; unknown chỉ xuất hiện ở bước trả phí" src="03-runner.figs/s5.b2-light.svg">
 </picture>
 
 <!-- id:s5.b3 -->
-- Giá trị `fan_out` là đường dẫn `Contract.field` tới một danh sách; mỗi phần tử phải có `id` duy nhất. Runner đọc danh sách từ output mới nhất của contract đó.
-- Profile có thể ghi đè `fan_out` của một bước (ví dụ `voice: {fan_out: "SpeechScript.segments"}`).
-- `item` của StepRun là `id` của phần tử, hoặc `"_"` khi bước chạy một lần.
+Table: Khóa và đầu vào của StepRun (đề xuất)
+| Trường | Ý nghĩa |
+| --- | --- |
+| `task_id`, `step`, `scene` | Định danh mục; `scene = "_"` cho bước cả video |
+| `attempt` | Lượt thử, tăng khi thử lại hoặc chạy lại; khớp hậu tố `_aN` của ứng viên |
+| `input_hash` | Hash của phần ScenePlan mà bước đọc cho scene đó cùng id các ứng viên selected làm đầu vào |
+| `plan_rev` | Revision ScenePlan lúc chạy |
+| `output_path`, `output_sha256` | File đầu ra và hash để kiểm khi resume |
+| `job_id` | Với bước bất đồng bộ (`motion`): lưu ngay sau `submit` |
+
+<!-- id:s5.b4 -->
+Nhờ `input_hash`, sửa một scene chỉ làm thay đổi đầu vào của chính scene đó và các bước cả video phụ thuộc vào nó; scene khác giữ StepRun `done` và được bỏ qua.
 
 <!-- id:s6 -->
-## Checkpoint và resume
+## Lượt gọi trả phí và job bất đồng bộ
 
 <!-- id:s6.b1 -->
-Checkpoint không cần lưu state riêng: mỗi StepRun có `status: done` cùng hash file là một checkpoint. Job bất đồng bộ (Veo, ComfyUI) lưu `external_job_id` trước khi poll, nên sau sự cố provider chỉ poll job cũ.
+Mọi lượt gọi trả phí đi qua `costs.py`: ghi dòng `pending` trước khi gửi và dòng kết quả sau. Khi resume mà còn `pending` không có kết quả, task chuyển `waiting`; người quyết định, hệ thống không tự gửi lại (ADR-0006).
 
 <!-- id:s6.b2 -->
 ```d2
-# cap: Resume giữa lúc chờ job video không gửi lại job và không ghi chi phí hai lần
+# cap: Lượt gọi trả phí: pending luôn ghi trước, worker chết giữa chừng thì người quyết định
 shape: sequence_diagram
 wk: Worker
-mod: "module motion"
-db: SQLite
-veo: "Veo API"
-wk -> mod: "run(ctx, s07)"
-mod -> veo: "submit(image, prompt)"
-veo -> mod: "job_id"
-mod -> db: "ctx.checkpoint(external_job_id) TRƯỚC khi poll"
-mod -> veo: poll
-wk -> wk: "worker bị khởi động lại" {class: bad}
-wk -> db: "task running → pending → running"
-wk -> db: "bỏ qua mọi mục done"
-wk -> mod: "run(ctx, s07) lần nữa"
-mod -> db: "đọc external_job_id đã có"
-mod -> veo: "chỉ poll job cũ"
-veo -> mod: clip
-mod -> db: "StepRun done + một dòng cost_events"
+cost: "costs.jsonl"
+ad: Adapter
+api: "Provider (trả phí)"
+op: Người vận hành
+wk -> cost: "pending (request_id t_0042:s06:keyframes:1)"
+wk -> ad: "generate(prompt, refs)"
+ad -> api: "HTTP request"
+api -> ad: "ảnh"
+ad -> wk: AssetCandidate
+wk -> cost: "ok (units, est_usd)"
+wk -> wk: "Trường hợp worker chết sau khi gửi"
+wk -> cost: "khởi động lại: thấy pending mồ côi"
+wk -> cost: "unknown"
+wk -> op: "task waiting: sinh lại s06?"
+op -> wk: "sinh lại hoặc bỏ qua"
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s6.b2-dark.svg">
-<img alt="Resume giữa lúc chờ job video không gửi lại job và không ghi chi phí hai lần" src="03-runner.figs/s6.b2-light.svg">
+<img alt="Lượt gọi trả phí: pending luôn ghi trước, worker chết giữa chừng thì người quyết định" src="03-runner.figs/s6.b2-light.svg">
 </picture>
 
 <!-- id:s6.b3 -->
-Table: Cơ chế chịu lỗi
-| Cơ chế | Cách làm | Ghi chú |
-| --- | --- | --- |
-| Checkpoint | Mỗi StepRun `done` cùng hash file | Không cần state riêng |
-| Resume | Khởi động worker → task `running` về hàng đợi → runner bỏ qua mục `done` | File `step/item_aN.ext` nên không ghi đè |
-| Job bất đồng bộ | `submit` → lưu `external_job_id` bằng `ctx.checkpoint` → poll; sau sự cố poll job cũ | Tránh trả tiền hai lần |
-| Chi phí đúng một lần | Dòng `cost_events` ghi cùng lúc StepRun chuyển `done`, khóa theo `(task, step, item, attempt)` | Kiểm bằng tiêu chí Phase 1 |
+Job video bất đồng bộ tách `submit` và `poll` để resume không gửi lại job: `job_id` được lưu vào StepRun ngay sau `submit`, và resume luôn poll job cũ trước.
+
+<!-- id:s6.b4 -->
+```d2
+# cap: Bước motion: lưu job_id ngay sau submit; resume poll job cũ, không submit lại
+shape: sequence_diagram
+wk: Worker
+db: "StepRun"
+cost: "costs.jsonl"
+vp: "VideoProvider"
+wk -> cost: "pending"
+wk -> vp: "submit(image, prompt, seconds)"
+vp -> wk: "job_id"
+wk -> db: "lưu job_id"
+wk -> vp: "poll(job_id)"
+vp -> wk: "None (chưa xong)"
+wk -> wk: "worker khởi động lại"
+wk -> db: "đọc job_id"
+wk -> vp: "poll(job_id) — không submit mới"
+vp -> wk: "AssetCandidate (clip)"
+wk -> cost: "ok (seconds, est_usd)"
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s6.b4-dark.svg">
+<img alt="Bước motion: lưu job_id ngay sau submit; resume poll job cũ, không submit lại" src="03-runner.figs/s6.b4-light.svg">
+</picture>
 
 <!-- id:s7 -->
-## Retry và xử lý lỗi
+## Gate, sửa và chạy lại
 
 <!-- id:s7.b1 -->
-Module chỉ báo lỗi bằng ba loại; runner quyết định phần còn lại theo cấu hình của bước.
+Gate là điểm dừng chờ người duyệt, từ chối hoặc sửa. Mọi hành động sửa là bản ghi mới (ScenePlan revision, ứng viên, quyết định gate), nên luôn quay lại được bản cũ. Sau một hành động, task về `pending` và worker chạy lại đúng những mục có `input_hash` đổi.
 
 <!-- id:s7.b2 -->
 ```d2
-# cap: Ba loại lỗi và cách runner xử lý
+# cap: Phạm vi chạy lại sau từng hành động của người
 direction: right
-e: "Lỗi từ module" {class: bad}
-r: "Retryable\n429, 5xx, timeout" {class: plain}
-q: "QualityFail(reason)\ntừ check" {class: plain}
-f: "Fatal" {class: bad}
-same: "Thử lại cùng đầu vào\nbackoff, tối đa max_attempts" {class: gate}
-fb: "Lượt mới chỉ cho mục đó\nreason → ctx.feedback" {class: brain}
-remain: "Còn lượt?" {shape: diamond; class: gate}
-onfail: on_fail {
+act: Hành động {
   class: zone
-  fallback: "fallback\n(ví dụ motion → ảnh tĩnh,\ndegraded: true)" {class: hands}
-  wait: "wait\n(task waiting)" {class: hands}
-  fail: "fail\n(task failed)" {class: bad}
+  a1: "Chọn ứng viên khác" {class: plain}
+  a2: "Sửa visual / góc máy sNN" {class: plain}
+  a3: "Sửa narration sNN" {class: plain}
+  a4: "Upload asset sNN" {class: plain}
+  a5: "Chạy lại sNN + ghi chú" {class: plain}
 }
-e -> r
-e -> q
-e -> f
-r -> same -> remain
-q -> fb -> remain
-remain -> onfail: hết lượt
-f -> onfail.fail
+rerun: Chạy lại {
+  class: zone
+  kf: "keyframes sNN" {class: hands}
+  vo: "voice sNN" {class: hands}
+  sb: "subtitles" {class: hands}
+  rd: "render\n(video_project chỉ dựng\nlại scene đổi + ghép)" {class: hands}
+}
+act.a1 -> rerun.rd
+act.a2 -> rerun.kf: "rev mới"
+act.a3 -> rerun.vo: "rev mới"
+act.a4 -> rerun.rd
+act.a5 -> rerun.kf
+rerun.kf -> rerun.rd
+rerun.vo -> rerun.sb
+rerun.sb -> rerun.rd
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s7.b2-dark.svg">
-<img alt="Ba loại lỗi và cách runner xử lý" src="03-runner.figs/s7.b2-light.svg">
+<img alt="Phạm vi chạy lại sau từng hành động của người" src="03-runner.figs/s7.b2-light.svg">
 </picture>
 
 <!-- id:s7.b3 -->
-```yaml
-steps:
-  - images: {retry: {max_attempts: 3}}
-  - motion: {on_fail: fallback, retry: {max_attempts: 3}, checks: [vlm_identity]}
-```
+Table: Hành động và phạm vi chạy lại
+| Hành động | Ghi gì | Chạy lại |
+| --- | --- | --- |
+| Duyệt gate `keyframes` | Quyết định gate cho revision hiện hành | Tiếp từ `voice` |
+| Chọn ứng viên khác | `selected` trong `assets.json` | Chỉ `render` |
+| Sửa `visual`, `shot` của sNN | ScenePlan revision mới | `keyframes` sNN; dừng lại ở gate `keyframes` |
+| Sửa `narration` của sNN | ScenePlan revision mới | `voice` sNN, `subtitles`, `render` |
+| Upload ảnh, clip, nhạc | Ứng viên `provider: user`, đặt làm selected | Chỉ `render` |
+| Chạy lại sNN kèm ghi chú | Ghi chú lưu vào StepRun mới, đưa vào prompt | Bước được chọn của sNN và các bước sau phụ thuộc |
+| Quyết định lượt gọi `unknown` | Dòng chi phí `unknown` giữ nguyên; quyết định ghi vào gate | Sinh lại mục đó, hoặc bỏ qua và dùng ứng viên có sẵn |
+| Sửa sau khi duyệt `final` | Revision mới; task về `pending` | Như các dòng trên, rồi dừng lại ở gate `final` |
 
 <!-- id:s7.b4 -->
-Mặc định `on_fail` của `motion` là `fallback`; của các bước khác là `fail`. Lý do check thất bại luôn được lưu trong StepRun để hiện trên UI.
+> [!NOTE]
+> Gate duyệt gắn với revision: duyệt gate `keyframes` ở rev 2 rồi sửa visual tạo rev 3 thì gate cần duyệt lại. Sửa narration không đổi ảnh nên không mở lại gate `keyframes` (đề xuất; chốt ở Gate 3).
 
 <!-- id:s8 -->
-## Gate, sửa output và chạy lại
+## Retry và xử lý lỗi
 
 <!-- id:s8.b1 -->
-Gate là một loại bước của core, không phải module. Bước `gate` đặt task thành `waiting`; người vận hành duyệt, từ chối kèm ghi chú, hoặc sửa output.
+Adapter chuyển mọi lỗi về 4 loại chung định nghĩa trong `providers/base.py`. Worker chỉ hiểu 4 loại này.
 
 <!-- id:s8.b2 -->
 ```d2
-# cap: Ba cách người vận hành trả lời một gate
-shape: sequence_diagram
-op: Người vận hành
-ui: Web UI
-db: SQLite
-wk: Runner
-wk -> db: "bước gate → task waiting"
-op -> ui: "mở Task detail / Storyboard"
-op -> ui: "Duyệt"
-ui -> db: "task → pending"
-op -> ui: "Từ chối s04 + ghi chú \"tay lộ ra\""
-ui -> db: "ghi chú → feedback của bước được chọn; StepRun s04 mới pending"
-op -> ui: "Sửa narration s03"
-ui -> db: "StepRun mới của script cho s03, meta.source: human (kiểm schema)"
-wk -> db: "chạy lại phần bị ảnh hưởng rồi tiếp tục"
+# cap: Bốn loại lỗi chung và cách worker phản ứng
+direction: right
+err: Lỗi từ adapter {
+  class: zone
+  r: "Retryable\n429, 5xx, timeout" {class: plain}
+  q: "QualityFail(reason)" {class: plain}
+  u: "Unconfirmed\njob trả phí không rõ kết quả" {class: plain}
+  f: Fatal {class: plain}
+}
+act: Phản ứng {
+  class: zone
+  r1: "Thử lại cùng đầu vào\nbackoff, tối đa 3 lần" {class: hands}
+  q1: "Chạy lại riêng scene đó\nlý do đưa vào prompt" {class: hands}
+  u1: "Ghi unknown\ntask waiting" {class: gate}
+  f1: "task failed" {class: bad}
+  x: "Hết lượt thử:\nfallback hoặc chờ người" {class: gate}
+}
+err.r -> act.r1
+err.q -> act.q1
+err.u -> act.u1
+err.f -> act.f1
+act.r1 -> act.x: hết lượt
+act.q1 -> act.x: hết lượt
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s8.b2-dark.svg">
-<img alt="Ba cách người vận hành trả lời một gate" src="03-runner.figs/s8.b2-light.svg">
+<img alt="Bốn loại lỗi chung và cách worker phản ứng" src="03-runner.figs/s8.b2-light.svg">
 </picture>
 
 <!-- id:s8.b3 -->
-Phạm vi chạy lại khi rerun bước X hoặc scene sNN:
-
-<!-- id:s8.b4 -->
-```d2
-# cap: Chạy lại scene s03 của images: chỉ các bước sau theo cùng scene và các bước không chia theo scene
-direction: right
-img: images {
-  class: zone
-  i1: s01 {class: data}
-  i3: "s03 (chạy lại)" {class: bad}
-  i5: s05 {class: data}
-}
-mot: motion {
-  class: zone
-  m1: s01 {class: data}
-  m3: "s03 → pending" {class: hands}
-  m5: s05 {class: data}
-}
-asm: "assemble (_)\n→ pending" {class: hands}
-g: "gate: final\n→ pending" {class: hands}
-img.i3 -> mot.m3
-mot.m3 -> asm
-asm -> g
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s8.b4-dark.svg">
-<img alt="Chạy lại scene s03 của images: chỉ các bước sau theo cùng scene và các bước không chia theo scene" src="03-runner.figs/s8.b4-light.svg">
-</picture>
-
-<!-- id:s8.b5 -->
-- Các bước sau theo cùng scene và các bước sau không chia theo scene chuyển về `pending`; scene khác giữ nguyên.
-- Sửa được khi task đang ở gate, hoặc khi task đã `completed` (task về `pending`).
-- Mỗi lần sửa là một lượt thử mới; có thể quay lại lượt cũ bất kỳ lúc nào.
+Table: Cơ chế chịu lỗi
+| Cơ chế | Cách làm |
+| --- | --- |
+| Checkpoint | StepRun `done` kèm hash file; không cần lưu state riêng |
+| Resume | Khởi động lại worker → task `running` về hàng đợi → bỏ qua mục đã `done` |
+| Retry lỗi tạm thời | `Retryable` (429, 5xx, timeout): thử lại cùng đầu vào, có backoff, tối đa 3 lần |
+| Retry vì chất lượng | `QualityFail(reason)` → chạy lại riêng scene đó, lý do đưa vào prompt |
+| Hết lượt thử | Fallback (clip lỗi → giữ ảnh tĩnh có chuyển động camera) hoặc `waiting` lý do `retries_exhausted` |
+| Lượt gọi trả phí không rõ kết quả | Còn `pending` không có kết quả, hoặc MPT ném `UnconfirmedTaskError` → `unknown`, task `waiting`; không tự gửi lại |
+| Job video bất đồng bộ | Lưu `job_id` ngay sau `submit`; resume thì poll job cũ trước |
 
 <!-- id:s9 -->
-## Ngân sách và chi phí
+## Đồng bộ thời lượng: giọng đọc là đồng hồ chủ
 
 <!-- id:s9.b1 -->
-```d2
-# cap: Trước lời gọi đắt, module xin giữ ngân sách; vượt thì task chờ thay vì thất bại
-direction: right
-mod: "module\nctx.reserve(ước tính)" {class: hands}
-chk: "đã tiêu + ước tính\n> budget_usd?" {shape: diamond; class: gate}
-call: "Gọi provider" {class: brain}
-cost: "ctx.cost(usd, units)\n→ cost_events" {class: data}
-wait: "task waiting\nlý do: budget" {class: hands}
-price: "pricing.yaml" {shape: page; class: gate}
-op: "Người vận hành\nnâng ngân sách / dừng" {class: hands}
-mod -> chk
-chk -> call: không
-chk -> wait: có
-call -> cost
-price -> cost: "giá theo đơn vị"
-wait -> op
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s9.b1-dark.svg">
-<img alt="Trước lời gọi đắt, module xin giữ ngân sách; vượt thì task chờ thay vì thất bại" src="03-runner.figs/s9.b1-light.svg">
-</picture>
+Kịch bản không cần khớp chính xác theo giây. LLM đếm giây kém, nên `plan` giới hạn theo số từ (tiếng Việt khoảng 2,5–3 từ/giây) và kiểm tra tổng thời lượng ước tính trong ±10% mục tiêu. Thời lượng thật chỉ biết sau bước `voice`.
 
 <!-- id:s9.b2 -->
-- Provider trả lượng dùng (giây video, ký tự TTS, token, số ảnh); module gọi `ctx.cost(...)`, tạo một dòng `cost_events` gắn `task / step / item / attempt / provider / model`.
-- Giá nằm trong `pricing.yaml`, không nằm trong code.
-- `Task.cost_usd` là tổng của `cost_events`; UI hiển thị chi phí / ngân sách cho từng task.
-
-<!-- id:s10 -->
-## Song song
-
-<!-- id:s10.b1 -->
 ```d2
-# cap: Song song trong một bước (theo mục) và giữa các bước trong nhóm parallel
-direction: right
-script: script {class: brain}
-grp: "parallel:" {
-  class: zone
-  images: "images\n8 mục, concurrency theo provider" {class: hands}
-  voice: "voice\n8 mục" {class: hands}
-}
-g: "gate: keyframes" {class: gate}
-asm: assemble {class: hands}
-script -> grp
-grp -> g -> asm
+# cap: Thời lượng đi một chiều: số từ → ước tính → giọng đo được → độ dài scene và clip
+direction: down
+plan: "plan\ntarget_s = ngân sách\n(số từ ÷ 2,5–3)" {class: brain}
+chk: "Tổng ước tính\ntrong ±10% mục tiêu?" {shape: diamond; class: gate}
+voice: "voice\nđo thời lượng audio\ntừng scene" {class: hands}
+still: "Ảnh tĩnh\nco giãn tùy ý" {class: data}
+clip: "Clip motion\nyêu cầu theo giây\ngiọng đã đo" {class: hands}
+render: "render\nđộ dài scene = audio;\nlặp footage ngắn, cắt dài" {class: hands}
+plan -> chk
+chk -> plan: "không: viết lại"
+chk -> voice: có
+voice -> still
+voice -> clip
+still -> render
+clip -> render
 ```
 <picture>
-<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s10.b1-dark.svg">
-<img alt="Song song trong một bước (theo mục) và giữa các bước trong nhóm parallel" src="03-runner.figs/s10.b1-light.svg">
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s9.b2-dark.svg">
+<img alt="Thời lượng đi một chiều: số từ → ước tính → giọng đo được → độ dài scene và clip" src="03-runner.figs/s9.b2-light.svg">
 </picture>
 
+<!-- id:s10 -->
+## Nối frame cuối vào frame đầu (tùy chọn, Gate 4)
+
+<!-- id:s10.b1 -->
+Trường `start_from: "prev_last_frame"` trong ScenePlan cho phép dùng frame cuối của clip trước làm ảnh đầu vào của clip sau: cảnh dài hơn một clip, hai shot liền mạch cùng nhân vật và bối cảnh, hoặc chuyển cảnh mượt.
+
 <!-- id:s10.b2 -->
-- Các mục trong một bước chạy trong thread pool; `concurrency` giới hạn theo provider để tôn trọng rate limit (ví dụ `video: {concurrency: 2}`).
-- Cú pháp nhóm `parallel:` được chấp nhận ngay từ Phase 1; Phase 1 runner được phép chạy các bước trong nhóm lần lượt. Quyết định ở [ADR-0003](../adr/0003-parallel-step-groups.md).
-
-<!-- id:s10.b3 -->
-```yaml
-steps:
-  - script
-  - parallel:
-      - images
-      - voice
-  - gate: keyframes
-  - assemble: {subtitles: true, aspect: "9:16"}
-```
-
-<!-- id:s11 -->
-## Cấu hình hiệu lực của một bước
-
-<!-- id:s11.b1 -->
 ```d2
-# cap: Thứ tự ưu tiên cấu hình; model thật đã chạy luôn ghi vào StepRun.meta
+# cap: Nối frame tạo phụ thuộc tuần tự giữa các scene; chỉ dùng cho cảnh cần liền mạch
 direction: right
-c: "config.yaml\n(mặc định)" {class: plain}
-p: "profile\n(theo bước)" {class: plain}
-o: "Task.overrides\n(theo task)" {class: plain}
-eff: "Cấu hình hiệu lực" {class: gate}
-meta: "StepRun.meta\nprovider, model, cost_usd" {class: data}
-c -> p: bị ghi đè bởi
-p -> o: bị ghi đè bởi
-o -> eff
-eff -> meta: ghi lại
+s04: "clip s04" {class: hands}
+lf: "frame cuối s04" {class: data}
+s05: "clip s05\nstart_from: prev_last_frame" {class: hands}
+s06: "clip s06\n(độc lập, chạy song song)" {class: hands}
+s04 -> lf: "trích bằng FFmpeg"
+lf -> s05: "ảnh đầu vào"
+s04 -> s05: "sửa s04 → chạy lại s05" {class: bad}
 ```
 <picture>
-<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s11.b1-dark.svg">
-<img alt="Thứ tự ưu tiên cấu hình; model thật đã chạy luôn ghi vào StepRun.meta" src="03-runner.figs/s11.b1-light.svg">
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s10.b2-dark.svg">
+<img alt="Nối frame tạo phụ thuộc tuần tự giữa các scene; chỉ dùng cho cảnh cần liền mạch" src="03-runner.figs/s10.b2-light.svg">
+</picture>
+
+<!-- id:s10.b3 -->
+Đánh đổi: scene sau phải chờ scene trước, sửa clip trước kéo theo chạy lại clip sau (`input_hash` của s05 chứa id clip s04), và chất lượng giảm dần qua mỗi lần nối. Không nối cả video.
+
+<!-- id:s11 -->
+## Song song
+
+<!-- id:s11.b1 -->
+Các scene trong một bước chạy trong thread pool, giới hạn theo adapter (`studio.toml`, ví dụ `image = 4`, `tts = 2`, `video = 2`); các bước vẫn tuần tự. Chạy song song thêm chỉ khi đo được thời gian chờ là nút thắt. Test T08 đo chi phí khi chạy nhiều scene song song.
+
+<!-- id:s11.b2 -->
+```d2
+# cap: Song song chỉ trong một bước; giới hạn đặt theo adapter vì rate limit thuộc provider
+direction: right
+kf: Bước keyframes {
+  class: zone
+  pool: "thread pool\ngiới hạn image = 4" {class: gate}
+  s1: s01 {class: hands}
+  s2: s02 {class: hands}
+  s3: s03 {class: hands}
+  s4: s04 {class: hands}
+}
+voice: "Bước voice\n(bắt đầu khi keyframes\nvà gate xong)" {class: hands}
+kf.pool -> kf.s1
+kf.pool -> kf.s2
+kf.pool -> kf.s3
+kf.pool -> kf.s4
+kf -> voice: "tuần tự"
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s11.b2-dark.svg">
+<img alt="Song song chỉ trong một bước; giới hạn đặt theo adapter vì rate limit thuộc provider" src="03-runner.figs/s11.b2-light.svg">
 </picture>
 
 <!-- id:s12 -->
 ## Kiểm tra trước khi chạy
 
 <!-- id:s12.b1 -->
-Runner kiểm tra lúc tạo task, để lỗi lộ ra trước khi tốn tiền:
+Lỗi cấu hình và schema phải lộ ra trước lượt gọi trả phí đầu tiên.
 
 <!-- id:s12.b2 -->
-1. Mọi bước trong profile tồn tại trong Module Registry (hoặc là `gate`, `parallel`).
-2. Mọi contract trong `consumes` của một bước được một bước trước đó `produces` (hoặc là input của task).
-3. Mọi `fan_out` trỏ tới một danh sách có trong contract.
-4. Mọi provider trong cấu hình hiệu lực tồn tại; khóa API cần thiết có trong `.env`.
-5. `schema_version` của contract khớp với module; nếu không, có hàm chuyển đổi.
-6. Ước tính chi phí của profile nằm dưới `budget_usd`.
-
-<!-- id:s12.b3 -->
-Ví dụ: profile `shorts_motion` được chấp nhận vì `motion` cần `SceneVisual` dạng ảnh và `images` cung cấp nó trước đó.
+```chk
+- [ ] Brief hợp lệ: thời lượng, ngôn ngữ, series (nếu có) tồn tại
+- [ ] Series Bible hợp lệ: ảnh tham chiếu tồn tại, khóa camera đầy đủ
+- [ ] Mỗi năng lực dùng tới có adapter trong `studio.toml` và adapter khởi tạo được
+- [ ] `MPT_HOME` trỏ tới `config.toml` có khóa cho provider đang chọn (adapter MPT tự kiểm)
+- [ ] FFmpeg chạy được
+- [ ] ScenePlan trả về qua Pydantic; tổng thời lượng ước tính trong ±10% mục tiêu
+```

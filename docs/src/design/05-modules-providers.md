@@ -1,441 +1,423 @@
 ---
 id: IGN-MOD
-title: Igniterra — Module và provider
+title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "1.0"
+ver: "2.0"
 status: draft
-date: 2026-10-19
+date: 2026-10-22
 owner: Tuan
-sum: Cách viết, cắm, cấu hình và kiểm thử module năng lực và provider adapter; danh mục module, model được chọn cho từng năng lực, router local/cloud và các quy trình ngoài video.
-kv: [[Nguồn, "ADD-AIVIDEO-001 v1.1 · mục 3, 4.2, 5, 7, 11"], [Thuộc, "Module, provider"], [Phase, "1–5"]]
+sum: Core định nghĩa 5 provider interface và 4 loại lỗi chung; adapter cài interface bằng SDK trực tiếp hoặc bằng MoneyPrinterTurbo, chỉ trong studio/providers/mpt/; mỗi interface có bản giả để test core không tốn tiền.
+kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.2, 5, 9.2, 12"], [Thành phần, "studio/providers/, render/, vendor/"], [Gate xây, "2 (TTS, aligner, ảnh, renderer), 4 (video, ComfyUI, audiobook)"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
+  - ["1.0", 2026-10-19, "Bản đầu (Module và provider), tách từ ADD-AIVIDEO-001 v1.1"]
+  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 5 provider interface, adapter MPT, chính sách dùng lại mã; bỏ module registry, ctx, router"]
 ---
 
 <!-- id:s1 -->
-## Mô hình module
+## Provider interface
 
 <!-- id:s1.b1 -->
-Mọi module tuân theo một hợp đồng duy nhất: Task Input → Module → Task Output. Module không giữ trạng thái; mọi trạng thái đi qua `ctx`.
+Core định nghĩa 5 interface năng lực bằng `typing.Protocol`. Bước chỉ thấy interface; adapter cụ thể được chọn bằng cấu hình. `VideoProvider` tách `submit` và `poll` để resume không gửi lại job.
 
 <!-- id:s1.b2 -->
-```d2
-# cap: Một module chỉ thấy ctx; core cấp đầu vào, provider, nơi lưu và sổ chi phí
-direction: right
-core: Core {
-  class: zone
-  runner: Runner {class: gate}
-  ctx: "ctx\n(Context)" {class: gate}
-}
-m: "Module\nid, version, fan_out,\nconsumes, produces\nrun(ctx, item) → Result" {class: hands}
-ins: "ctx.input(\"ScenePlan\")" {class: data}
-prov: "ctx.provider(\"image\")" {class: plain}
-save: "ctx.save(data, name)" {class: data}
-cost: "ctx.cost / ctx.reserve" {class: gate}
-fb: "ctx.feedback\nctx.settings" {class: plain}
-core.runner -> core.ctx: tạo cho mỗi mục
-core.ctx -> m: truyền vào
-m -> ins
-m -> prov
-m -> save
-m -> cost
-m -> fb
+```python
+# studio/providers/base.py
+class LLMProvider(Protocol):
+    def plan(self, brief: Brief, bible: SeriesBible | None) -> ScenePlan: ...      # structured output, kiểm tra Pydantic
+
+class ImageProvider(Protocol):
+    def generate(self, prompt: str, refs: list[Path], size: str, out: Path) -> AssetCandidate: ...
+
+class TTSProvider(Protocol):
+    def synthesize(self, seg_id: str, text: str, voice: VoiceSpec, out_dir: Path) -> AudioTrack: ...  # words có thể rỗng
+
+class SubtitleAligner(Protocol):
+    def align(self, audio: Path, script: str, out: Path) -> Path: ...
+
+class VideoProvider(Protocol):                       # tách submit/poll để resume không gửi lại job
+    def submit(self, image: Path, prompt: str, seconds: int) -> str: ...
+    def poll(self, job_id: str) -> AssetCandidate | None: ...
+
+# Lỗi chung: Retryable (429, 5xx, timeout) · QualityFail(reason) · Unconfirmed (job trả phí không rõ kết quả) · Fatal
 ```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s1.b2-dark.svg">
-<img alt="Một module chỉ thấy ctx; core cấp đầu vào, provider, nơi lưu và sổ chi phí" src="05-modules-providers.figs/s1.b2-light.svg">
-</picture>
 
 <!-- id:s1.b3 -->
-```python
-class Module(Protocol):
-    id: str                      # "images"
-    version: str
-    fan_out: str | None          # ví dụ "ScenePlan.scenes"; None = chạy một lần
-    consumes: list[str]          # tên contract cần có trước, ví dụ ["ScenePlan"]
-    produces: str                # "SceneVisual"
-    def run(self, ctx: Context, item: str) -> Result: ...
-
-# Lỗi: Retryable (429, 5xx, timeout) · QualityFail(reason) · Fatal
+```d2
+# cap: Mỗi interface có adapter thật và bản giả; adapter MPT chỉ là một lựa chọn trong số đó
+direction: right
+ifc: Interface (core) {
+  class: zone
+  llm: LLMProvider {class: gate}
+  img: ImageProvider {class: gate}
+  tts: TTSProvider {class: gate}
+  al: SubtitleAligner {class: gate}
+  vid: VideoProvider {class: gate}
+}
+direct: "providers/direct/" {
+  class: zone
+  gem: "GeminiLLM\n(Gate 2)" {class: hands}
+  nb: "NanoBananaImage\n(Gate 2)" {class: hands}
+  veo: "VeoVideo\n(Gate 4)" {class: hands}
+  comfy: "ComfyImage, ComfyVideo\n(Gate 4)" {class: hands}
+}
+mpt: "providers/mpt/" {
+  class: zone
+  mtts: "MptTTS\n(Gate 2)" {class: hands}
+  mal: "MptSubtitleAligner\n(Gate 2)" {class: hands}
+  mvid: "MptVideo\n(Gate 4)" {class: hands}
+  mstock: "MptStockImage\n(khi cần)" {class: hands}
+}
+fake: "providers/fake/" {
+  class: zone
+  fk: "FakeLLM, FakeImage, FakeTTS,\nFakeAligner, FakeVideo" {class: plain}
+}
+ifc.llm -> direct.gem
+ifc.img -> direct.nb
+ifc.img -> direct.comfy
+ifc.img -> mpt.mstock
+ifc.tts -> mpt.mtts
+ifc.al -> mpt.mal
+ifc.vid -> direct.veo
+ifc.vid -> mpt.mvid
+ifc -> fake.fk: "test"
 ```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s1.b3-dark.svg">
+<img alt="Mỗi interface có adapter thật và bản giả; adapter MPT chỉ là một lựa chọn trong số đó" src="05-modules-providers.figs/s1.b3-light.svg">
+</picture>
 
 <!-- id:s1.b4 -->
-```req
-FR-10
-NFR-01
-NFR-04
-NFR-08
-```
+Table: Lỗi chung
+| Lỗi | Khi nào adapter ném | Worker làm gì |
+| --- | --- | --- |
+| `Retryable` | 429, 5xx, timeout; MPT trả `None` | Thử lại cùng đầu vào, backoff, tối đa 3 lần |
+| `QualityFail(reason)` | Kết quả có nhưng không đạt kiểm tra | Chạy lại riêng scene đó, lý do vào prompt |
+| `Unconfirmed` | Job trả phí không rõ kết quả; MPT ném `UnconfirmedTaskError` | Ghi `unknown`, task `waiting` |
+| `Fatal` | Cấu hình sai, khóa API sai, nội dung bị từ chối | Task `failed` |
 
 <!-- id:s2 -->
-## Danh mục module
+## MPT có gì và ta dùng gì
 
 <!-- id:s2.b1 -->
-11 năng lực trong yêu cầu được gộp còn 10 module, phân tách theo contract đầu ra, không theo tên công đoạn. Gate, retry và chạy lại thuộc core.
+MPT (khoảng 36.000 dòng Python, MIT, 203 file test, cập nhật gần như hằng ngày) mạnh ở hạ tầng provider và render, yếu đúng ở phần sản phẩm ta cần khác biệt. Vì vậy MPT được dùng như thư viện sau adapter, không phải nền tảng chính.
 
 <!-- id:s2.b2 -->
 ```d2
-# cap: Module thêm vào ở từng phase
-grid-rows: 1
-grid-columns: 5
-p1: "Phase 1\n\nscript\nimages\nvoice\nassemble" {class: brain}
-p2: "Phase 2\n\ncharacters\nmusic\nchecks (kỹ thuật)" {class: hands}
-p3: "Phase 3\n\nmotion\nchecks (VLM)" {class: hands}
-p4: "Phase 4\n\n(chỉ thêm provider:\ncomfyui, router)" {class: plain}
-p5: "Phase 5\n\npublish\nresearch" {class: gate}
+# cap: Phần của MPT ta dùng, chỉ dùng ở Gate 1, và không dùng
+direction: right
+use: Dùng qua adapter {
+  class: zone
+  v: "voice.tts\n14 provider TTS" {class: hands}
+  s: "subtitle.create / correct\nfaster-whisper, font Việt" {class: hands}
+  g: "generate_videos()\nprovider video AI" {class: hands}
+  m: "material.py\nstock footage (khi cần)" {class: hands}
+  l: "llm.py\n(tùy chọn)" {class: hands}
+}
+copy: Copy (vendor) {
+  class: zone
+  vp: "video_project.py\nrevision, dựng lại theo scene" {class: data}
+}
+g1: Chỉ dùng nguyên ở Gate 1 {
+  class: zone
+  ui: "WebUI Streamlit, REST API,\nCLI" {class: plain}
+}
+no: Không dùng {
+  class: zone
+  x1: "task.py, state.py\n(trạng thái trong process)" {class: bad}
+  x2: "video.py\n(MoviePy, một file giọng)" {class: bad}
+  x3: "upload_post.py" {class: bad}
+}
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s2.b2-dark.svg">
-<img alt="Module thêm vào ở từng phase" src="05-modules-providers.figs/s2.b2-light.svg">
+<img alt="Phần của MPT ta dùng, chỉ dùng ở Gate 1, và không dùng" src="05-modules-providers.figs/s2.b2-light.svg">
 </picture>
 
 <!-- id:s2.b3 -->
-Table: Module năng lực
-| Module | Trách nhiệm | Nhận → Trả | Fan-out | Bắt buộc | Phase |
-| --- | --- | --- | --- | --- | --- |
-| `script` | Kịch bản và shot list trong một lời gọi LLM có schema | Brief (+ ResearchBundle, SeriesBible) → ScenePlan + SpeechScript | Không | Có | 1 |
-| `images` | Keyframe từ prompt đã ghép, kèm ảnh tham chiếu nhân vật | ScenePlan + SeriesBible → SceneVisual (ảnh) | `ScenePlan.scenes` | Có | 1 |
-| `voice` | Đọc từng đoạn, trả kèm mốc thời gian từng từ | SpeechScript → AudioTrack (voice) | `SpeechScript.segments` | Có | 1 |
-| `assemble` | FFmpeg: chuyển động ảnh tĩnh, ghép cảnh, trộn âm, phụ đề, MP4 | ScenePlan + SceneVisual[] + AudioTrack[] → Video | Không | Có | 1 |
-| `characters` | Mẫu nhân vật (chính diện, nghiêng, 3/4); một lần mỗi series | SeriesBible (mô tả) → ảnh tham chiếu | Không | Không | 2 |
-| `music` | Chọn hoặc tạo nhạc nền theo mood | ScenePlan → AudioTrack (bgm) | Không | Không | 2 |
-| `checks` | Kiểm kỹ thuật (ffprobe, độ ồn, khung đen); tùy chọn VLM | Artifact → CheckResult | Theo bước | Không | 2–3 |
-| `motion` | Image-to-video cho scene `mode: motion` | SceneVisual (ảnh) + ScenePlan → SceneVisual (video) | `ScenePlan.scenes` | Không | 3 |
-| `research` | Dữ kiện có nguồn cho nội dung thực tế | Brief → ResearchBundle | Không | Không | Khi cần |
-| `publish` | Upload, hẹn giờ, gắn cờ nội dung AI | Video + metadata → PublishRecord | Không | Không | 5 |
+Table: MPT có gì và ta dùng gì
+| Nhóm | Có trong MPT | Ta dùng? |
+| --- | --- | --- |
+| Kịch bản | LLM viết kịch bản dạng một khối văn bản; tách từ khóa tìm hình | Chỉ lớp kết nối LLM (tùy chọn); schema ScenePlan do ta viết |
+| Giọng đọc | 14 provider TTS: Edge TTS miễn phí (2 giọng tiếng Việt), Azure, Gemini, ElevenLabs, MiniMax, Fish Audio, Kokoro, VoxCPM... | Có, qua `MptTTS` |
+| Phụ đề | Mốc thời gian Edge TTS; faster-whisper rồi sửa theo kịch bản; font tiếng Việt (Be Vietnam Pro) | Có, qua `MptSubtitleAligner` |
+| Hình ảnh | Stock footage (Pexels, Pixabay, Coverr); ảnh AI OpenAI-compatible rồi zoom thành clip | Tùy chọn cho scene không có nhân vật |
+| Video AI | Seedance, MiniMax H3, WaveSpeed, MuAPI, OFox; lỗi riêng cho job trả phí chưa xác nhận | Có ở Gate 4, qua `MptVideo` |
+| Revision theo scene | `video_project.py`: revision bất biến, chỉ dựng lại scene đổi, kiểm tra SHA-256, khóa, retry | Có, copy làm renderer |
+| Dựng video chính | MoviePy, một file giọng cho cả bài, chuyển cảnh, nhiều biến thể | Không |
+| Giao diện, API | WebUI Streamlit, REST API, CLI, skill cho AI agent | Chỉ dùng nguyên bản ở Gate 1 |
+| Trạng thái | Bộ nhớ trong process (mất khi khởi động lại) hoặc Redis | Không |
+| Đăng bài | Qua dịch vụ trung gian upload-post.com | Hoãn |
 
 <!-- id:s3 -->
-## Profile video: module và contract
+## Ranh giới và bảng adapter
 
 <!-- id:s3.b1 -->
-```d2
-# cap: Profile shorts_motion: các bước, contract truyền giữa chúng và hai gate
-direction: down
-script: script {class: brain}
-images: "images\n× scene" {class: hands}
-g1: "gate: keyframes" {class: gate}
-motion: "motion\n× scene mode: motion" {class: hands}
-voice: "voice\n× segment" {class: hands}
-music: music {class: hands}
-asm: assemble {class: hands}
-chk: "checks\nkind: technical" {class: gate}
-g2: "gate: final" {class: gate}
-script -> images: ScenePlan
-images -> g1: SceneVisual
-g1 -> motion
-motion -> voice: "SceneVisual (video)"
-voice -> music: AudioTrack
-music -> asm: "AudioTrack (bgm)"
-asm -> chk: Video
-chk -> g2: CheckResult
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s3.b1-dark.svg">
-<img alt="Profile shorts_motion: các bước, contract truyền giữa chúng và hai gate" src="05-modules-providers.figs/s3.b1-light.svg">
-</picture>
+Chỉ các file trong `studio/providers/mpt/` được import `app.*`; một test quét import kiểm tra điều này. Bỏ MPT cho một năng lực = viết adapter khác cùng interface, đổi một dòng cấu hình.
 
 <!-- id:s3.b2 -->
-```yaml
-shorts_motion:
-  budget_usd: 8
-  steps:
-    - script
-    - images
-    - gate: keyframes
-    - motion: {on_fail: fallback, retry: {max_attempts: 3}, checks: [vlm_identity]}
-    - voice
-    - music
-    - assemble: {subtitles: true, aspect: "9:16"}
-    - checks: {kind: technical}
-    - gate: final
-```
-
-<!-- id:s3.b3 -->
-Mũi tên ở hình trên là thứ tự bước; contract thật được đọc theo tên từ mọi bước trước đó, ví dụ `assemble` đọc ScenePlan của `script` và SceneVisual mới nhất của mỗi scene.
-
-<!-- id:s4 -->
-## Vòng đời module
-
-<!-- id:s4.b1 -->
 ```d2
-# cap: Từ lúc đăng ký đến khi một mục xong
+# cap: Adapter MPT dịch giữa interface của ta và hàm của MPT; lỗi MPT được đổi thành lỗi chung
 direction: right
-reg: "Đăng ký\n(decorator trong modules/)" {class: gate}
-val: "Kiểm khi tạo task\nconsumes có nguồn,\nprovider tồn tại" {class: gate}
-run: "run(ctx, item)" {class: hands}
-done: done {class: data}
-err: "Retryable /\nQualityFail / Fatal" {class: bad}
-reg -> val -> run
-run -> done
-run -> err
+core: "Bước của core" {class: gate}
+adp: "studio/providers/mpt/" {
+  class: zone
+  t: "MptTTS\nSubMaker → AudioTrack\nNone → Retryable" {class: hands}
+  a: "MptSubtitleAligner\ncreate + correct" {class: hands}
+  v: "MptVideo\nUnconfirmedTaskError →\nUnconfirmed" {class: hands}
+}
+mpt: "app.services (gói mpt)" {
+  class: zone
+  voice: "voice.tts(text, voice_name,\nvoice_rate, voice_file)" {class: plain}
+  sub: "subtitle.create(audio, file)\nsubtitle.correct(file, script)" {class: plain}
+  vid: "generate_videos()\ncủa từng provider" {class: plain}
+}
+cfg: "MPT_HOME/config.toml\nkhóa API, provider" {shape: page; class: bad}
+core -> adp.t: "TTSProvider"
+core -> adp.a: "SubtitleAligner"
+core -> adp.v: "VideoProvider"
+adp.t -> mpt.voice
+adp.a -> mpt.sub
+adp.v -> mpt.vid
+mpt -> cfg: đọc
 ```
 <picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s4.b1-dark.svg">
-<img alt="Từ lúc đăng ký đến khi một mục xong" src="05-modules-providers.figs/s4.b1-light.svg">
+<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s3.b2-dark.svg">
+<img alt="Adapter MPT dịch giữa interface của ta và hàm của MPT; lỗi MPT được đổi thành lỗi chung" src="05-modules-providers.figs/s3.b2-light.svg">
+</picture>
+
+<!-- id:s3.b3 -->
+Table: Bảng adapter
+| Interface | Hàm được gọi | Adapter chuyển đổi | Khi nào viết |
+| --- | --- | --- | --- |
+| `TTSProvider` | MPT `voice.tts(text, voice_name, voice_rate, voice_file)` | `SubMaker` → `AudioTrack` kèm mốc thời gian; trả `None` → `Retryable` | Gate 2 |
+| `SubtitleAligner` | MPT `subtitle.create(audio_file, subtitle_file)` rồi `subtitle.correct(subtitle_file, script)` | Dùng khi TTS không trả mốc từ | Gate 2 |
+| `LLMProvider` | Lớp kết nối trong `llm.py` của MPT, hoặc gọi thẳng SDK | Prompt và schema do ta viết | Gate 2, tùy chọn |
+| `ImageProvider` (nhân vật) | SDK trực tiếp (Nano Banana 2, có ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
+| `ImageProvider` (phụ) | MPT stock footage trong `material.py` | Trả ứng viên cho scene không cần nhân vật | Khi cần |
+| `VideoProvider` | MPT `generate_videos()` của từng provider, hoặc SDK Veo | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4 |
+| Renderer | `vendor/video_project.py` (bản copy) | `render(plan, assets)` → manifest → `create_revision`, `plan`, `render` | Gate 2 |
+
+<!-- id:s3.b4 -->
+Quy tắc giữ ranh giới:
+
+<!-- id:s3.b5 -->
+- Chỉ các file trong `studio/providers/mpt/` được import `app.*`; test quét import chạy trong CI.
+- Package của ta tên `studio`, không bao giờ `app` (gói `mpt` cài vào tên `app`).
+- API key và cấu hình provider nằm trong `config.toml` của MPT (`MPT_HOME`); adapter chỉ truyền tham số như giọng, tốc độ, văn bản.
+- Ghim phiên bản MPT; mỗi adapter có test riêng chạy trước khi nâng ([07 · Nâng MPT](07-operations.md#s3)).
+
+<!-- id:s4 -->
+## Ví dụ: adapter MptTTS
+
+<!-- id:s4.b1 -->
+```python
+# studio/providers/mpt/tts.py — chỉ thư mục này biết MPT tồn tại
+class MptTTS(TTSProvider):
+    def synthesize(self, seg_id, text, voice, out_dir):
+        from app.services import voice as mpt_voice        # package của MPT tên là "app"
+        out = out_dir / f"vo_{seg_id}.mp3"
+        sub = mpt_voice.tts(text, voice.name, voice.rate, str(out))
+        if sub is None:
+            raise Retryable("MPT TTS returned no audio")
+        return AudioTrack(path=out, words=to_word_timings(sub), provider="mpt:" + voice.name)
+```
+
+<!-- id:s4.b2 -->
+```d2
+# cap: Một lượt gọi qua MptTTS, từ bước voice tới file giọng và mốc thời gian
+shape: sequence_diagram
+step: "steps/voice.py"
+lex: "lexicon\n(Series Bible)"
+tts: MptTTS
+mpt: "app.services.voice"
+step -> lex: "thay tên riêng theo phát âm"
+step -> tts: "synthesize(s03, narration, voice)"
+tts -> mpt: "tts(text, vi-VN-NamMinhNeural, 1.0, vo_s03.mp3)"
+mpt -> tts: "SubMaker (mốc từng từ) hoặc None"
+tts -> step: "AudioTrack(path, words, provider)"
+step -> step: "ghi ứng viên vo_s03_aN, selected"
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s4.b2-dark.svg">
+<img alt="Một lượt gọi qua MptTTS, từ bước voice tới file giọng và mốc thời gian" src="05-modules-providers.figs/s4.b2-light.svg">
 </picture>
 
 <!-- id:s5 -->
-## ctx: giao diện core cấp cho module
+## Keyframe có nhân vật: adapter trực tiếp
 
 <!-- id:s5.b1 -->
-Table: API của ctx
-| Lời gọi | Làm gì | Ghi chú |
-| --- | --- | --- |
-| `ctx.input(name)` | Output mới nhất của contract `name` (theo mục nếu có) | Không theo tên module |
-| `ctx.item` | Phần tử fan-out hiện tại | `"_"` khi chạy một lần |
-| `ctx.provider(capability)` | Provider của năng lực theo cấu hình hiệu lực | `llm`, `image`, `tts`, `video` |
-| `ctx.save(data, name)` | Lưu file vào `data/tasks/<id>/<step>/`, trả đường dẫn | Core đặt tên `item_aN`, tính hash |
-| `ctx.cost(usd, units)` | Ghi một sự kiện chi phí | Giá lấy từ `pricing.yaml` nếu chỉ có units |
-| `ctx.reserve(usd)` | Xin giữ ngân sách trước lời gọi đắt | Vượt thì task `waiting` lý do budget |
-| `ctx.checkpoint(key, value)` | Lưu giá trị bền vào StepRun, ví dụ `external_job_id` | Đọc lại khi resume |
-| `ctx.feedback` | Ghi chú từ gate hoặc lý do QualityFail | Dùng sửa prompt |
-| `ctx.settings` | Tham số của bước trong profile | Ví dụ `subtitles`, `aspect` |
-| `ctx.log` | Logger ghi vào `logs/` | Hiển thị 50 dòng cuối trên UI |
+Keyframe có nhân vật dùng adapter gọi thẳng API ảnh hỗ trợ ảnh tham chiếu (ví dụ Nano Banana 2), vì MPT không có khái niệm nhân vật. Adapter nhận prompt đã ghép xác định và đường dẫn ảnh refs từ Series Bible ([04 · Ghép prompt](04-data-contracts.md#s7)), ghi `pending` trước lượt gọi và trả `AssetCandidate`.
+
+<!-- id:s5.b2 -->
+```d2
+# cap: Bước keyframes cho một scene có nhân vật
+direction: right
+scene: "scene s03\ncharacters: [kai]" {class: data}
+prompt: "prompt.py\nghép xác định" {class: gate}
+refs: "refs/kai_front, kai_side,\nkai_3q.png" {class: data}
+cost: "costs.jsonl\npending" {class: data}
+nb: "NanoBananaImage\n(SDK trực tiếp)" {class: hands}
+cand: "img_s03_aN\n+ assets.json" {class: data}
+scene -> prompt
+prompt -> nb: prompt
+refs -> nb: refs
+nb -> cost: "trước lượt gọi"
+nb -> cand: "AssetCandidate"
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s5.b2-dark.svg">
+<img alt="Bước keyframes cho một scene có nhân vật" src="05-modules-providers.figs/s5.b2-light.svg">
+</picture>
 
 <!-- id:s6 -->
-## Provider và model
+## Model và adapter mặc định
 
 <!-- id:s6.b1 -->
-Provider chỉ cài đặt interface của năng lực mình. Interface chỉ viết cho 4 năng lực đang dùng.
+Giá lấy từ các báo cáo nghiên cứu tháng 10/2026, chưa đối chiếu hóa đơn. Lưu ý giấy phép model tự host: Wan 2.2 và FLUX.2 klein 4B dùng Apache 2.0; các biến thể FLUX.2 khác, LTX-2 và HunyuanVideo có điều kiện riêng.
 
 <!-- id:s6.b2 -->
-```python
-class LLMProvider(Protocol):
-    def generate(self, prompt: str, schema: type[BaseModel]) -> Structured: ...  # structured output + usage
-
-class TTSProvider(Protocol):
-    def synthesize(self, text: str, voice: VoiceSpec) -> Speech: ...   # audio + mốc thời gian từng từ + usage
-
-class ImageProvider(Protocol):
-    def generate(self, prompt: str, refs: list[Path], size: str) -> Image: ...
-
-class VideoProvider(Protocol):   # tách submit/poll để resume không trả tiền hai lần
-    def submit(self, image: Path, prompt: str, seconds: int) -> str: ...  # external_job_id
-    def poll(self, job_id: str) -> Clip | None: ...
-```
+Table: Model và adapter mặc định
+| Năng lực | Mặc định | Thay thế | Giá tham khảo (10/2026, cần kiểm tra lại) |
+| --- | --- | --- | --- |
+| LLM (ScenePlan) | Gemini 3.8 Flash qua SDK | Claude; LLM qua adapter MPT | $0,75 / $3,75 mỗi 1M token tới 31/12/2026 |
+| Keyframe có nhân vật | Nano Banana 2 (ảnh tham chiếu) | FLUX.2 klein 4B qua ComfyUI (Apache 2.0) | Khoảng $0,067/ảnh 1K |
+| Giọng đọc | Edge TTS tiếng Việt qua `MptTTS` (miễn phí) | ElevenLabs, Gemini TTS qua `MptTTS` | ElevenLabs v4 khoảng $0,08/1.000 ký tự |
+| Căn phụ đề | Mốc thời gian Edge TTS; faster-whisper qua `MptSubtitleAligner` | — | Chạy local, không tốn phí API |
+| Image-to-video (Gate 4) | Veo 3.1 Fast qua SDK, hoặc provider video qua `MptVideo` | Wan 2.2 qua ComfyUI | Veo 3.1 Fast 720p khoảng $0,10/giây |
+| Nhạc nền | Thư viện nhạc có license | Lyria, Eleven Music | Miễn phí với thư viện có sẵn |
 
 <!-- id:s6.b3 -->
-`LLMProvider` không có code mẫu trong ADD-AIVIDEO-001; chữ ký trên là đề xuất.
-
-<!-- id:s6.b4 -->
-```d2
-# cap: Module gọi interface năng lực; mỗi interface có nhiều adapter, config chọn một
-direction: right
-llm: LLMProvider {
-  class: zone
-  a1: "gemini" {class: plain}
-  a2: "claude" {class: plain}
-  a3: "claude_agent (khi cần)" {class: plain}
-}
-img: ImageProvider {
-  class: zone
-  b1: "gemini_image\nNano Banana 2" {class: plain}
-  b2: "comfyui\nFLUX.2 klein 4B" {class: hands}
-}
-tts: TTSProvider {
-  class: zone
-  c1: "elevenlabs v4" {class: plain}
-  c2: "gemini_tts" {class: plain}
-}
-vid: VideoProvider {
-  class: zone
-  d1: "veo 3.1 Fast / Lite" {class: plain}
-  d2: "comfyui\nWan 2.2" {class: hands}
-  d3: "router" {class: gate}
-}
-m: Module {
-  class: zone
-  script: script {class: hands}
-  images: images {class: hands}
-  voice: voice {class: hands}
-  motion: motion {class: hands}
-}
-fake: "fake: adapter giả cho mọi năng lực (test)" {class: data}
-m.script -> llm: "ctx.provider(\"llm\")"
-m.images -> img: "ctx.provider(\"image\")"
-m.voice -> tts: "ctx.provider(\"tts\")"
-m.motion -> vid: "ctx.provider(\"video\")"
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s6.b4-dark.svg">
-<img alt="Module gọi interface năng lực; mỗi interface có nhiều adapter, config chọn một" src="05-modules-providers.figs/s6.b4-light.svg">
-</picture>
-
-<!-- id:s6.b5 -->
-Table: Model và provider cho từng năng lực
-| Năng lực | Chọn | Thay thế | Ghi chú |
-| --- | --- | --- | --- |
-| LLM (kịch bản, shot list, chấm điểm) | Gemini 3.8 Flash (0,75 / 3,75 USD mỗi 1M token đến 31/12/2026) | Claude Sonnet 5.5; model OpenAI | Gộp billing với ảnh, video, TTS nếu dùng Gemini API |
-| Tạo ảnh | Nano Banana 2 (cloud, 0,067 USD/ảnh 1K) | FLUX.2 klein 4B qua ComfyUI; Nano Banana Pro | Pro mạnh về chữ trong ảnh, hợp thumbnail |
-| Image-to-video | Veo 3.1 Fast 720p (0,10 USD/giây) / Lite (0,05 USD/giây) | Wan 2.2 qua ComfyUI; Kling 3.0 | Qua aggregator thì vẫn phải lưu model thật vào `meta` |
-| TTS + mốc thời gian | ElevenLabs v4 (0,08 USD/1.000 ký tự) | Gemini TTS + căn chỉnh bằng STT | Mốc từng từ dùng làm phụ đề |
-| STT | faster-whisper local | Gemini 3.5 Transcribe | Khi TTS không trả mốc; đo WER |
-| Nhạc nền | Thư viện có license (provider `library`) | Lyria 3 Clip; Eleven Music | Bắt đầu bằng thư viện: miễn phí, quyền rõ |
-| Xuất bản | YouTube Data API | TikTok Content Posting API | TikTok chưa audit chỉ đăng riêng tư |
-
-<!-- id:s6.b6 -->
-> [!WARNING]
-> Giá lấy từ hai báo cáo nghiên cứu (10/2026), phải kiểm lại khi lập ngân sách. Giá thuê RTX 4090 trên RunPod lệch giữa hai nguồn; dùng 0,89 USD/giờ khi lập kế hoạch.
+Table: Chi phí ước tính một Short 60 giây theo cấu hình (báo cáo nghiên cứu, chưa đo thực tế)
+| Cấu hình | Chi phí ước tính | Nguồn |
+| --- | --- | --- |
+| Gate 3: ảnh tĩnh + chuyển động camera, Edge TTS | Khoảng $0,66–0,7 + nhạc thư viện | Ví dụ t_0042 ([08](08-roadmap.md#s6)) |
+| Ảnh tĩnh có chuyển động camera (ước tính chung) | Khoảng $1–1,5 | ADD-AIVIDEO-003 mục 1 |
+| Gate 4: thêm 4 clip Veo 3.1 Fast 720p | Khoảng $5–7 | ADD-AIVIDEO-003 mục 11 |
 
 <!-- id:s7 -->
-## Router local và cloud
+## Chính sách dùng lại mã và giấy phép
 
 <!-- id:s7.b1 -->
-Router cũng cài đặt `VideoProvider`; nó chọn provider con theo `tier` của scene và có chuỗi dự phòng, nên runner và module không biết đến nó.
+Table: Cách dùng lại mã MPT
+| Cách | Áp dụng cho | Điều kiện |
+| --- | --- | --- |
+| Dùng nguyên | WebUI/CLI của MPT ở Gate 1 | Không viết code |
+| Phụ thuộc pip, ghim phiên bản | `voice`, `subtitle`, `llm`, provider video | Chỉ gọi từ `studio/providers/mpt/` |
+| Copy (vendor) | `video_project.py` | Giữ header bản quyền, kèm `LICENSE-MPT`, ghi commit gốc `9e7d8b7` |
+| Không dùng | `webui/Main.py`, `task.py`, `state.py`, `video.py`, `upload_post.py` | — |
 
 <!-- id:s7.b2 -->
-```yaml
-video:
-  use: router
-  rules:
-    - {when: {tier: hero},  use: veo_fast}
-    - {when: {tier: broll}, use: comfyui_wan}
-  fallback: [veo_lite]     # hết lựa chọn thì on_fail của bước motion xử lý (giữ ảnh tĩnh)
-```
+Giấy phép MIT cho phép sao chép, sửa, dùng thương mại khi giữ thông báo bản quyền. Khi dùng thêm dependency của MPT, kiểm tra giấy phép từng gói.
 
 <!-- id:s7.b3 -->
-```d2
-# cap: Router chọn provider theo tier, dự phòng khi lỗi, cuối cùng trả lỗi cho on_fail
-direction: right
-req: "submit(scene s05,\ntier: broll)" {class: hands}
-rule: "Khớp rule?" {shape: diamond; class: gate}
-p1: "comfyui_wan" {class: hands}
-ok: "job_id\n(ghi provider thật vào meta)" {class: data}
-fb: "fallback: veo_lite" {class: plain}
-fail: "Lỗi → on_fail\ncủa bước motion" {class: bad}
-req -> rule
-rule -> p1: "tier: broll"
-p1 -> ok: thành công
-p1 -> fb: lỗi
-fb -> ok: thành công
-fb -> fail: lỗi
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s7.b3-dark.svg">
-<img alt="Router chọn provider theo tier, dự phòng khi lỗi, cuối cùng trả lỗi cho on_fail" src="05-modules-providers.figs/s7.b3-light.svg">
-</picture>
-
-<!-- id:s7.b4 -->
-Router chỉ thêm ở Phase 4; quyết định route phải dựa trên số liệu `cost_events` (chi phí trên mỗi scene được duyệt), không dựa trên cảm tính.
+> [!NOTE]
+> `video_project.py` chưa có phụ đề và chuyển cảnh. Phụ đề được burn-in sau export; chuyển cảnh thêm bằng bước FFmpeg `xfade` vào bản copy khi cần. Mọi sửa đổi bản copy ghi lại trong header.
 
 <!-- id:s8 -->
 ## Khi nào dùng AI agent
 
 <!-- id:s8.b1 -->
-```d2
-# cap: Agent, nếu có, nằm bên trong provider hoặc module; runner vẫn chỉ nhận một Result
-direction: right
-runner: Runner {class: gate}
-mod: "module research" {class: hands}
-prov: "provider claude_agent\n(nhiều lượt dùng tool)" {class: brain}
-tools: "web search, đọc trang" {class: plain}
-runner -> mod: "run(ctx, item)"
-mod -> prov: "ctx.provider(\"llm\")"
-prov -> tools: "nhiều lượt"
-prov -> mod: "ResearchBundle"
-mod -> runner: Result
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s8.b1-dark.svg">
-<img alt="Agent, nếu có, nằm bên trong provider hoặc module; runner vẫn chỉ nhận một Result" src="05-modules-providers.figs/s8.b1-light.svg">
-</picture>
-
-<!-- id:s8.b2 -->
-Kịch bản, chấm điểm và sửa prompt theo feedback đều là lời gọi LLM có schema. Chỉ dùng agent khi một module cần nhiều lượt dùng tool mà lời gọi LLM đơn không giải quyết được.
+Không dùng AI agent mặc định (AD-13). Kịch bản, chấm điểm, sửa prompt đều là một lời gọi LLM có schema Pydantic. Agent (Claude Agent SDK, LangGraph) chỉ xét khi một bước cần nhiều lượt dùng tool mà lời gọi LLM đơn không giải quyết được, và khi đó nó nằm bên trong một adapter, không điều khiển worker.
 
 <!-- id:s9 -->
-## Thêm module hoặc provider
+## Thêm adapter mới
 
 <!-- id:s9.b1 -->
-1. Xác định contract đầu ra. Nếu contract hiện có diễn đạt được, dùng lại; nếu không, thêm contract mới có `schema_version: 1` trong `contracts/`.
-2. Tạo `modules/<id>.py`: khai báo `id`, `version`, `fan_out`, `consumes`, `produces`; cài `run(ctx, item)` chỉ dùng `ctx`.
-3. Nếu cần năng lực mới, thêm interface và ít nhất hai adapter: một thật, một `fake`.
-4. Thêm giá vào `pricing.yaml` cho mọi model tính tiền.
-5. Thêm một dòng vào profile; chạy thử bằng CLI với provider giả rồi với provider thật.
+Mỗi năng lực mới ở Gate 4 là một adapter mới, không đổi core.
 
 <!-- id:s9.b2 -->
 ```chk
-- [ ] Module không import module khác (test import xanh)
-- [ ] Có test chạy với provider fake, không gọi mạng
-- [ ] Mọi lời gọi tính tiền đi qua ctx.cost; lời gọi đắt có ctx.reserve
-- [ ] Job bất đồng bộ lưu external_job_id bằng ctx.checkpoint trước khi poll
-- [ ] Lỗi được phân loại Retryable / QualityFail / Fatal
-- [ ] StepRun.meta ghi provider và model thật
-- [ ] Tài liệu này cập nhật bảng danh mục module
+- [ ] Cài đúng một interface trong `providers/base.py`; không thêm phương thức mới vào interface
+- [ ] Đổi mọi lỗi của dịch vụ về `Retryable`, `QualityFail`, `Unconfirmed`, `Fatal`
+- [ ] Ghi `pending` trước mỗi lượt gọi trả phí qua `costs.py`; ghi `units` thật
+- [ ] Ghi `provider` và `model` thật vào ứng viên
+- [ ] Bất đồng bộ: tách `submit` / `poll`, không chờ trong `submit`
+- [ ] Đọc khóa từ `config.toml` của MPT hoặc biến môi trường, không từ `studio.toml`
+- [ ] Đăng ký tên trong `providers/__init__.py`; chọn bằng một dòng `studio.toml`
+- [ ] Test riêng của adapter (gọi thật, đánh dấu chạy tay) và test quét import vẫn xanh
 ```
 
 <!-- id:s10 -->
 ## Quy trình ngoài video
 
 <!-- id:s10.b1 -->
-Core không biết "video" là gì. Thêm quy trình là thêm profile; chỉ thêm module khi contract hiện có không diễn đạt được.
+Core không biết "video" là gì: nó chạy một danh sách bước qua các adapter. Một quy trình mới là một danh sách bước mới, dùng lại adapter sẵn có và thêm 1–2 bước khi cần. Tất cả thuộc Gate 4, chỉ làm khi có workload thật.
 
 <!-- id:s10.b2 -->
 ```d2
-# cap: Profile audiobook: 6 bước, 2 module mới, 2 gate
-direction: right
-in: "Bản thảo\n+ khai báo quyền" {class: plain}
-chap: "chapterize (mới)\n→ SpeechScript" {class: brain}
-g1: "gate: text" {class: gate}
-voice: "voice\n× segment, concurrency 4" {class: hands}
-chk: "checks\nkind: audio (STT so văn bản)" {class: gate}
-master: "master (mới)\nMP3 theo chương, m4b" {class: hands}
-g2: "gate: listen" {class: gate}
-in -> chap -> g1 -> voice -> chk -> master -> g2
+# cap: Danh sách bước audiobook: 2 bước mới, 2 gate, giọng qua MptTTS
+direction: down
+in: "Nhập bản thảo\nEPUB, DOCX, TXT\n+ khai báo quyền" {class: plain}
+ch: "chapterize (mới)\ntách chương, đoạn, lexicon,\ngán người nói → ScenePlan" {class: brain}
+g1: "Gate duyệt văn bản" {class: gate}
+vo: "voice (dùng lại)\nMptTTS theo đoạn" {class: hands}
+ck: "checks (dùng lại aligner)\nSTT so văn bản" {class: hands}
+ms: "master (mới)\nFFmpeg: chương, âm lượng,\nMP3 / M4B" {class: hands}
+g2: "Gate nghe duyệt" {class: gate}
+in -> ch -> g1 -> vo -> ck -> ms -> g2
 ```
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s10.b2-dark.svg">
-<img alt="Profile audiobook: 6 bước, 2 module mới, 2 gate" src="05-modules-providers.figs/s10.b2-light.svg">
+<img alt="Danh sách bước audiobook: 2 bước mới, 2 gate, giọng qua MptTTS" src="05-modules-providers.figs/s10.b2-light.svg">
 </picture>
 
 <!-- id:s10.b3 -->
-```yaml
-audiobook:
-  budget_usd: 60
-  steps:
-    - chapterize
-    - gate: text
-    - voice: {fan_out: "SpeechScript.segments", concurrency: 4}
-    - checks: {kind: audio}
-    - master: {formats: [mp3_per_chapter, m4b]}
-    - gate: listen
-```
+Table: Bước audiobook
+| Bước | Mới / tái sử dụng | Việc làm |
+| --- | --- | --- |
+| Nhập bản thảo | — | EPUB, DOCX hoặc TXT; khai báo quyền chuyển thể audio |
+| `chapterize` | Mới | Tách chương và đoạn; chuẩn hóa số và từ viết tắt theo lexicon; LLM gán người nói cho hội thoại. Trả về ScenePlan với mỗi "scene" là một đoạn (chỉ có narration và speaker) |
+| Gate duyệt văn bản | Tái sử dụng | Sửa văn bản, người nói trên Storyboard (dạng danh sách đoạn) |
+| `voice` | Tái sử dụng (`MptTTS`) | Theo đoạn; giọng theo nhân vật từ `voices`; resume theo từng đoạn |
+| `checks` | Tái sử dụng adapter `SubtitleAligner` | STT so với văn bản để bắt đọc sót, lặp; độ ồn, khoảng lặng |
+| `master` | Mới | FFmpeg ghép đoạn thành chương, chuẩn hóa âm lượng, xuất MP3 theo chương hoặc `M4B` có chapter marker |
+| Gate nghe duyệt | Tái sử dụng | Nghe từng chương, chạy lại đoạn lỗi |
 
 <!-- id:s10.b4 -->
-Chi phí giọng đọc ước tính theo giá niêm yết ElevenLabs: khoảng 8 USD (v4) hoặc 4 USD (v4 Turbo) cho mỗi 100.000 ký tự, chưa tính đoạn đọc lại. Kênh phân phối có chính sách riêng về giọng AI (ACX không nhận giọng AI tự tạo; Google Play Books chưa có tiếng Việt); kiểm tra trước khi sản xuất cả cuốn.
+Chi phí giọng đọc ước tính: Edge TTS miễn phí; ElevenLabs khoảng $20–40 cho cuốn 500.000 ký tự. Phân phối cần kiểm tra trước khi sản xuất cả cuốn: ACX (Audible, Amazon) yêu cầu giọng người trừ khi được cho phép (quy định cập nhật 15/04/2026); Google Play Books chỉ nhận giọng AI qua công cụ riêng, chưa có tiếng Việt; Kobo và Spotify nhận sách đọc bằng AI kèm khai báo.
 
 <!-- id:s10.b5 -->
-Table: Các quy trình khác và module cần thêm
-| Quy trình | Mức phù hợp | Module tái sử dụng | Module cần thêm |
+Table: Các quy trình khác
+| Quy trình | Mức phù hợp | Cần thêm | Ghi chú |
 | --- | --- | --- | --- |
-| Video giáo dục từ slide | Rất phù hợp | script, voice, assemble, checks | `slides` |
-| Podcast hai giọng từ bài viết | Rất phù hợp | voice, music, checks, master | `dialogue` |
-| Truyện kể, truyện tranh động | Phù hợp | script, images, motion, voice, assemble | — |
-| Video sản phẩm từ ảnh thật | Phù hợp | images, motion, voice, assemble | — (gate kiểm tuyên bố, logo) |
-| Tin tức theo lịch | Phù hợp | research, script, voice, assemble, publish | — |
-| Lồng tiếng, dịch video | Một phần | voice, assemble, checks | `transcribe`, `translate` |
-| Avatar người nói | Một phần | voice, assemble | `avatar` (lip-sync) |
-| Phim dài toàn cảnh chuyển động | Kém | — | Chi phí theo giây quá cao |
-| Livestream, thời gian thực | Không phù hợp | — | Kiến trúc xử lý theo lô |
+| Video giáo dục từ slide | Rất phù hợp | Bước render slide thành ảnh | Ảnh tĩnh + lời đọc, chi phí thấp |
+| Podcast hai giọng từ bài viết | Rất phù hợp | Bước chuyển bài viết thành hội thoại | Dùng chung `master` với audiobook |
+| Video stock footage kiểu MPT | Phù hợp | Adapter `ImageProvider` gọi stock footage của MPT | Không cần nhân vật |
+| Video sản phẩm từ ảnh thật | Phù hợp | — | Gate kiểm tra tuyên bố sản phẩm, logo |
+| Lồng tiếng, dịch video có sẵn | Một phần | Bước STT có mốc thời gian, bước dịch khớp độ dài | Khớp môi chưa có trong thiết kế |
+| Video avatar người nói | Một phần | Adapter lip-sync | Cần quyền hình ảnh |
+| Phim dài toàn cảnh chuyển động | Kém | — | Chi phí tăng theo giây video AI; nhất quán dài hạn còn yếu |
+| Livestream thời gian thực | Không phù hợp | — | Kiến trúc xử lý theo lô |
 
 <!-- id:s11 -->
-## Kiểm thử module
+## Kiểm thử
 
 <!-- id:s11.b1 -->
-```d2
-# cap: Ba mức kiểm thử, từ rẻ đến đắt
-direction: right
-u: "Unit\nmodule + provider fake\n(không mạng, 0 USD)" {class: data}
-s: "run-step\nmột bước, một scene,\nprovider thật" {class: hands}
-e: "End-to-end\nprofile đầy đủ,\nngân sách nhỏ" {class: brain}
-u -> s -> e
-```
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s11.b1-dark.svg">
-<img alt="Ba mức kiểm thử, từ rẻ đến đắt" src="05-modules-providers.figs/s11.b1-light.svg">
-</picture>
+Mỗi interface phải có một bản giả để test core không tốn tiền (NFR-04). Test chia ba tầng: core với bản giả chạy mọi lần commit; adapter gọi thật chạy tay trước khi nâng MPT hay đổi model; test chấp nhận T01–T10 chạy ở các gate ([08 · Kiểm thử](08-roadmap.md#s4)).
 
 <!-- id:s11.b2 -->
-- Mỗi module chạy riêng qua CLI: `python -m app run-step images --task t_0042 --scene s03`.
-- Provider `fake` trả dữ liệu cố định và usage giả, cho phép test runner, retry, resume và ngân sách không tốn tiền.
-- Test quy tắc phụ thuộc chạy trong CI cùng unit test.
+```d2
+# cap: Ba tầng test: rẻ và thường xuyên ở dưới, đắt và hiếm ở trên
+direction: down
+acc: "Test chấp nhận T01–T10\n5 brief thật, ở mỗi gate\n(tốn tiền, chạy tay)" {class: brain}
+adp: "Test adapter\ngọi dịch vụ thật, một lượt mỗi adapter\n(trước khi nâng MPT, đổi model)" {class: hands}
+core: "Test core với Fake*\nresume, retry, unknown, selected, revision\n+ test quét import (mỗi commit, CI)" {class: gate}
+acc -> adp -> core
+```
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s11.b2-dark.svg">
+<img alt="Ba tầng test: rẻ và thường xuyên ở dưới, đắt và hiếm ở trên" src="05-modules-providers.figs/s11.b2-light.svg">
+</picture>
+
+<!-- id:s11.b3 -->
+Table: Test core bắt buộc (với bản giả)
+| Test | Bản giả làm gì | Khẳng định |
+| --- | --- | --- |
+| Quét import | — | Chỉ `studio/providers/mpt/` có `import app` |
+| Resume | `FakeImage` chậm, worker bị dừng giữa bước | Scene `done` không chạy lại |
+| Lượt gọi mồ côi | `FakeImage` dừng sau khi `pending` được ghi | `unknown`, task `waiting`, không có lượt gọi thứ hai |
+| Poll sau resume | `FakeVideo.poll` trả `None` rồi clip | Không có `submit` thứ hai |
+| Retry | `FakeTTS` ném `Retryable` 2 lần | Lượt 3 thành công; backoff được gọi |
+| QualityFail | `FakeImage` trả ảnh trượt kiểm tra | Chỉ scene đó chạy lại; lý do có trong prompt lượt sau |
+| Sửa scene | Đổi narration s05 | Chỉ voice s05, subtitles, render chạy lại |
+| Đổi adapter | Đổi `tts` trong cấu hình sang `FakeTTS` khác | Không sửa code core (T07) |

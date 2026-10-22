@@ -2,12 +2,13 @@
 id: ADR-INDEX
 title: Decision register (ADRs)
 type: adr_index
-ver: 1.0
+ver: 1.1
 status: final
-date: 2026-10-19
+date: 2026-10-22
 owner: Tuan
 rev:
   - [1.0, 2026-10-19, Generated from the ADRs]
+  - [1.1, 2026-10-22, Generated from the ADRs]
 ---
 
 <!-- id:summary -->
@@ -15,11 +16,11 @@ rev:
 
 <!-- id:summary.b1 -->
 ```kpi
-ADRs | 3
+ADRs | 6
 Pending | 3
 Approved | 0
-One-way | 3
-Nearest due | 2026-10-26
+One-way | 5
+Nearest due | 2026-10-29
 ```
 
 <!-- id:list -->
@@ -29,24 +30,27 @@ Nearest due | 2026-10-26
 Table: ADR list
 | ADR | Decision | Impact | Door | Cost per month | Due | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ADR-0001](0001-generic-fan-out.md) | Module khai báo fan_out trỏ tới một danh sách trong contract; runner không viết cứng "theo scene". | High | One-way | 0 USD | W1 · 2026-10-26 | Pending approval |
-| [ADR-0002](0002-speechscript-contract.md) | voice đọc SpeechScript (danh sách đoạn id, text, speaker) thay vì ScenePlan; mỗi quy trình tự sinh SpeechScript. | High | One-way | 0 USD | W1 · 2026-10-26 | Pending approval |
-| [ADR-0003](0003-parallel-step-groups.md) | Profile chấp nhận nhóm parallel ngay từ Phase 1; runner được phép chạy các bước trong nhóm lần lượt cho tới khi cần nhanh hơn. | Medium | One-way | 0 USD | W1 · 2026-10-26 | Pending approval |
+| [ADR-0001](0001-generic-fan-out.md) | Module khai báo fan_out trỏ tới một danh sách trong contract; runner không viết cứng "theo scene". | High | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
+| [ADR-0002](0002-speechscript-contract.md) | voice đọc SpeechScript (danh sách đoạn id, text, speaker) thay vì ScenePlan; mỗi quy trình tự sinh SpeechScript. | High | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
+| [ADR-0003](0003-parallel-step-groups.md) | Profile chấp nhận nhóm parallel ngay từ Phase 1; runner được phép chạy các bước trong nhóm lần lượt cho tới khi cần nhanh hơn. | Medium | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
+| [ADR-0004](0004-minimal-core-mpt-adapters.md) | Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
+| [ADR-0005](0005-sceneplan-revisions-selected.md) | ScenePlan là contract kịch bản duy nhất (lời đọc lấy từ narration); sửa tạo revision bất biến mới; mỗi lần sinh là một ứng viên và render chỉ đọc ứng viên selected trong assets.json. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
+| [ADR-0006](0006-paid-call-ledger.md) | Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider. | Medium | Two-way | 0 USD | W2 · 2026-10-29 | Pending approval |
 
 <!-- id:decide -->
 ## Recorded decisions
 
 <!-- id:decide.b1 -->
 ```chk
-- [ ] ADR-0001 · Module khai báo fan_out trỏ tới một danh sách trong contract; runner không viết cứng "theo scene".
+- [ ] ADR-0004 · Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py.
   - Approve
   - Reject
   - Request changes
-- [ ] ADR-0002 · voice đọc SpeechScript (danh sách đoạn id, text, speaker) thay vì ScenePlan; mỗi quy trình tự sinh SpeechScript.
+- [ ] ADR-0005 · ScenePlan là contract kịch bản duy nhất (lời đọc lấy từ narration); sửa tạo revision bất biến mới; mỗi lần sinh là một ứng viên và render chỉ đọc ứng viên selected trong assets.json.
   - Approve
   - Reject
   - Request changes
-- [ ] ADR-0003 · Profile chấp nhận nhóm parallel ngay từ Phase 1; runner được phép chạy các bước trong nhóm lần lượt cho tới khi cần nhanh hơn.
+- [ ] ADR-0006 · Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider.
   - Approve
   - Reject
   - Request changes
@@ -59,10 +63,10 @@ Table: ADR list
 Table: Risk matrix
 | Likelihood \ Impact | Low | Medium | High |
 | --- | --- | --- | --- |
-| High | – | – | – |
-| Medium | R1 | R1 | – |
-| Low | R2 | R2 · R2 | – |
-| Not rated | R3 | R3 · R3 | R1 |
+| High | R3 | – | – |
+| Medium | R1 · R2 | R1 · R1 · R1 · R2 | – |
+| Low | R2 | R2 · R2 · R3 · R3 | – |
+| Not rated | R3 | R3 · R3 | R1 · R2 · R1 |
 
 <!-- id:risk-matrix.b2 -->
 Table: Risk register
@@ -77,6 +81,15 @@ Table: Risk register
 | R1 | Hai bước trong nhóm dùng chung rate limit một provider | Medium | Low | `concurrency` theo provider, không theo bước | Claude | ADD-AIVIDEO-001 mục 5 |
 | R2 | Gate nằm trong nhóm làm trạng thái khó hiểu | Low | Medium | Validation cấm `gate` bên trong nhóm | Claude | Thiết kế này |
 | R3 | SQLite bị ghi đồng thời nhiều hơn khi chạy song song thật | Not rated | Medium | WAL; ghi ngắn; đo trước khi bật | Claude | ADD-AIVIDEO-001 mục 10 |
+| R1 | MPT đổi chữ ký hàm khi nâng cấp | Medium | Medium | Ghim phiên bản; test riêng từng adapter trước khi nâng | Claude | ADD-AIVIDEO-003 13.3 |
+| R2 | Code ngoài adapter import `app.*` qua đường tắt | Not rated | High | Test quét import chạy trong CI | Claude | ADD-AIVIDEO-003 5.4 |
+| R3 | MPT ngừng bảo trì hoặc đổi giấy phép | Low | Medium | Bản copy renderer đã tự chứa; adapter khác cùng interface | Claude | Thiết kế này |
+| R1 | Ứng viên được chọn thuộc revision cũ sau khi sửa scene | Medium | Medium | Sinh lại scene bị sửa đặt ứng viên mới làm selected; UI đánh dấu ứng viên lệch revision | Claude | Thiết kế này |
+| R2 | Ổ đĩa đầy dần | Medium | Low | Dọn ứng viên không được chọn sau N ngày; sao lưu `data/` | Claude | ADD-AIVIDEO-003 13.1 |
+| R3 | Ghi `assets.json` đồng thời từ worker và web | Low | Medium | Ghi qua file tạm rồi đổi tên; khóa theo task | Claude | Thiết kế này |
+| R1 | Adapter quên ghi pending trước lượt gọi | Not rated | High | Lớp ghi chi phí bọc mọi lượt gọi trả phí; test T05 | Claude | ADD-AIVIDEO-003 F03 |
+| R2 | Task tiêu nhiều khi chạy song song nhiều scene với API đắt | Medium | Medium | Gate keyframe trước bước đắt; giới hạn ở tài khoản; test T08 | Claude | ADD-AIVIDEO-003 4 |
+| R3 | Ước tính lệch hóa đơn | High | Low | Đối chiếu hằng tháng; chỉ dùng số đo được để ra quyết định | Tuan | ADD-AIVIDEO-003 F10 |
 
 <!-- id:lifecycle -->
 ## Status lifecycle
