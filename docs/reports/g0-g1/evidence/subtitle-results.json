@@ -1,0 +1,57 @@
+{
+  "total": 5,
+  "succeeded": 5,
+  "failed": 0,
+  "tasks": [
+    {
+      "index": 1,
+      "task_id": "1799f5f7-ca07-40f6-8cd7-253a3b3bcebf",
+      "status": "succeeded",
+      "result": {
+        "subtitle_path": "exports/MoneyPrinterTurbo/storage/tasks/1799f5f7-ca07-40f6-8cd7-253a3b3bcebf/subtitle.srt"
+      },
+      "failed_stage": null,
+      "error": null
+    },
+    {
+      "index": 2,
+      "task_id": "dbcc38c6-805e-49aa-a10b-bd8722ef37fa",
+      "status": "succeeded",
+      "result": {
+        "subtitle_path": "exports/MoneyPrinterTurbo/storage/tasks/dbcc38c6-805e-49aa-a10b-bd8722ef37fa/subtitle.srt"
+      },
+      "failed_stage": null,
+      "error": null
+    },
+    {
+      "index": 3,
+      "task_id": "14d4a256-1c5f-4df5-a349-993f812165eb",
+      "status": "succeeded",
+      "result": {
+        "subtitle_path": "exports/MoneyPrinterTurbo/storage/tasks/14d4a256-1c5f-4df5-a349-993f812165eb/subtitle.srt"
+      },
+      "failed_stage": null,
+      "error": null
+    },
+    {
+      "index": 4,
+      "task_id": "efdca503-4ce1-4aa2-b1e6-85f62705be24",
+      "status": "succeeded",
+      "result": {
+        "subtitle_path": "exports/MoneyPrinterTurbo/storage/tasks/efdca503-4ce1-4aa2-b1e6-85f62705be24/subtitle.srt"
+      },
+      "failed_stage": null,
+      "error": null
+    },
+    {
+      "index": 5,
+      "task_id": "268f0f45-3685-4645-8438-e52d9b0262e3",
+      "status": "succeeded",
+      "result": {
+        "subtitle_path": "exports/MoneyPrinterTurbo/storage/tasks/268f0f45-3685-4645-8438-e52d9b0262e3/subtitle.srt"
+      },
+      "failed_stage": null,
+      "error": null
+    }
+  ]
+}

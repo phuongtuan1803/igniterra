@@ -1,0 +1,165 @@
+{
+  "artifact_ref_base": "exports directory outside Git; binaries not included",
+  "artifacts": [
+    {
+      "brief_id": "brief-01",
+      "kind": "source_image",
+      "artifact_ref": "exports/gate0/1.png",
+      "bytes": 1918562,
+      "sha256": "0bea787fa26c7307d9f46daf460467837684dec1f63fa0bac86fcd1acfb2c669",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-01",
+      "kind": "audio",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/1799f5f7-ca07-40f6-8cd7-253a3b3bcebf/audio.mp3",
+      "bytes": 207072,
+      "sha256": "afd2db19fe4aeb7101756c6e7cd42c44244d1d1290475a460fe73cc384fd8e07",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-01",
+      "kind": "subtitle",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/1799f5f7-ca07-40f6-8cd7-253a3b3bcebf/subtitle.srt",
+      "bytes": 1025,
+      "sha256": "ecdf19810fde27212db2cd3cfc21ad57f841664a20c4008e33a59a9998118580",
+      "committed": true
+    },
+    {
+      "brief_id": "brief-01",
+      "kind": "video",
+      "artifact_ref": "exports/gate0-renders/brief-01-single-image.mp4",
+      "bytes": 2509255,
+      "sha256": "a3f95290bcb17014f2078c51e7a4c06fd1da6a9c16ea81b532966aa0d63e63f2",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-02",
+      "kind": "source_image",
+      "artifact_ref": "exports/gate0/2.png",
+      "bytes": 2486031,
+      "sha256": "c2e4828f66e3c4f80a87c9fdcca8b6f13e8d1170c0d73c3ecca38dc067fac28f",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-02",
+      "kind": "audio",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/dbcc38c6-805e-49aa-a10b-bd8722ef37fa/audio.mp3",
+      "bytes": 202032,
+      "sha256": "aa008e6111fa86def73f858e010581c4fa2dc06c0621010836c2db859043fa04",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-02",
+      "kind": "subtitle",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/dbcc38c6-805e-49aa-a10b-bd8722ef37fa/subtitle.srt",
+      "bytes": 1104,
+      "sha256": "da904511d087a418164c70ab2e585c767eab5ec60a4a96c97a66737b9400c84c",
+      "committed": true
+    },
+    {
+      "brief_id": "brief-02",
+      "kind": "video",
+      "artifact_ref": "exports/gate0-renders/brief-02-single-image.mp4",
+      "bytes": 3833991,
+      "sha256": "c7862eaafa0d96383444f6fc48d39d99e4f01f61ca515ca80a9bce4b3aaddb30",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-03",
+      "kind": "source_image",
+      "artifact_ref": "exports/gate0/3.png",
+      "bytes": 3044546,
+      "sha256": "e7f1b3fba27229790660376f1d7d44c29538ceaece2cbb41abc0f1df9ed799ec",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-03",
+      "kind": "audio",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/14d4a256-1c5f-4df5-a349-993f812165eb/audio.mp3",
+      "bytes": 213552,
+      "sha256": "69858e43259e3dca51b7a5f6a83bf8e1438e94d5707b59e607e7f150cf8e8350",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-03",
+      "kind": "subtitle",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/14d4a256-1c5f-4df5-a349-993f812165eb/subtitle.srt",
+      "bytes": 1104,
+      "sha256": "9ffa1637660b0c148019954372f4ef3c71e5e3075a6c196baadb680ed8e87934",
+      "committed": true
+    },
+    {
+      "brief_id": "brief-03",
+      "kind": "video",
+      "artifact_ref": "exports/gate0-renders/brief-03-single-image.mp4",
+      "bytes": 5383413,
+      "sha256": "260e3e870f93eb5276f058e933a59ab049f2e6ed890c97f7f151457b4bf96dbc",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-04",
+      "kind": "source_image",
+      "artifact_ref": "exports/gate0/4.png",
+      "bytes": 2087641,
+      "sha256": "2d7890f2cb822fb076e1f80eaa87f6304fced9f82a20ff58553033df2ff96fcb",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-04",
+      "kind": "audio",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/efdca503-4ce1-4aa2-b1e6-85f62705be24/audio.mp3",
+      "bytes": 208800,
+      "sha256": "d74c110ca3715ef69ce958a86c64eff4df5a38dadd8de113d51ce5328c83df66",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-04",
+      "kind": "subtitle",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/efdca503-4ce1-4aa2-b1e6-85f62705be24/subtitle.srt",
+      "bytes": 1128,
+      "sha256": "1d2ba261327672a5587e8a8d174df0472c465ee8ff5eef3efd302a9fbb9113e8",
+      "committed": true
+    },
+    {
+      "brief_id": "brief-04",
+      "kind": "video",
+      "artifact_ref": "exports/gate0-renders/brief-04-single-image.mp4",
+      "bytes": 3264280,
+      "sha256": "8cc6e1a1c74995dcde083be8c0d7e539e208f128ce7baa055fc102b8929ac8f6",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-05",
+      "kind": "source_image",
+      "artifact_ref": "exports/gate0/5.png",
+      "bytes": 2469288,
+      "sha256": "f8d3fcb431c1c30cbc19bd1ea7540e235b852c6e7a39c8a57faf6c83a42130d2",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-05",
+      "kind": "audio",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/268f0f45-3685-4645-8438-e52d9b0262e3/audio.mp3",
+      "bytes": 211968,
+      "sha256": "80ae58802d5ebec92c08fadc7dedf5d3823408e6777da96833edbbf7cdfb31a0",
+      "committed": false
+    },
+    {
+      "brief_id": "brief-05",
+      "kind": "subtitle",
+      "artifact_ref": "exports/MoneyPrinterTurbo/storage/tasks/268f0f45-3685-4645-8438-e52d9b0262e3/subtitle.srt",
+      "bytes": 1124,
+      "sha256": "411f4bf85e4fd77d6703557ce0a309253b99cd6d0bdb1996dc4cad70b7688a5f",
+      "committed": true
+    },
+    {
+      "brief_id": "brief-05",
+      "kind": "video",
+      "artifact_ref": "exports/gate0-renders/brief-05-single-image.mp4",
+      "bytes": 4068609,
+      "sha256": "3396721dde54e8db15493ff4d27d37941c9ffd6cb05c79020d0dce081ae9b8bc",
+      "committed": false
+    }
+  ]
+}

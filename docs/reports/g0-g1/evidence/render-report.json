@@ -1,0 +1,102 @@
+{
+  "1": {
+    "output": "exports/gate0-renders/brief-01-single-image.mp4",
+    "duration_seconds": 34.51,
+    "size": [
+      1080,
+      1920
+    ],
+    "fps": 24.0,
+    "has_audio": true,
+    "full_decode_ok": true,
+    "bytes": 2509255,
+    "method": "FFmpeg technical preview, not unmodified MPT end-to-end",
+    "variant": "one-local-image-per-brief",
+    "paid_calls": 0,
+    "audio_reused": "exports/MoneyPrinterTurbo/storage/tasks/1799f5f7-ca07-40f6-8cd7-253a3b3bcebf/audio.mp3",
+    "srt_reused": "exports/MoneyPrinterTurbo/storage/tasks/1799f5f7-ca07-40f6-8cd7-253a3b3bcebf/subtitle.srt",
+    "subtitles_burned_in": true,
+    "quality_accepted": null,
+    "render_elapsed_seconds": 39.3
+  },
+  "2": {
+    "output": "exports/gate0-renders/brief-02-single-image.mp4",
+    "duration_seconds": 33.67,
+    "size": [
+      1080,
+      1920
+    ],
+    "fps": 24.0,
+    "has_audio": true,
+    "full_decode_ok": true,
+    "bytes": 3833991,
+    "method": "FFmpeg technical preview, not unmodified MPT end-to-end",
+    "variant": "one-local-image-per-brief",
+    "paid_calls": 0,
+    "audio_reused": "exports/MoneyPrinterTurbo/storage/tasks/dbcc38c6-805e-49aa-a10b-bd8722ef37fa/audio.mp3",
+    "srt_reused": "exports/MoneyPrinterTurbo/storage/tasks/dbcc38c6-805e-49aa-a10b-bd8722ef37fa/subtitle.srt",
+    "subtitles_burned_in": true,
+    "quality_accepted": null,
+    "render_elapsed_seconds": 42.55
+  },
+  "3": {
+    "output": "exports/gate0-renders/brief-03-single-image.mp4",
+    "duration_seconds": 35.59,
+    "size": [
+      1080,
+      1920
+    ],
+    "fps": 24.0,
+    "has_audio": true,
+    "full_decode_ok": true,
+    "bytes": 5383413,
+    "method": "FFmpeg technical preview, not unmodified MPT end-to-end",
+    "variant": "one-local-image-per-brief",
+    "paid_calls": 0,
+    "audio_reused": "exports/MoneyPrinterTurbo/storage/tasks/14d4a256-1c5f-4df5-a349-993f812165eb/audio.mp3",
+    "srt_reused": "exports/MoneyPrinterTurbo/storage/tasks/14d4a256-1c5f-4df5-a349-993f812165eb/subtitle.srt",
+    "subtitles_burned_in": true,
+    "quality_accepted": null,
+    "render_elapsed_seconds": 43.46
+  },
+  "4": {
+    "output": "exports/gate0-renders/brief-04-single-image.mp4",
+    "duration_seconds": 34.8,
+    "size": [
+      1080,
+      1920
+    ],
+    "fps": 24.0,
+    "has_audio": true,
+    "full_decode_ok": true,
+    "bytes": 3264280,
+    "method": "FFmpeg technical preview, not unmodified MPT end-to-end",
+    "variant": "one-local-image-per-brief",
+    "paid_calls": 0,
+    "audio_reused": "exports/MoneyPrinterTurbo/storage/tasks/efdca503-4ce1-4aa2-b1e6-85f62705be24/audio.mp3",
+    "srt_reused": "exports/MoneyPrinterTurbo/storage/tasks/efdca503-4ce1-4aa2-b1e6-85f62705be24/subtitle.srt",
+    "subtitles_burned_in": true,
+    "quality_accepted": null,
+    "render_elapsed_seconds": 41.23
+  },
+  "5": {
+    "output": "exports/gate0-renders/brief-05-single-image.mp4",
+    "duration_seconds": 35.33,
+    "size": [
+      1080,
+      1920
+    ],
+    "fps": 24.0,
+    "has_audio": true,
+    "full_decode_ok": true,
+    "bytes": 4068609,
+    "method": "FFmpeg technical preview, not unmodified MPT end-to-end",
+    "variant": "one-local-image-per-brief",
+    "paid_calls": 0,
+    "audio_reused": "exports/MoneyPrinterTurbo/storage/tasks/268f0f45-3685-4645-8438-e52d9b0262e3/audio.mp3",
+    "srt_reused": "exports/MoneyPrinterTurbo/storage/tasks/268f0f45-3685-4645-8438-e52d9b0262e3/subtitle.srt",
+    "subtitles_burned_in": true,
+    "quality_accepted": null,
+    "render_elapsed_seconds": 34.66
+  }
+}

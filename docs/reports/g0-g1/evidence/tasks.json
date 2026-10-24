@@ -1,0 +1,57 @@
+[
+  {
+    "video_subject": "brief-01 — Tín hiệu từ ngày mai",
+    "video_script": "Người gác trạm nhận được lời cảnh báo bằng chính giọng mình. Đừng mở cửa khoang. Ngoài ô kính, chỉ có bóng tối và những vì sao. Anh kiểm tra máy liên lạc. Không có tàu nào ở gần. Rồi ba tiếng gõ vang lên từ phía bên kia cửa. Anh lùi lại, mở lịch sử truyền tin. Lời cảnh báo không đến từ bên ngoài. Nó nằm trong danh sách tin nhắn hẹn giờ của chính thiết bị này. Thời gian gửi là ngày mai. Anh nhìn chiếc micro trước mặt. Mình còn chưa ghi âm.",
+    "video_terms": "space station,radio,spacecraft door",
+    "video_language": "vi-VN",
+    "voice_name": "vi-VN-NamMinhNeural",
+    "bgm_type": "",
+    "font_name": "BeVietnamPro-Medium.ttf",
+    "video_aspect": "9:16",
+    "subtitle_enabled": true
+  },
+  {
+    "video_subject": "brief-02 — Người làm vườn cuối cùng",
+    "video_script": "Con người đã biến mất, nhưng robot vẫn tưới chậu đất mỗi sáng. Giữa thành phố bỏ hoang, nó đi qua những tòa nhà đổ nát để tìm từng giọt nước. Nhiều năm trôi qua. Chậu đất vẫn im lìm. Một đêm lạnh, đèn báo pin chuyển đỏ. Robot có thể trở về trạm sạc. Nhưng nó ở lại, ôm chậu đất bằng đôi tay đang tỏa hơi ấm cuối cùng. Đến sáng, đôi mắt máy tắt hẳn. Thành phố lại yên lặng. Chỉ có trong chậu đất, một mầm xanh vừa xuyên qua lớp bụi.",
+    "video_terms": "abandoned city,robot watering pot,seedling",
+    "video_language": "vi-VN",
+    "voice_name": "vi-VN-NamMinhNeural",
+    "bgm_type": "",
+    "font_name": "BeVietnamPro-Medium.ttf",
+    "video_aspect": "9:16",
+    "subtitle_enabled": true
+  },
+  {
+    "video_subject": "brief-03 — Dấu chân đến trước",
+    "video_script": "Chưa ai đặt chân lên hành tinh này. Vậy dấu giày trước mặt đến từ đâu? Phi hành gia cúi xuống. Trên nền bụi, vết đế giày có đúng vết khuyết trên chiếc ủng của anh. Anh lần theo chúng tới miệng một hố sâu. Nhưng dấu chân không dừng lại. Chúng vòng qua hố rồi quay về con tàu vừa hạ cánh. Trong khoang, mọi thứ vẫn nguyên vẹn. Chỉ có đồng hồ đang chạy lùi. Anh nhìn lại cửa tàu, chợt hiểu. Mình không theo dấu người đến trước. Mình đang theo dấu lần quay lại của chính mình.",
+    "video_terms": "astronaut barren planet,footprints dust,spacecraft cabin",
+    "video_language": "vi-VN",
+    "voice_name": "vi-VN-NamMinhNeural",
+    "bgm_type": "",
+    "font_name": "BeVietnamPro-Medium.ttf",
+    "video_aspect": "9:16",
+    "subtitle_enabled": true
+  },
+  {
+    "video_subject": "brief-04 — Một phút ký ức",
+    "video_script": "Mỗi lần chiếc máy sáng lên, anh lại quên một điều về mình. Ban đầu là một buổi chiều buồn. Rồi đến một khuôn mặt, một lời hứa. Anh dán giấy khắp căn phòng để nhớ những gì còn lại. Khi chiếc máy bắt đầu đếm ngược lần nữa, anh không còn nhớ tên mình. Trên bàn chỉ còn một tờ giấy chưa đọc. Nét chữ run rẩy ghi: Con gái đang đợi ngoài cửa. Bàn tay anh dừng lại trên nút bấm. Anh đã muốn quên nỗi đau. Nhưng không muốn quên người mình yêu. Lần này, anh tắt máy.",
+    "video_terms": "dark room,glowing device,paper notes,closed door",
+    "video_language": "vi-VN",
+    "voice_name": "vi-VN-NamMinhNeural",
+    "bgm_type": "",
+    "font_name": "BeVietnamPro-Medium.ttf",
+    "video_aspect": "9:16",
+    "subtitle_enabled": true
+  },
+  {
+    "video_subject": "brief-05 — Bức thư gửi ngôi sao đã tắt",
+    "video_script": "Ai cũng nói ngôi sao ấy đã tắt. Cô gái vẫn gửi một lời chào mỗi đêm. Khi còn nhỏ, cha bảo nếu một ngày ông đi xa, hãy tìm ông giữa những vì sao. Giờ cô đã trưởng thành. Chiếc ăng ten cũ vẫn hướng về một khoảng trời tối. Một đêm, máy thu bất chợt phát tiếng nói quen thuộc. Cha vẫn nghe con. Cô kiểm tra ngày gửi. Thông điệp đã rời đi từ nhiều năm trước, trước cả lời chào đầu tiên của cô. Cô ngồi yên đến sáng. Có những lời yêu thương chỉ cần thời gian để tìm được đường về.",
+    "video_terms": "starry sky,observatory antenna,radio receiver",
+    "video_language": "vi-VN",
+    "voice_name": "vi-VN-NamMinhNeural",
+    "bgm_type": "",
+    "font_name": "BeVietnamPro-Medium.ttf",
+    "video_aspect": "9:16",
+    "subtitle_enabled": true
+  }
+]

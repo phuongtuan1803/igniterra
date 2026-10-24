@@ -14,6 +14,11 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 | [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 0–4, thứ tự việc Gate 2, test T01–T10, quyết định mở P/D |
 | [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 chờ chốt |
 
+## Báo cáo pilot
+
+- [Gate 0–1: quyết định, kết quả thực thi và bằng chứng](reports/g0-g1/README.md) — G0 đã chốt; G1 có preview kỹ thuật, chưa hoàn tất baseline hoặc quyết định build/reuse.
+- [Bài học kiến trúc từ MPT](reports/g0-g1/mpt-architecture-review.md) — nhận xét từ mã nguồn ghim commit, không phải benchmark.
+
 ## Cách viết và build
 
 Tài liệu là Markdown của [Report Kit](https://github.com/phuongtuan1803/report-kit); diagram là khối `d2`, file SVG nằm trong thư mục `*.figs/` cạnh nguồn và được commit cùng Markdown. Không sửa tay SVG hay HTML.
