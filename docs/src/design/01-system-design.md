@@ -127,14 +127,14 @@ Table: Tác nhân và hệ thống ngoài
 ## Mục tiêu và phạm vi
 
 <!-- id:s3.b1 -->
-Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Mọi con số chi phí và thời gian là ước tính cho tới khi đo ở Gate 1–2.
+Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Mọi con số chi phí và thời gian là ước tính cho tới khi đo ở Gate 2.
 
 <!-- id:s3.b2 -->
 Table: Mục tiêu hệ thống
 | ID | Mục tiêu | Đo bằng |
 | --- | --- | --- |
 | G-01 | Từ một brief ra MP4 9:16 có hình theo scene, giọng tiếng Việt, phụ đề, không thao tác file thủ công | 5 brief đã chốt ở Gate 0 ([g0-plan](../../reports/g0-g1/g0-plan.md)) ra MP4 ở Gate 2 |
-| G-02 | Hơn MPT nguyên bản trên cùng brief | Số video được duyệt hoặc phút công trên mỗi video được duyệt, so với baseline Gate 1 |
+| G-02 | Đạt mục tiêu vận hành của Gate 0 trên 5 brief | Video đạt C01–C09; tối đa 15 phút chủ động mỗi video được duyệt; tổng chi pilot trong 5 USD. Không so với MPT vì baseline đã bỏ (D-01, 24/10/2026) |
 | G-03 | Người dùng kiểm soát từng scene | Chọn ứng viên, sửa scene, chạy lại riêng scene, duyệt gate |
 | G-04 | Không phụ thuộc cứng vào MPT | Bỏ MPT cho một năng lực = viết adapter khác cùng interface, đổi một dòng cấu hình |
 | G-05 | Chi phí minh bạch theo lượt gọi | `costs.jsonl` có từng lượt gọi trả phí; đối chiếu hóa đơn hằng tháng |
@@ -360,7 +360,7 @@ Table: Ràng buộc và giả định
 | CON-04 | Giá và sự tồn tại của provider thay đổi thường xuyên (OpenAI gỡ Sora 2 khỏi API ngày 24/09/2026) | Chỉ ghi nhật ký chi phí, giới hạn chi tiêu ở tài khoản provider (AD-10) |
 | CON-05 | Chính sách nền tảng (YouTube, TikTok, ACX, EU AI Act Điều 50 từ 02/08/2026) | Gate cuối do người; không tự đăng trước Gate 4 |
 | CON-06 | Model tự host có giấy phép khác nhau | Chỉ Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại |
-| CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Gate 1 đo baseline; mọi con số là ước tính tới khi đo |
+| CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Baseline MPT đã bỏ (D-01); Gate 2 đo trên studio; mọi con số là ước tính tới khi đo |
 | CON-08 | Sản phẩm pilot (D-02, chốt ở Gate 0): Short sci-fi bí ẩn tiếng Việt, 9:16, 45–58 giây, trần cứng 60 giây, 4–6 nhịp hình, nhạc tắt, không cận mặt cố định | Brief mang `max_s` và số scene; `plan` và hậu điều kiện kiểm trần; Series Bible ưu tiên bối cảnh, bóng người |
 
 <!-- id:s9 -->

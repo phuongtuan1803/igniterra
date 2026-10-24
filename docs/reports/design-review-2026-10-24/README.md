@@ -2,13 +2,14 @@
 id: IGN-REVIEW-01
 title: Igniterra — Soát thiết kế trước Gate 2
 type: report
-ver: "1.0"
+ver: "1.1"
 status: draft
 date: 2026-10-24
 owner: Tuan
-sum: Soát bộ thiết kế 2.0 với báo cáo G0/G1 và mã MPT 82bb4a7 trước khi viết code; 5 phát hiện chặn và 11 phát hiện cần làm trong Gate 2 đã được sửa vào tài liệu 2.1, còn 1 quyết định về cách bắt đầu Gate 2 chờ Tuan.
+sum: Soát bộ thiết kế 2.0 với báo cáo G0/G1 và mã MPT 82bb4a7 trước khi viết code; 5 phát hiện chặn và 11 phát hiện cần làm trong Gate 2 đã được sửa vào tài liệu 2.1, Tuan đã chốt D-01 = build và bỏ baseline MPT; còn 3 quyết định (duyệt ADR, ghim MPT, giới hạn chi tiêu) chờ Tuan.
 rev:
   - ["1.0", 2026-10-24, "Bản đầu: soát trước Gate 2, sửa đi kèm trong tài liệu thiết kế 2.1 và ADR 0004–0006 bản 0.2"]
+  - ["1.1", 2026-10-24, "Q1 đã chốt: bỏ baseline, D-01 = build dựa trên lỗi C06 của pilot; Gate 2b chỉ chờ giới hạn chi tiêu và ADR"]
 ---
 
 <!-- id:s1 -->
@@ -23,7 +24,7 @@ Table: Tóm tắt phát hiện
 | --- | --- | --- |
 | Chặn: phải sửa trước khi code | 5 | Đã sửa trong tài liệu |
 | Cần làm trong Gate 2 | 11 | Đã sửa trong tài liệu |
-| Quyết định của Tuan | 4 | Chờ, xem [mục cuối](#s6) |
+| Quyết định của Tuan | 4 | 1 đã chốt (Q1), 3 còn chờ, xem [mục cuối](#s6) |
 
 <!-- id:s1.b3 -->
 <!-- report-kit:d2
@@ -253,51 +254,43 @@ p2 -> p3: parent
 ## Lộ trình đề xuất
 
 <!-- id:s5.b1 -->
-Gate 1 chưa xong: chưa có 5 video MPT nguyên bản, chưa chấm đủ checklist, D-01 chưa quyết định. Theo lộ trình 2.0, chưa được viết dòng code nào. Đề xuất chia Gate 2 thành hai nửa để không phải chờ mà cũng không bỏ phép so sánh:
+Ngày 24/10/2026 Tuan chốt D-01 = build và bỏ baseline MPT (Q1, phương án 2), dựa trên lỗi C06 của pilot. Gate 1 đóng theo quyết định này. Gate 2 vẫn chia hai nửa, nhưng Gate 2b chỉ còn chờ giới hạn chi tiêu và ADR được duyệt:
 
 <!-- id:s5.b2 -->
 <!-- report-kit:d2
 ```d2
-# cap: Gate 2a làm ngay với 0 USD; Gate 2b chỉ mở khi baseline và giới hạn chi tiêu đã có
+# cap: D-01 = build đã chốt; Gate 2a làm ngay với 0 USD, Gate 2b mở khi giới hạn chi tiêu và ADR đã có
 direction: right
-now: "Ngay bây giờ" {
+d01: "D-01 = build\n(24/10/2026, lỗi C06)\nbỏ baseline MPT" {class: data}
+a: "Gate 2a\nkhung repo, contract, Fake*,\ncore, CLI, đường miễn phí\n(Edge TTS, animate, render)" {class: brain}
+cond: "Điều kiện mở 2b" {
   class: zone
-  a: "Gate 2a\nkhung repo, contract, Fake*,\ncore, CLI, đường miễn phí\n(Edge TTS, animate, render)" {class: brain}
-  base: "Hoàn tất baseline Gate 1\n5 video MPT, nguồn local\n4–6 ảnh mỗi brief,\nchấm C01–C09 (0 USD)" {class: hands}
+  lim: "Đặt giới hạn chi tiêu\ntrên dashboard (Q4)" {class: gate}
+  adr: "Duyệt ADR 0004–0006\n(Q2)" {class: gate}
 }
-cond: "D-01: MPT trượt\nyêu cầu bắt buộc?" {shape: diamond; class: gate}
-b: "Gate 2b\nGeminiLLM, NanoBanana,\nđo 5 brief, so MPT" {class: brain}
-stop: "Dừng sau 2a\ndùng MPT" {class: bad}
-lim: "Đặt giới hạn chi tiêu\ntrên dashboard (D-03)" {class: gate}
-now.base -> cond
-cond -> b: có
-cond -> stop: không
-lim -> b
-now.a -> b: "core sẵn sàng"
+b: "Gate 2b\nGeminiLLM, NanoBanana,\nđo 5 brief theo\nmục tiêu Gate 0" {class: brain}
+d01 -> a
+a -> b: "core sẵn sàng"
+cond -> b
 ```
 -->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="README.figs/s5.b2-dark.svg">
-<img alt="Gate 2a làm ngay với 0 USD; Gate 2b chỉ mở khi baseline và giới hạn chi tiêu đã có" src="README.figs/s5.b2-light.svg">
+<img alt="D-01 = build đã chốt; Gate 2a làm ngay với 0 USD, Gate 2b mở khi giới hạn chi tiêu và ADR đã có" src="README.figs/s5.b2-light.svg">
 </picture>
 
 <!-- id:s5.b3 -->
-Pexels không còn cấp API key (Tuan báo ngày 24/10/2026), nên baseline dùng `video_source = "local"` của MPT, với 4–6 ảnh cho mỗi brief theo đúng nhịp đã chốt. Cấu hình nên dùng `video_concat_mode = "sequential"` và `video_clip_duration` xấp xỉ tổng giọng chia số ảnh. Ở chế độ này MPT cắt và ghép tư liệu theo độ dài clip cố định để lấp đầy một file giọng duy nhất (`combine_videos`, mặc định `random` và 5 giây), không gắn từng ảnh với câu kể tương ứng. Đây đúng là điểm cần đo cho C03 và C06, và vẫn tốn 0 USD. Có thể dùng Pixabay hoặc Coverr làm nguồn stock thay thế, nếu sau này cần đúng kiểu baseline stock.
+Cái giá đã chấp nhận: không còn video MPT nguyên bản để so (T10 không áp dụng), và C06 mới cho thấy giới hạn của đầu vào một ảnh, chưa chứng minh MPT không dựng đúng được khi có đủ cảnh. Vì vậy Gate 2 đo studio theo mục tiêu tuyệt đối của Gate 0: video đạt C01–C09, tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD. Pexels không còn cấp API key nên không có trong thiết kế.
 
 <!-- id:s5.b4 -->
-Gate 2a dùng bản giả, Edge TTS miễn phí và ảnh local như pilot, nên làm được ngay mà không tốn tiền. Nếu baseline cho thấy MPT đạt checklist, chỉ mất phần việc không tốn tiền. Chi tiết ở [08 · Gate 2](../../src/design/08-roadmap.md#s3).
+Chi tiết ở [08 · Gate 2](../../src/design/08-roadmap.md#s3).
 
 <!-- id:s6 -->
 ## Quyết định cần Tuan
 
 <!-- id:s6.b1 -->
-```q
-Q1 · Bắt đầu Gate 2 thế nào khi Gate 1 chưa xong?
-1. Làm Gate 2a ngay; hoàn tất baseline Gate 1 với nguồn `local` (4–6 ảnh mỗi brief) trước Gate 2b
-2. Bỏ baseline, ghi D-01 = build với lý do C06 của pilot, làm cả Gate 2
-3. Hoàn tất baseline Gate 1 trước, chưa viết code
-rec: 1
-```
+> [!NOTE]
+> Q1 · Bắt đầu Gate 2 thế nào khi Gate 1 chưa xong? Đã chốt ngày 24/10/2026: Tuan chọn phương án 2, bỏ baseline, ghi D-01 = build với lý do C06 của pilot, làm cả Gate 2. Đề xuất ban đầu là làm Gate 2a ngay và hoàn tất baseline trước Gate 2b.
 
 <!-- id:s6.b2 -->
 ```q

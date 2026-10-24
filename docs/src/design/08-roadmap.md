@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.1"
+ver: "2.2"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -12,6 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu (5 phase), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: decision gate 0–4 có lối ra dừng xây, test T01–T10, nhật ký pilot, quyết định P-01..P-03 và D-01..D-07"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: trạng thái thật của Gate 0–1, Gate 2 chia 2a (không tốn tiền) và 2b (adapter trả phí, đo), thứ tự việc mới có animate và phiếu duyệt, test T11–T12, ví dụ t_0042 theo D-02, P-01 đề xuất mpt 1.3.9"]
+  - ["2.2", 2026-10-24, "Tuan chốt D-01 = build dựa trên lỗi C06 của pilot, bỏ baseline MPT; Gate 1 đóng theo quyết định, Gate 2b chỉ chờ giới hạn chi tiêu và ADR; Gate 2 đo theo mục tiêu tuyệt đối của Gate 0, T10 không còn áp dụng"]
 ---
 
 <!-- id:s1 -->
@@ -26,20 +27,18 @@ Chưa viết dòng code nào trước Gate 2, và mỗi cổng đều có lối 
 # cap: Năm decision gate; code chỉ bắt đầu ở Gate 2, mỗi gate có lối ra dừng xây
 direction: down
 g0: "Gate 0 · Mục tiêu\n1 thể loại, 5 brief,\nchecklist viết trước\n(1–2 ngày)" {class: plain}
-g1: "Gate 1 · Baseline MPT\n5 video MPT nguyên bản\n+ nhật ký pilot\n(2–3 ngày)" {class: plain}
+g1: "Gate 1 · Pilot MPT\nđóng 24/10/2026:\nbỏ baseline, D-01 = build" {class: plain}
 g2: "Gate 2 · Core + adapter, CLI\ncùng 5 brief ra MP4\n(1–2 tuần)" {class: brain}
 g3: "Gate 3 · Duyệt và sửa\ntrang review, selected,\nrerun, Series Bible\n(1–2 tuần)" {class: brain}
 g4: "Gate 4 · Mở rộng\nmột adapter mỗi lần" {class: hands}
 x0: "Dừng: không nói rõ\ngiá trị loại video" {class: bad}
-x1: "Dừng: dùng MPT\n(MPT đạt checklist)" {class: bad}
-x2: "Dừng: quay lại MPT\n(không hơn rõ rệt)" {class: bad}
+x2: "Dừng hoặc quay lại MPT\n(không đạt mục tiêu)" {class: bad}
 x3: "Bỏ tính năng\nkhông giải quyết lỗi đã thấy" {class: bad}
 g0 -> g1: "tiêu chí độc lập công cụ"
-g1 -> g2: "MPT trượt yêu cầu\nbắt buộc"
-g2 -> g3: "nhiều video được duyệt\nhơn hoặc ít phút công hơn"
+g1 -> g2: "D-01 = build\n(lỗi C06 của pilot)"
+g2 -> g3: "đạt mục tiêu\nGate 0"
 g3 -> g4: "giảm sinh lại\nhoặc phút sửa"
 g0 -> x0
-g1 -> x1
 g2 -> x2
 g3 -> x3
 ```
@@ -54,8 +53,8 @@ Table: Cổng, đầu ra kiểm chứng và điều kiện
 | Cổng | Đầu ra kiểm chứng | Đi tiếp khi | Dừng hoặc quay lại MPT khi | Thời gian ước tính |
 | --- | --- | --- | --- | --- |
 | 0 — Mục tiêu | Một thể loại video, 5 brief, checklist đạt/không đạt viết trước khi chạy | Tiêu chí độc lập với công cụ | Không nói rõ được giá trị của loại video | 1–2 ngày |
-| 1 — Baseline MPT | 5 video từ MPT nguyên bản (Edge TTS tiếng Việt, nguồn hình `local` với 4–6 ảnh mỗi brief: $0; thêm một lượt nguồn ảnh AI). Pexels không còn cấp API key (24/10/2026) nên bị bỏ; nhật ký pilot | Có yêu cầu bắt buộc MPT không đạt (dự kiến: cảnh theo kịch bản, nhân vật nhất quán) | MPT đạt checklist | 2–3 ngày |
-| 2 — Core + adapter, CLI | Core (contract, StepRun, `costs.jsonl`) + `MptTTS`, `MptSubtitleAligner`, adapter ảnh trực tiếp, renderer; cùng 5 brief ra MP4; test quét import | Video được duyệt nhiều hơn hoặc ít phút công hơn MPT trên cùng brief | Không hơn MPT rõ rệt | 1–2 tuần |
+| 1 — Pilot MPT (đã đóng) | Kế hoạch ban đầu: 5 video từ MPT nguyên bản làm baseline. Thực tế: MPT cài và chạy được, Edge TTS và phụ đề đạt, 5 preview kỹ thuật; Pexels không còn cấp API key. Ngày 24/10/2026 Tuan bỏ baseline và chốt D-01 = build dựa trên lỗi C06 | Đã đi tiếp theo quyết định D-01 | — (không còn chạy MPT nguyên bản để so) | Đã xong |
+| 2 — Core + adapter, CLI | Core (contract, StepRun, `costs.jsonl`) + `MptTTS`, `MptSubtitleAligner`, adapter ảnh trực tiếp, renderer; cùng 5 brief ra MP4; test quét import | Đạt mục tiêu tuyệt đối của Gate 0: video đạt C01–C09, tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD; đề xuất ít nhất 3/5 brief được duyệt | Không đạt các mục tiêu đó sau một vòng sửa | 1–2 tuần |
 | 3 — Duyệt và sửa | Trang review, selected, rerun scene, Series Bible; chạy test T02–T07, T09 | Giảm số lần sinh lại hoặc phút sửa đã đo ở Gate 2 | Tính năng không giải quyết lỗi đã thấy | 1–2 tuần |
 | 4 — Mở rộng | Một adapter mỗi lần: image-to-video, ComfyUI, audiobook, đăng bài | Có nhu cầu định lượng | — | Theo từng adapter |
 
@@ -63,23 +62,27 @@ Table: Cổng, đầu ra kiểm chứng và điều kiện
 Thời gian là ước tính cho một người. Nên nộp audit YouTube Data API và TikTok Content Posting API sớm nếu định đăng tự động, vì thời gian duyệt không được công bố.
 
 <!-- id:s2 -->
-## Gate 0–1: mục tiêu và baseline
+## Gate 0–1: mục tiêu và pilot
 
 <!-- id:s2.b1 -->
-Gate 0 và Gate 1 không viết code. Chúng tạo thước đo để mọi gate sau so sánh: cùng 5 brief, cùng checklist, cùng mẫu nhật ký cho MPT nguyên bản và cho studio.
+Gate 0 và Gate 1 không viết code. Gate 0 tạo thước đo cho mọi gate sau: cùng 5 brief, cùng checklist C01–C09, cùng mẫu nhật ký. Gate 1 ban đầu định đo MPT nguyên bản trên thước đo đó; phần này đã bỏ theo quyết định D-01 bên dưới.
 
 <!-- id:s2.b2-2 -->
+> [!IMPORTANT]
+> Ngày 24/10/2026 Tuan chốt D-01 = build và bỏ baseline MPT, dựa trên lỗi C06 của pilot (brief-02 có mầm cây ngay từ đầu nên lộ twist; một ảnh không thể hiện được chuỗi hành động). Gate 1 đóng theo quyết định này. Cái giá đã chấp nhận: không còn số liệu MPT nguyên bản để so (T10), và C06 mới cho thấy giới hạn của đầu vào một ảnh, chưa chứng minh MPT không dựng đúng được khi có đủ cảnh. Vì vậy Gate 2 đo theo mục tiêu tuyệt đối của Gate 0.
+
+<!-- id:s2.b2-3 -->
 > [!WARNING]
-> Trạng thái ngày 24/10/2026 theo [báo cáo G0/G1](../../reports/g0-g1/README.md): Gate 0 đã chốt (D-02, 5 brief, checklist C01–C09). Gate 1 mới xong một phần: MPT cài và chạy được, Edge TTS và phụ đề đạt trên 5 brief, 5 MP4 là preview kỹ thuật dựng bằng FFmpeg ngoài MPT. Chưa có 5 video MPT nguyên bản (Pexels không còn cấp API key nên baseline chuyển sang nguồn `local`), chưa chấm đủ checklist, chưa đo phút công; D-01 và D-07 chưa quyết định; giới hạn chi tiêu chưa đặt trên dashboard.
+> Trạng thái trước quyết định, ngày 24/10/2026 theo [báo cáo G0/G1](../../reports/g0-g1/README.md): Gate 0 đã chốt (D-02, 5 brief, checklist C01–C09). Gate 1 mới xong một phần: MPT cài và chạy được, Edge TTS và phụ đề đạt trên 5 brief, 5 MP4 là preview kỹ thuật dựng bằng FFmpeg ngoài MPT. Chưa có 5 video MPT nguyên bản (Pexels không còn cấp API key nên baseline chuyển sang nguồn `local`), chưa chấm đủ checklist, chưa đo phút công; giới hạn chi tiêu chưa đặt trên dashboard.
 
 <!-- id:s2.b2 -->
 ```chk
 - [x] Chọn một thể loại Short cụ thể (D-02): sci-fi bí ẩn tiếng Việt, tối đa 60 giây
 - [x] Viết 5 brief và checklist đạt/không đạt trước khi chạy bất kỳ công cụ nào ([g0-plan](../../reports/g0-g1/g0-plan.md))
 - [ ] Đặt giới hạn chi tiêu pilot ở tài khoản provider (D-03): trần kế hoạch 5 USD đã chốt, chưa đặt trên dashboard
-- [ ] Chạy MPT nguyên bản trên 5 brief (Edge TTS vi-VN, `video_source = "local"` với 4–6 ảnh theo nhịp của brief, `video_concat_mode = "sequential"`, `video_clip_duration` ≈ tổng giọng chia số ảnh) và một lượt với nguồn ảnh AI: mới có audio, phụ đề và preview kỹ thuật một ảnh
-- [ ] Ghi một dòng nhật ký pilot cho mỗi lần chạy: nhật ký hiện là bản dựng lại sau, chưa có `human_minutes`
-- [ ] Chấm checklist; ghi yêu cầu bắt buộc nào MPT trượt (quyết định D-01): mới có C01–C02 và một quan sát C06
+- [x] Chạy MPT trên 5 brief: có audio, phụ đề và preview kỹ thuật một ảnh; bỏ lượt baseline đầy đủ theo quyết định D-01 (24/10/2026)
+- [x] Ghi yêu cầu bắt buộc nào bị trượt (quyết định D-01): C06 của pilot; D-01 = build
+- [ ] Ghi một dòng nhật ký có `human_minutes` cho mỗi lần chạy: chuyển sang Gate 2, áp dụng cho 5 lần chạy studio
 ```
 
 <!-- id:s2.b3 -->
@@ -99,7 +102,7 @@ Mẫu nhật ký pilot, mỗi lần chạy một dòng. Chỉ điền số đã 
 Gate 2 là lần duy nhất core được viết. Thứ tự dưới đây đi từ thứ test được không tốn tiền tới thứ gọi dịch vụ thật, để mỗi bước có bản giả trước khi có adapter thật (đề xuất).
 
 <!-- id:s3.b2-2 -->
-Đề xuất chia Gate 2 thành hai nửa. Gate 2a (việc 1–6) không gọi API trả phí: dùng bản giả, Edge TTS và ảnh local như pilot, nên làm được ngay mà không cần D-01. Gate 2b (việc 7–8) bật adapter trả phí và đo so với MPT; chỉ bắt đầu khi baseline Gate 1 (5 video MPT nguyên bản với nguồn `local`, chấm checklist) đã xong và giới hạn chi tiêu đã đặt. Nếu baseline cho thấy MPT đạt checklist, dừng sau 2a và chỉ mất phần việc không tốn tiền.
+Đề xuất chia Gate 2 thành hai nửa. Gate 2a (việc 1–6) không gọi API trả phí: dùng bản giả, Edge TTS và ảnh local như pilot, nên làm được ngay. Gate 2b (việc 7–8) bật adapter trả phí và đo trên 5 brief theo mục tiêu tuyệt đối của Gate 0; chỉ bắt đầu khi giới hạn chi tiêu đã đặt trên dashboard và ADR-0004 đến 0006 đã được duyệt. Không còn điều kiện baseline vì D-01 đã chốt là build.
 
 <!-- id:s3.b2 -->
 <!-- report-kit:d2
@@ -118,10 +121,10 @@ a: "Gate 2a · 0 USD" {
 b: "Gate 2b · adapter trả phí" {
   class: zone
   w7: "7 · Adapter trả phí\nGeminiLLM, NanoBanana\n(sau khi đặt giới hạn chi tiêu)" {class: hands}
-  w8: "8 · Đo\n5 brief → MP4, phiếu duyệt,\nso baseline MPT" {class: brain}
+  w8: "8 · Đo\n5 brief → MP4, phiếu duyệt,\nso mục tiêu Gate 0" {class: brain}
 }
 a.w1 -> a.w2 -> a.w3 -> a.w4 -> a.w5 -> a.w6
-a -> b: "baseline Gate 1 xong,\ngiới hạn chi tiêu đã đặt"
+a -> b: "giới hạn chi tiêu đã đặt,\nADR đã duyệt"
 b.w7 -> b.w8
 ```
 -->
@@ -135,11 +138,11 @@ b.w7 -> b.w8
 - [ ] ADR-0004, ADR-0005, ADR-0006 được duyệt
 - [ ] P-01: phiên bản MPT ghim, ghi số phiên bản và commit (đề xuất `mpt==1.3.9`, commit `82bb4a7`)
 - [ ] Giới hạn chi tiêu đặt trên dashboard của Gemini trước việc 7 (D-03)
-- [ ] Baseline Gate 1 hoàn tất trước việc 7: 5 video MPT nguyên bản với nguồn `local` (4–6 ảnh mỗi brief), checklist chấm đủ, D-01 ghi kết luận
+- [x] D-01 = build, Tuan chốt ngày 24/10/2026 (bỏ baseline MPT)
 - [ ] Test quét import xanh: chỉ `studio/providers/mpt/` import `app.*`
 - [ ] Test core với bản giả: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene
 - [ ] Cùng 5 brief của Gate 0 ra MP4 9:16 có phụ đề, đạt hậu điều kiện (1080×1920, có audio, ≤ 60 giây)
-- [ ] Phiếu duyệt C01–C09 và phút công cho 5 lần chạy studio; nhật ký pilot; so với baseline Gate 1
+- [ ] Phiếu duyệt C01–C09 và phút công cho 5 lần chạy studio; nhật ký pilot; so với mục tiêu Gate 0 (tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD)
 - [ ] Quyết định đi tiếp hoặc quay lại MPT (D-07)
 ```
 
@@ -162,7 +165,7 @@ Table: Test chấp nhận và gate chạy
 | T07 | Đổi adapter TTS chỉ bằng cấu hình | 3 | Không sửa code core |
 | T08 | Chi phí khi chạy nhiều scene song song | 4 | Giới hạn song song theo adapter được tôn trọng; chi phí khớp số lượt gọi |
 | T09 | Trôi nhân vật qua nhiều scene | 3 | Đo mức nhất quán với Series Bible; quyết định có cần LoRA |
-| T10 | So sánh với MPT nguyên bản trên cùng brief | 2, 3 | Video được duyệt, phút công, chi phí trên video được duyệt |
+| T10 | ~~So sánh với MPT nguyên bản trên cùng brief~~ Không áp dụng: baseline đã bỏ (D-01, 24/10/2026). Thay bằng đo studio theo mục tiêu Gate 0 | 2, 3 | Video được duyệt, phút công, chi phí trên video được duyệt, so với mục tiêu tuyệt đối |
 | T11 | Giọng vượt trần thời lượng | 2 (với `FakeTTS` trả audio dài) | Task `waiting` lý do `duration_exceeded`; không có render |
 | T12 | Hình bắt buộc xuất hiện sớm | 2 (với `FakeLLM`) | ScenePlan đặt `mầm cây` ở scene 1 của brief-02 bị từ chối; `plan` gọi lại kèm lý do |
 
@@ -297,7 +300,7 @@ rec: 1
 <!-- id:s7.b4 -->
 ```q
 P-03 · Giọng đọc mặc định?
-1. Edge TTS vi-VN qua MptTTS (miễn phí) để đo baseline; ElevenLabs khi cần chất lượng cao hơn
+1. Edge TTS vi-VN qua MptTTS (miễn phí) cho Gate 2a; ElevenLabs khi cần chất lượng cao hơn
 2. ElevenLabs qua MptTTS ngay từ đầu
 rec: 1
 ```
@@ -306,13 +309,13 @@ rec: 1
 Table: Quyết định vận hành còn mở
 | ID | Quyết định | Đề xuất | Khi nào chốt |
 | --- | --- | --- | --- |
-| D-01 | Build hay reuse | Reuse trước; chỉ viết core nếu MPT trượt yêu cầu bắt buộc. Gate 2a không tốn tiền làm trước được; Gate 2b chờ D-01 | Sau baseline Gate 1 (chưa xong) |
+| D-01 | Build hay reuse | Đã chốt: build (core + adapter), dựa trên lỗi C06 của pilot; bỏ baseline MPT nên mất phép so sánh T10 | Tuan chốt 24/10/2026 |
 | D-02 | Thể loại video pilot | Đã chốt: Short sci-fi bí ẩn tiếng Việt, tối đa 60 giây (CON-08) | Gate 0 (xong) |
 | D-03 | Mức chi tiêu tối đa của pilot | Đã chốt trần kế hoạch 5 USD; còn phải đặt trên dashboard provider | Trước lượt gọi trả phí đầu tiên |
 | D-04 | Khi nào thêm image-to-video | Khi Gate 3 cho thấy ảnh tĩnh không đủ cho thể loại đã chọn | Sau Gate 3 |
 | D-05 | Khi nào thêm GPU tự host | Khi số liệu chi phí trên asset được duyệt chứng minh lợi ích | Sau baseline sản xuất |
 | D-06 | Khi nào làm audiobook | Khi có workload thật | Không ràng buộc |
-| D-07 | Điều kiện tiếp tục đầu tư | Video được duyệt + phút công + chi phí đo được, so với MPT nguyên bản | Sau mỗi gate |
+| D-07 | Điều kiện tiếp tục đầu tư | Video được duyệt + phút công + chi phí đo được, so với mục tiêu tuyệt đối của Gate 0 (không còn baseline MPT) | Sau mỗi gate |
 
 <!-- id:s7.b6 -->
 Các điểm từng được đề xuất "chốt trước Phase 1" trong v1.1 (fan-out tổng quát, contract SpeechScript, cú pháp parallel) đã bị loại theo AD-05 và AD-06; xem ADR-0001 đến ADR-0003.
@@ -335,7 +338,7 @@ Table: Phát hiện của bản rà soát và nơi xử lý
 | F06 | Ví dụ YAML parallel sai cú pháp | Đồng ý | Bỏ cú pháp parallel |
 | F07 | Không phải TTS nào cũng trả mốc từng từ | Đồng ý | `SubtitleAligner` qua faster-whisper của MPT ([05](05-modules-providers.md#s3)) |
 | F08 | Đổi sang Postgres không chỉ đổi URL | Đồng ý | AD-11 ([07](07-operations.md#s9)) |
-| F09 | Chi phí, thời gian chưa có baseline | Đồng ý | Gate 1 đo chi phí và phút công trên video được duyệt |
+| F09 | Chi phí, thời gian chưa có baseline | Đồng ý | Baseline MPT đã bỏ (D-01, 24/10/2026); Gate 2 đo chi phí và phút công trên video được duyệt so với mục tiêu Gate 0 |
 | F10 | Giá ước tính lệch giá thực | Đồng ý | AD-10: chỉ ghi nhật ký, đối chiếu hóa đơn |
 | F11 | Series Bible không đảm bảo nhất quán | Đồng ý một phần | Giữ ở mức tối thiểu vì là khác biệt chính so với MPT; đo ở Gate 3 (T09) |
 | F12 | Rủi ro chính nằm ngoài code | Đồng ý | [07 · Bảo mật, pháp lý](07-operations.md#s6); không tự đăng bài trước Gate 4 |

@@ -2,7 +2,7 @@
 id: ADR-0004
 title: Core tối thiểu + adapter, MoneyPrinterTurbo là thư viện provider
 type: adr
-ver: "0.2"
+ver: "0.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -21,6 +21,7 @@ adr:
 rev:
   - ["0.1", 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-01..AD-04, AD-13 và mục 4–5"]
   - ["0.2", 2026-10-24, "Soát trước Gate 2: ghim mpt 1.3.9 và vendor tại 82bb4a7; renderer không nhận ảnh tĩnh nên thêm bước animate; rủi ro pin phụ thuộc; chỉ phần trả phí của Gate 2 chờ baseline Gate 1"]
+  - ["0.3", 2026-10-24, "Tuan chốt D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; Gate 1 không còn chặn quyết định này"]
 ---
 
 <!-- id:summary -->
@@ -31,7 +32,7 @@ rev:
 > Quyết định: studio là một core Python nhỏ do ta viết, gọi các chức năng của MoneyPrinterTurbo (MPT) qua 5 provider interface. MPT là gói pip `mpt` ghim phiên bản; chỉ thư mục `studio/providers/mpt/` được import `app.*`. Renderer là bản copy `video_project.py` của MPT tại commit `82bb4a7`, trùng gói `mpt` 1.3.9 đã chạy ở Gate 1. Renderer này chỉ nhận footage là video và không có chuyển động camera, nên ảnh tĩnh được bước `animate` của ta dựng thành clip trước khi render; bản copy giữ nguyên.
 
 <!-- id:summary.b2 -->
-Core lo phần MPT không có: kịch bản theo scene, mẫu nhân vật và từ vựng camera, chọn và duyệt từng scene, nhật ký chi phí. MPT lo phần ta không nên tự viết: 14 provider giọng đọc (có Edge TTS tiếng Việt miễn phí), căn phụ đề, provider video AI. Quyết định chỉ có hiệu lực nếu Gate 1 cho thấy MPT nguyên bản trượt yêu cầu bắt buộc (nguồn: ADD-AIVIDEO-003 mục 1, 2, 10). Khuyến nghị: duyệt.
+Core lo phần MPT không có: kịch bản theo scene, mẫu nhân vật và từ vựng camera, chọn và duyệt từng scene, nhật ký chi phí. MPT lo phần ta không nên tự viết: 14 provider giọng đọc (có Edge TTS tiếng Việt miễn phí), căn phụ đề, provider video AI. Điều kiện build đã được chốt: ngày 24/10/2026 Tuan chọn D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; rủi ro là chưa chứng minh MPT không dựng đúng được khi có đủ cảnh (nguồn: ADD-AIVIDEO-003 mục 1, 2, 10; [08 · Gate 0–1](../design/08-roadmap.md#s2)). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
 <!-- report-kit:d2
@@ -78,7 +79,7 @@ Người vận hành dùng một hệ thống duy nhất (CLI rồi trang review
 Table: Việc phải xong trước
 | Việc | Người làm | Bị chặn |
 | --- | --- | --- |
-| Gate 1: 5 video từ MPT nguyên bản và nhật ký pilot | Tuan | Adapter trả phí và phép đo của Gate 2 (Gate 2b); Gate 2a không tốn tiền chỉ chờ ADR này |
+| ~~Gate 1: 5 video từ MPT nguyên bản và nhật ký pilot~~ Đã gỡ: bỏ baseline, D-01 = build (24/10/2026) | Tuan | Không còn chặn; Gate 2b chỉ chờ giới hạn chi tiêu và ADR này |
 | Chốt phiên bản MPT ghim (P-01) | Tuan | Adapter MPT, `vendor/video_project.py` |
 | Duyệt ADR này | Tuan | Khởi tạo package `studio/` |
 
@@ -144,4 +145,4 @@ Ranh giới và bảng adapter ở [05 · Adapter và MPT](../design/05-modules-
 ## Phụ lục kỹ thuật · Chuyển đổi và quay lại
 
 <!-- id:migration.b1 -->
-Chưa có dữ liệu. Bỏ MPT cho một năng lực: viết adapter gọi thẳng SDK cùng interface, đổi một dòng cấu hình. Quay lại "dùng nguyên MPT": dừng ở Gate 1 hoặc Gate 2 theo điều kiện dừng ở [08 · Lộ trình](../design/08-roadmap.md#s1).
+Chưa có dữ liệu. Bỏ MPT cho một năng lực: viết adapter gọi thẳng SDK cùng interface, đổi một dòng cấu hình. Quay lại "dùng nguyên MPT": dừng ở Gate 2 theo điều kiện dừng ở [08 · Lộ trình](../design/08-roadmap.md#s1).

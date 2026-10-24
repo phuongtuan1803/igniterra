@@ -500,7 +500,7 @@ Kiến trúc lớn lên theo decision gate, không theo phase cố định. Mỗ
 grid-rows: 2
 grid-columns: 5
 g0: "Gate 0\nMục tiêu\n\nchưa có code\n5 brief + checklist" {class: plain}
-g1: "Gate 1\nBaseline MPT\n\nMPT nguyên bản\nnhật ký pilot" {class: plain}
+g1: "Gate 1\nPilot MPT\n\nđã đóng: bỏ baseline,\nD-01 = build" {class: plain}
 g2: "Gate 2\nCore + adapter, CLI\n\ncontract, StepRun,\ncosts.jsonl, MptTTS,\naligner, ảnh, renderer" {class: brain}
 g3: "Gate 3\nDuyệt và sửa\n\ntrang review, selected,\nrerun scene,\nSeries Bible" {class: brain}
 g4: "Gate 4\nMở rộng\n\nimage-to-video,\nComfyUI, audiobook,\nđăng bài" {class: hands}
