@@ -2,15 +2,16 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.0"
+ver: "2.1"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: Năm decision gate thay cho 5 phase cố định; chưa viết dòng code nào trước Gate 2, mỗi gate có đầu ra kiểm chứng, điều kiện đi tiếp và lối ra "dừng xây"; kèm thứ tự công việc Gate 2, bộ test chấp nhận T01–T10, ví dụ đầu-cuối và các quyết định cần chốt.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 10, 11, 14, Phụ lục A–B"], [Thời gian Gate 0–3, "khoảng 3–5 tuần cho một người (ước tính)"], [Chỉ số, "video được duyệt, phút công, chi phí trên video được duyệt"]]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu (5 phase), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: decision gate 0–4 có lối ra dừng xây, test T01–T10, nhật ký pilot, quyết định P-01..P-03 và D-01..D-07"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2: trạng thái thật của Gate 0–1, Gate 2 chia 2a (không tốn tiền) và 2b (adapter trả phí, đo), thứ tự việc mới có animate và phiếu duyệt, test T11–T12, ví dụ t_0042 theo D-02, P-01 đề xuất mpt 1.3.9"]
 ---
 
 <!-- id:s1 -->
@@ -67,14 +68,18 @@ Thời gian là ước tính cho một người. Nên nộp audit YouTube Data A
 <!-- id:s2.b1 -->
 Gate 0 và Gate 1 không viết code. Chúng tạo thước đo để mọi gate sau so sánh: cùng 5 brief, cùng checklist, cùng mẫu nhật ký cho MPT nguyên bản và cho studio.
 
+<!-- id:s2.b2-2 -->
+> [!WARNING]
+> Trạng thái ngày 24/10/2026 theo [báo cáo G0/G1](../../reports/g0-g1/README.md): Gate 0 đã chốt (D-02, 5 brief, checklist C01–C09). Gate 1 mới xong một phần: MPT cài và chạy được, Edge TTS và phụ đề đạt trên 5 brief, 5 MP4 là preview kỹ thuật dựng bằng FFmpeg ngoài MPT. Chưa có 5 video MPT nguyên bản với Pexels, chưa chấm đủ checklist, chưa đo phút công; D-01 và D-07 chưa quyết định; giới hạn chi tiêu chưa đặt trên dashboard.
+
 <!-- id:s2.b2 -->
 ```chk
-- [ ] Chọn một thể loại Short cụ thể (D-02)
-- [ ] Viết 5 brief và checklist đạt/không đạt trước khi chạy bất kỳ công cụ nào
-- [ ] Đặt giới hạn chi tiêu pilot ở tài khoản provider (D-03)
-- [ ] Chạy MPT nguyên bản trên 5 brief (Edge TTS vi-VN, Pexels) và một lượt với nguồn ảnh AI
-- [ ] Ghi một dòng nhật ký pilot cho mỗi lần chạy
-- [ ] Chấm checklist; ghi yêu cầu bắt buộc nào MPT trượt (quyết định D-01)
+- [x] Chọn một thể loại Short cụ thể (D-02): sci-fi bí ẩn tiếng Việt, tối đa 60 giây
+- [x] Viết 5 brief và checklist đạt/không đạt trước khi chạy bất kỳ công cụ nào ([g0-plan](../../reports/g0-g1/g0-plan.md))
+- [ ] Đặt giới hạn chi tiêu pilot ở tài khoản provider (D-03): trần kế hoạch 5 USD đã chốt, chưa đặt trên dashboard
+- [ ] Chạy MPT nguyên bản trên 5 brief (Edge TTS vi-VN, Pexels) và một lượt với nguồn ảnh AI: mới có audio, phụ đề và preview kỹ thuật
+- [ ] Ghi một dòng nhật ký pilot cho mỗi lần chạy: nhật ký hiện là bản dựng lại sau, chưa có `human_minutes`
+- [ ] Chấm checklist; ghi yêu cầu bắt buộc nào MPT trượt (quyết định D-01): mới có C01–C02 và một quan sát C06
 ```
 
 <!-- id:s2.b3 -->
@@ -93,35 +98,48 @@ Mẫu nhật ký pilot, mỗi lần chạy một dòng. Chỉ điền số đã 
 <!-- id:s3.b1 -->
 Gate 2 là lần duy nhất core được viết. Thứ tự dưới đây đi từ thứ test được không tốn tiền tới thứ gọi dịch vụ thật, để mỗi bước có bản giả trước khi có adapter thật (đề xuất).
 
+<!-- id:s3.b2-2 -->
+Đề xuất chia Gate 2 thành hai nửa. Gate 2a (việc 1–6) không gọi API trả phí: dùng bản giả, Edge TTS và ảnh local như pilot, nên làm được ngay mà không cần D-01. Gate 2b (việc 7–8) bật adapter trả phí và đo so với MPT; chỉ bắt đầu khi baseline Gate 1 (5 video MPT nguyên bản với Pexels, chấm checklist) đã xong và giới hạn chi tiêu đã đặt. Nếu baseline cho thấy MPT đạt checklist, dừng sau 2a và chỉ mất phần việc không tốn tiền.
+
 <!-- id:s3.b2 -->
 <!-- report-kit:d2
 ```d2
-# cap: Thứ tự công việc Gate 2: contract và bản giả trước, adapter thật sau, đo trên 5 brief cuối cùng
+# cap: Thứ tự công việc Gate 2: 2a không tốn tiền (bản giả, giọng miễn phí, ảnh local), 2b bật adapter trả phí và đo
 direction: down
-w1: "1 · Khung repo\nstudio/, uv, ghim mpt,\ntest quét import" {class: gate}
-w2: "2 · Contract\nScenePlan, AssetCandidate,\nAudioTrack, CostEvent" {class: data}
-w3: "3 · Interface + Fake*\nproviders/base.py,\nproviders/fake/" {class: gate}
-w4: "4 · Core\nstore, taskdir, costs,\npipeline, gates" {class: gate}
-w5: "5 · CLI\ntask new, worker,\ngate, select" {class: plain}
-w6: "6 · Adapter thật\nGeminiLLM, NanoBanana,\nMptTTS, MptSubtitleAligner" {class: hands}
-w7: "7 · Renderer\nvendor/video_project.py\n+ burn-in phụ đề" {class: hands}
-w8: "8 · Đo\n5 brief → MP4,\nnhật ký pilot, so MPT" {class: brain}
-w1 -> w2 -> w3 -> w4 -> w5 -> w6 -> w7 -> w8
+a: "Gate 2a · 0 USD" {
+  class: zone
+  w1: "1 · Khung repo\nstudio/, uv, mpt==1.3.9,\nvendor 82bb4a7, quét import" {class: gate}
+  w2: "2 · Contract\nBrief, ScenePlan, AssetCandidate,\nAudioTrack, CostEvent, Review" {class: data}
+  w3: "3 · Interface + Fake*\nproviders/base.py,\nproviders/fake/" {class: gate}
+  w4: "4 · Core\nstore, taskdir, costs, pipeline,\ngates, hậu điều kiện" {class: gate}
+  w5: "5 · CLI\ntask new, worker, gate,\nselect, review, pause" {class: plain}
+  w6: "6 · Đường miễn phí\nMptTTS, aligner, animate,\nrenderer + burn-in;\n5 brief với ảnh local" {class: hands}
+}
+b: "Gate 2b · adapter trả phí" {
+  class: zone
+  w7: "7 · Adapter trả phí\nGeminiLLM, NanoBanana\n(sau khi đặt giới hạn chi tiêu)" {class: hands}
+  w8: "8 · Đo\n5 brief → MP4, phiếu duyệt,\nso baseline MPT" {class: brain}
+}
+a.w1 -> a.w2 -> a.w3 -> a.w4 -> a.w5 -> a.w6
+a -> b: "baseline Gate 1 xong,\ngiới hạn chi tiêu đã đặt"
+b.w7 -> b.w8
 ```
 -->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="08-roadmap.figs/s3.b2-dark.svg">
-<img alt="Thứ tự công việc Gate 2: contract và bản giả trước, adapter thật sau, đo trên 5 brief cuối cùng" src="08-roadmap.figs/s3.b2-light.svg">
+<img alt="Thứ tự công việc Gate 2: 2a không tốn tiền (bản giả, giọng miễn phí, ảnh local), 2b bật adapter trả phí và đo" src="08-roadmap.figs/s3.b2-light.svg">
 </picture>
 
 <!-- id:s3.b3 -->
 ```chk
 - [ ] ADR-0004, ADR-0005, ADR-0006 được duyệt
-- [ ] P-01: phiên bản MPT ghim, ghi số phiên bản và commit
+- [ ] P-01: phiên bản MPT ghim, ghi số phiên bản và commit (đề xuất `mpt==1.3.9`, commit `82bb4a7`)
+- [ ] Giới hạn chi tiêu đặt trên dashboard của Gemini trước việc 7 (D-03)
+- [ ] Baseline Gate 1 hoàn tất trước việc 7: 5 video MPT nguyên bản với Pexels, checklist chấm đủ, D-01 ghi kết luận
 - [ ] Test quét import xanh: chỉ `studio/providers/mpt/` import `app.*`
 - [ ] Test core với bản giả: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene
-- [ ] Cùng 5 brief của Gate 0 ra MP4 9:16 có phụ đề
-- [ ] Nhật ký pilot cho 5 lần chạy studio; so với baseline Gate 1
+- [ ] Cùng 5 brief của Gate 0 ra MP4 9:16 có phụ đề, đạt hậu điều kiện (1080×1920, có audio, ≤ 60 giây)
+- [ ] Phiếu duyệt C01–C09 và phút công cho 5 lần chạy studio; nhật ký pilot; so với baseline Gate 1
 - [ ] Quyết định đi tiếp hoặc quay lại MPT (D-07)
 ```
 
@@ -135,7 +153,7 @@ Bộ test chấp nhận lấy từ bản rà soát độc lập. Mỗi test ch�
 Table: Test chấp nhận và gate chạy
 | Test | Nội dung | Gate | Khẳng định |
 | --- | --- | --- | --- |
-| T01 | End-to-end 5 brief | 2 | 5 MP4 9:16; nhật ký pilot đủ dòng |
+| T01 | End-to-end 5 brief | 2 | 5 MP4 1080×1920 ≤ 60 giây, đạt hậu điều kiện; câu cuối của scene cuối khớp phụ đề; nhật ký pilot và phiếu duyệt đủ dòng |
 | T02 | Sửa một scene | 3 | Chỉ phần phụ thuộc chạy lại; scene khác dùng lại |
 | T03 | Thay asset bằng upload và chọn | 3 | Ứng viên `provider: user`; chỉ render chạy lại |
 | T04 | Lỗi tạm thời 429/5xx/timeout | 3 | Thử lại tối đa 3 lần có backoff |
@@ -145,9 +163,11 @@ Table: Test chấp nhận và gate chạy
 | T08 | Chi phí khi chạy nhiều scene song song | 4 | Giới hạn song song theo adapter được tôn trọng; chi phí khớp số lượt gọi |
 | T09 | Trôi nhân vật qua nhiều scene | 3 | Đo mức nhất quán với Series Bible; quyết định có cần LoRA |
 | T10 | So sánh với MPT nguyên bản trên cùng brief | 2, 3 | Video được duyệt, phút công, chi phí trên video được duyệt |
+| T11 | Giọng vượt trần thời lượng | 2 (với `FakeTTS` trả audio dài) | Task `waiting` lý do `duration_exceeded`; không có render |
+| T12 | Hình bắt buộc xuất hiện sớm | 2 (với `FakeLLM`) | ScenePlan đặt `mầm cây` ở scene 1 của brief-02 bị từ chối; `plan` gọi lại kèm lý do |
 
 <!-- id:s4.b3 -->
-Đã kiểm thử trước khi viết tài liệu: dựng lại theo scene của `video_project`. Chạy trên FFmpeg 6.1.1 ngày 19/10/2026 với dự án 2 scene, render, rồi chỉ đổi footage s02. Đây là kiểm tra quy mô nhỏ, chưa phải thử tải hay video dài.
+Đã kiểm thử trước khi viết tài liệu: dựng lại theo scene của `video_project`. Chạy trên FFmpeg 6.1.1 ngày 19/10/2026 với dự án 2 scene, render, rồi chỉ đổi footage s02. Đây là kiểm tra quy mô nhỏ, chưa phải thử tải hay video dài. Lần soát ngày 24/10/2026 kiểm thêm: footage là ảnh PNG bị bộ lọc định dạng đầu vào của renderer từ chối, nên footage của mọi scene phải là clip video (bước `animate`).
 
 <!-- id:s4.b4 -->
 Table: Kết quả dựng lại của video_project khi chỉ đổi footage s02
@@ -204,47 +224,49 @@ Table: Điều kiện mở từng hạng mục Gate 4
 ## Ví dụ kiểm chứng đầu-cuối
 
 <!-- id:s6.b1 -->
-Task `t_0042` "Tín hiệu từ năm 2126", series `lyra7`, cấu hình Gate 3 (ảnh tĩnh có chuyển động camera, chưa có image-to-video), ra MP4 1080×1920 khoảng 60 giây với chi phí ước tính khoảng $0,7. Brief: "Người gác cuối cùng trên trạm quỹ đạo nhận tín hiệu từ chính mình của 100 năm sau", 60 giây, tiếng Việt.
+Task `t_0042` "Tín hiệu từ năm 2126", series `lyra7`, cấu hình Gate 3 (ảnh tĩnh có chuyển động camera, chưa có image-to-video), ra MP4 1080×1920 khoảng 55 giây (6 scene, trong giới hạn D-02) với chi phí ước tính khoảng $0,53. Brief: "Người gác cuối cùng trên trạm quỹ đạo nhận tín hiệu từ chính mình của 100 năm sau", 45–58 giây, trần 60 giây, tiếng Việt. Số liệu là ví dụ minh họa, chưa đo.
 
 <!-- id:s6.b2 -->
 <!-- report-kit:d2
 ```d2
-# cap: t_0042 qua các bước: ScenePlan 3 revision, 9 ứng viên ảnh, khoảng 0,66 USD
+# cap: t_0042 qua các bước: ScenePlan 3 revision, 7 ứng viên ảnh, khoảng 0,53 USD
 direction: down
-plan: "plan\nGemini 3.8 Flash\nrev 1, 8 scene\n0,06 USD" {class: brain}
-kf: "keyframes s01–s08\nNano Banana 2 + 3 refs Kai\n9 ứng viên (s03 hai lần)\n0,60 USD" {class: hands}
+plan: "plan\nGemini 3.8 Flash\nrev 1, 6 scene\n0,06 USD" {class: brain}
+kf: "keyframes s01–s06\nNano Banana 2 + 3 refs Kai\n7 ứng viên (s03 hai lần)\n0,47 USD" {class: hands}
 g1: "gate keyframes\nsửa visual s03 → rev 2,\nchọn img_s03_a2, duyệt" {class: gate}
-vo: "voice s01–s08\nMptTTS vi-VN-NamMinhNeural\n0 USD" {class: hands}
+vo: "voice s01–s06\nMptTTS vi-VN-NamMinhNeural\n0 USD" {class: hands}
+an: "animate s01–s06\nzoom theo movement\n0 USD" {class: hands}
 sb: "subtitles\nmốc Edge TTS\nfull.ass, 0 USD" {class: hands}
-rd: "render\nvideo_project, zoom theo\nmovement, burn-in, 0 USD" {class: hands}
+rd: "render r_001\nvideo_project + burn-in\n0 USD" {class: hands}
 g2: "gate final\nduyệt" {class: gate}
-fix: "Sửa narration s05\n→ rev 3: voice s05,\nsubtitles, render" {class: plain}
-plan -> kf -> g1 -> vo -> sb -> rd -> g2
+fix: "Sửa narration s05\n→ rev 3: voice s05, subtitles,\nanimate s05, render r_002" {class: plain}
+plan -> kf -> g1 -> vo -> sb -> an -> rd -> g2
 g2 -> fix: "sau khi duyệt"
 ```
 -->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="08-roadmap.figs/s6.b2-dark.svg">
-<img alt="t_0042 qua các bước: ScenePlan 3 revision, 9 ứng viên ảnh, khoảng 0,66 USD" src="08-roadmap.figs/s6.b2-light.svg">
+<img alt="t_0042 qua các bước: ScenePlan 3 revision, 7 ứng viên ảnh, khoảng 0,53 USD" src="08-roadmap.figs/s6.b2-light.svg">
 </picture>
 
 <!-- id:s6.b3 -->
 Table: Các bước đã chạy của t_0042
 | Bước | Scene | Adapter | Kết quả | Chi phí ước tính |
 | --- | --- | --- | --- | --- |
-| `plan` | — | Gemini 3.8 Flash (SDK) | ScenePlan rev 1, 8 scene | $0,06 |
-| `keyframes` | s01–s08 | Nano Banana 2 + 3 ảnh tham chiếu Kai | 9 ứng viên (s03 sinh 2 lần) | $0,60 |
+| `plan` | — | Gemini 3.8 Flash (SDK) | ScenePlan rev 1, 6 scene, khoảng 160 từ | $0,06 |
+| `keyframes` | s01–s06 | Nano Banana 2 + 3 ảnh tham chiếu Kai | 7 ứng viên (s03 sinh 2 lần) | $0,47 |
 | gate `keyframes` | — | Người duyệt | Sửa visual s03 ("hands out of frame") → rev 2, chạy lại s03, chọn `img_s03_a2`, duyệt | — |
-| `voice` | s01–s08 | `MptTTS` (Edge TTS vi-VN-NamMinhNeural) | 8 file giọng kèm mốc thời gian | $0 |
+| `voice` | s01–s06 | `MptTTS` (Edge TTS vi-VN-NamMinhNeural) | 6 file giọng kèm mốc thời gian; tổng khoảng 55 giây, dưới trần 60 | $0 |
 | `subtitles` | — | Mốc Edge TTS (không cần whisper) | `full.ass` | $0 |
-| `render` | — | `video_project` | Dựng 8 scene theo thời lượng giọng, zoom theo khóa movement, burn-in phụ đề | $0 |
-| gate `final` | — | Người duyệt | Duyệt | — |
-| Tổng | | | | Khoảng $0,66 + nhạc nền thư viện |
+| `animate` | s01–s06 | FFmpeg `zoompan` local | 6 clip MP4 từ ảnh selected, chuyển động theo khóa movement, dài bằng giọng | $0 |
+| `render` | — | `video_project` | Render `r_001`: ghép 6 clip với giọng, burn-in phụ đề, kiểm hậu điều kiện | $0 |
+| gate `final` | — | Người duyệt | Phiếu duyệt C01–C09 đạt, 9 phút công; duyệt `r_001` | — |
+| Tổng | | | | Khoảng $0,53; nhạc tắt như pilot |
 
 <!-- id:s6.b4 -->
-1. Sửa sau khi duyệt. Người dùng đổi narration của s05. Hệ thống tạo ScenePlan rev 3, chỉ chạy lại `voice` của s05, `subtitles` và `render`; `video_project` dùng lại 7 scene còn lại và chỉ dựng lại s05 cùng bước ghép cuối.
+1. Sửa sau khi duyệt. Người dùng đổi narration của s05. Hệ thống tạo ScenePlan rev 3, chỉ chạy lại `voice` và `animate` của s05, `subtitles` và `render` thành `r_002`; `video_project` dùng lại 5 scene còn lại và chỉ dựng lại s05 cùng bước ghép cuối. `r_001` đã duyệt vẫn nguyên cho tới khi `r_002` được duyệt.
 2. Gián đoạn. Worker bị tắt giữa bước `keyframes` sau khi gửi request cho s06 nhưng trước khi nhận kết quả. Khi chạy lại, `costs.jsonl` còn dòng `pending` cho s06 → ghi `unknown`, task chuyển `waiting`; Task detail hỏi người dùng có sinh lại s06 không. Các scene đã `done` không chạy lại.
-3. Đầu ra. `final_9x16.mp4` (H.264/AAC), `full.ass`, toàn bộ ứng viên và revision xem được trên Storyboard, chi phí từng lượt gọi trong `costs.jsonl`.
+3. Đầu ra. `renders/r_002/final_9x16.mp4` (H.264/AAC), `full.ass`, toàn bộ ứng viên và revision xem được trên Storyboard, chi phí từng lượt gọi trong `costs.jsonl`.
 
 <!-- id:s6.b5 -->
 Với cấu hình có image-to-video (Gate 4, 4 clip Veo 3.1 Fast 720p), chi phí ước tính tăng lên khoảng $5–7 mỗi Short theo báo cáo nghiên cứu.
@@ -258,8 +280,9 @@ Ba điểm dưới đây cần người duyệt xác nhận trước Gate 2; kè
 <!-- id:s7.b2 -->
 ```q
 P-01 · Phiên bản MPT ghim?
-1. Bản phát hành mới nhất tại thời điểm bắt đầu Gate 2; ghi lại số phiên bản và commit
-2. Commit 9e7d8b7 đã phân tích (17/10/2026)
+1. `mpt==1.3.9` (commit `82bb4a7`): bản đã chạy ở Gate 1 và là bản mới nhất trên PyPI ngày 24/10/2026; vendor `video_project.py` cùng commit
+2. Bản phát hành mới nhất tại thời điểm bắt đầu Gate 2; ghi lại số phiên bản và commit
+3. Commit 9e7d8b7 đã phân tích (17/10/2026)
 rec: 1
 ```
 
@@ -283,9 +306,9 @@ rec: 1
 Table: Quyết định vận hành còn mở
 | ID | Quyết định | Đề xuất | Khi nào chốt |
 | --- | --- | --- | --- |
-| D-01 | Build hay reuse | Reuse trước; chỉ viết core nếu MPT trượt yêu cầu bắt buộc | Sau Gate 1 |
-| D-02 | Thể loại video pilot | Một dạng Short cụ thể | Gate 0 |
-| D-03 | Mức chi tiêu tối đa của pilot | Đặt ở tài khoản provider | Trước Gate 1 |
+| D-01 | Build hay reuse | Reuse trước; chỉ viết core nếu MPT trượt yêu cầu bắt buộc. Gate 2a không tốn tiền làm trước được; Gate 2b chờ D-01 | Sau baseline Gate 1 (chưa xong) |
+| D-02 | Thể loại video pilot | Đã chốt: Short sci-fi bí ẩn tiếng Việt, tối đa 60 giây (CON-08) | Gate 0 (xong) |
+| D-03 | Mức chi tiêu tối đa của pilot | Đã chốt trần kế hoạch 5 USD; còn phải đặt trên dashboard provider | Trước lượt gọi trả phí đầu tiên |
 | D-04 | Khi nào thêm image-to-video | Khi Gate 3 cho thấy ảnh tĩnh không đủ cho thể loại đã chọn | Sau Gate 3 |
 | D-05 | Khi nào thêm GPU tự host | Khi số liệu chi phí trên asset được duyệt chứng minh lợi ích | Sau baseline sản xuất |
 | D-06 | Khi nào làm audiobook | Khi có workload thật | Không ràng buộc |

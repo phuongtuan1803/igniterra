@@ -2,9 +2,9 @@
 id: ADR-0005
 title: ScenePlan có revision là contract kịch bản duy nhất, render dùng ứng viên selected
 type: adr
-ver: "0.1"
+ver: "0.2"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 adr:
   state: pending
@@ -20,6 +20,7 @@ adr:
   informed: "—"
 rev:
   - ["0.1", 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-06..AD-08 và mục 6"]
+  - ["0.2", 2026-10-24, "Soát trước Gate 2: render cũng là revision (renders/r_NNN), quy tắc một người ghi assets.json, người chỉ sửa khi task không chạy, ứng viên mang nguồn và quyền"]
 ---
 
 <!-- id:summary -->
@@ -27,7 +28,7 @@ rev:
 
 <!-- id:summary.b1 -->
 > [!IMPORTANT]
-> Quyết định: (1) ScenePlan là contract kịch bản duy nhất, có `revision` và `parent`; sửa scene luôn ghi `plan/rev_NNN.json` mới. (2) Mỗi lần sinh ảnh, audio, clip là một ứng viên ghi `plan_rev`; (3) render chỉ dùng ứng viên `selected` của từng scene trong `assets.json`.
+> Quyết định: (1) ScenePlan là contract kịch bản duy nhất, có `revision` và `parent`; sửa scene luôn ghi `plan/rev_NNN.json` mới. (2) Mỗi lần sinh ảnh, audio, clip là một ứng viên ghi `plan_rev`; (3) render chỉ dùng ứng viên `selected` của từng scene trong `assets.json`; (4) mỗi lần render là một render revision `renders/r_NNN/`, bản đã duyệt không bị bản render sau ghi đè.
 
 <!-- id:summary.b2 -->
 Ba quyết định này định hình mọi file trong thư mục task và cách giao diện sửa, nên phải chốt trước khi viết contract ở Gate 2 (nguồn: ADD-AIVIDEO-003 AD-06, AD-07, AD-08; bản rà soát F02, F04, F05). Khuyến nghị: duyệt.
@@ -96,7 +97,8 @@ Table: Rủi ro
 | --- | --- | --- | --- | --- | --- | --- |
 | R1 | Ứng viên được chọn thuộc revision cũ sau khi sửa scene | Medium | Medium | Sinh lại scene bị sửa đặt ứng viên mới làm selected; UI đánh dấu ứng viên lệch revision | Claude | Thiết kế này |
 | R2 | Ổ đĩa đầy dần | Medium | Low | Dọn ứng viên không được chọn sau N ngày; sao lưu `data/` | Claude | ADD-AIVIDEO-003 13.1 |
-| R3 | Ghi `assets.json` đồng thời từ worker và web | Low | Medium | Ghi qua file tạm rồi đổi tên; khóa theo task | Claude | Thiết kế này |
+| R3 | Ghi `assets.json` đồng thời từ worker và web | Medium | Medium | Một hàm ghi có `flock` theo task, file tạm, `fsync`, đổi tên; thread scene trả kết quả về luồng chính; web chỉ ghi khi task không `running` | Claude | Soát ngày 24/10/2026 |
+| R4 | Worker đang chạy rev 2 trong khi người lưu rev 3 | Medium | Medium | Hành động của người bị từ chối khi task `running`; có lệnh `task pause` | Claude | Soát ngày 24/10/2026 |
 
 <!-- id:options -->
 ## Phương án đã xét

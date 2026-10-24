@@ -2,9 +2,9 @@
 id: ADR-0004
 title: Core tối thiểu + adapter, MoneyPrinterTurbo là thư viện provider
 type: adr
-ver: "0.1"
+ver: "0.2"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 adr:
   state: pending
@@ -14,12 +14,13 @@ adr:
   door: one
   cost: 0 USD
   review: 2027-01-22
-  gist: Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py.
+  gist: Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản (đề xuất mpt 1.3.9), chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta.
   proposer: Claude
   decider: Tuan
   informed: "—"
 rev:
   - ["0.1", 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-01..AD-04, AD-13 và mục 4–5"]
+  - ["0.2", 2026-10-24, "Soát trước Gate 2: ghim mpt 1.3.9 và vendor tại 82bb4a7; renderer không nhận ảnh tĩnh nên thêm bước animate; rủi ro pin phụ thuộc; chỉ phần trả phí của Gate 2 chờ baseline Gate 1"]
 ---
 
 <!-- id:summary -->
@@ -27,7 +28,7 @@ rev:
 
 <!-- id:summary.b1 -->
 > [!IMPORTANT]
-> Quyết định: studio là một core Python nhỏ do ta viết, gọi các chức năng của MoneyPrinterTurbo (MPT) qua 5 provider interface. MPT là gói pip `mpt` ghim phiên bản; chỉ thư mục `studio/providers/mpt/` được import `app.*`. Renderer là bản copy `video_project.py` của MPT (commit `9e7d8b7`).
+> Quyết định: studio là một core Python nhỏ do ta viết, gọi các chức năng của MoneyPrinterTurbo (MPT) qua 5 provider interface. MPT là gói pip `mpt` ghim phiên bản; chỉ thư mục `studio/providers/mpt/` được import `app.*`. Renderer là bản copy `video_project.py` của MPT tại commit `82bb4a7`, trùng gói `mpt` 1.3.9 đã chạy ở Gate 1. Renderer này chỉ nhận footage là video và không có chuyển động camera, nên ảnh tĩnh được bước `animate` của ta dựng thành clip trước khi render; bản copy giữ nguyên.
 
 <!-- id:summary.b2 -->
 Core lo phần MPT không có: kịch bản theo scene, mẫu nhân vật và từ vựng camera, chọn và duyệt từng scene, nhật ký chi phí. MPT lo phần ta không nên tự viết: 14 provider giọng đọc (có Edge TTS tiếng Việt miễn phí), căn phụ đề, provider video AI. Quyết định chỉ có hiệu lực nếu Gate 1 cho thấy MPT nguyên bản trượt yêu cầu bắt buộc (nguồn: ADD-AIVIDEO-003 mục 1, 2, 10). Khuyến nghị: duyệt.
@@ -77,7 +78,7 @@ Người vận hành dùng một hệ thống duy nhất (CLI rồi trang review
 Table: Việc phải xong trước
 | Việc | Người làm | Bị chặn |
 | --- | --- | --- |
-| Gate 1: 5 video từ MPT nguyên bản và nhật ký pilot | Tuan | Toàn bộ code của Gate 2 |
+| Gate 1: 5 video từ MPT nguyên bản và nhật ký pilot | Tuan | Adapter trả phí và phép đo của Gate 2 (Gate 2b); Gate 2a không tốn tiền chỉ chờ ADR này |
 | Chốt phiên bản MPT ghim (P-01) | Tuan | Adapter MPT, `vendor/video_project.py` |
 | Duyệt ADR này | Tuan | Khởi tạo package `studio/` |
 
@@ -91,6 +92,8 @@ Table: Rủi ro
 | R1 | MPT đổi chữ ký hàm khi nâng cấp | Medium | Medium | Ghim phiên bản; test riêng từng adapter trước khi nâng | Claude | ADD-AIVIDEO-003 13.3 |
 | R2 | Code ngoài adapter import `app.*` qua đường tắt | Not rated | High | Test quét import chạy trong CI | Claude | ADD-AIVIDEO-003 5.4 |
 | R3 | MPT ngừng bảo trì hoặc đổi giấy phép | Low | Medium | Bản copy renderer đã tự chứa; adapter khác cùng interface | Claude | Thiết kế này |
+| R4 | Gói `mpt` ghim cứng FastAPI, Starlette, uvicorn, openai mà studio cũng dùng | High | Medium | Một `uv.lock` chung; studio dùng đúng các bản đó; nhánh nâng MPT chạy cả test web | Claude | `pyproject.toml` của MPT tại `82bb4a7` |
+| R5 | Renderer từ chối footage dạng ảnh | High | High | Bước `animate` dựng clip MP4 từ ảnh; hậu điều kiện kiểm trước render | Claude | Kiểm thử ngày 24/10/2026 |
 
 <!-- id:options -->
 ## Phương án đã xét

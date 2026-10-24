@@ -2,13 +2,14 @@
 id: ADR-INDEX
 title: Decision register (ADRs)
 type: adr_index
-ver: 1.1
+ver: 1.2
 status: final
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 rev:
   - [1.0, 2026-10-19, Generated from the ADRs]
   - [1.1, 2026-10-22, Generated from the ADRs]
+  - [1.2, 2026-10-24, Generated from the ADRs]
 ---
 
 <!-- id:summary -->
@@ -33,7 +34,7 @@ Table: ADR list
 | [ADR-0001](0001-generic-fan-out.md) | Module khai báo fan_out trỏ tới một danh sách trong contract; runner không viết cứng "theo scene". | High | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
 | [ADR-0002](0002-speechscript-contract.md) | voice đọc SpeechScript (danh sách đoạn id, text, speaker) thay vì ScenePlan; mỗi quy trình tự sinh SpeechScript. | High | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
 | [ADR-0003](0003-parallel-step-groups.md) | Profile chấp nhận nhóm parallel ngay từ Phase 1; runner được phép chạy các bước trong nhóm lần lượt cho tới khi cần nhanh hơn. | Medium | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
-| [ADR-0004](0004-minimal-core-mpt-adapters.md) | Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
+| [ADR-0004](0004-minimal-core-mpt-adapters.md) | Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản (đề xuất mpt 1.3.9), chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
 | [ADR-0005](0005-sceneplan-revisions-selected.md) | ScenePlan là contract kịch bản duy nhất (lời đọc lấy từ narration); sửa tạo revision bất biến mới; mỗi lần sinh là một ứng viên và render chỉ đọc ứng viên selected trong assets.json. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
 | [ADR-0006](0006-paid-call-ledger.md) | Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider. | Medium | Two-way | 0 USD | W2 · 2026-10-29 | Pending approval |
 
@@ -42,7 +43,7 @@ Table: ADR list
 
 <!-- id:decide.b1 -->
 ```chk
-- [ ] ADR-0004 · Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py.
+- [ ] ADR-0004 · Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản (đề xuất mpt 1.3.9), chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta.
   - Approve
   - Reject
   - Request changes
@@ -63,9 +64,9 @@ Table: ADR list
 Table: Risk matrix
 | Likelihood \ Impact | Low | Medium | High |
 | --- | --- | --- | --- |
-| High | R3 | – | – |
-| Medium | R1 · R2 | R1 · R1 · R1 · R2 | – |
-| Low | R2 | R2 · R2 · R3 · R3 | – |
+| High | R3 | R4 | R5 |
+| Medium | R1 · R2 | R1 · R1 · R1 · R3 · R4 · R2 | – |
+| Low | R2 | R2 · R2 · R3 | – |
 | Not rated | R3 | R3 · R3 | R1 · R2 · R1 |
 
 <!-- id:risk-matrix.b2 -->
@@ -84,9 +85,12 @@ Table: Risk register
 | R1 | MPT đổi chữ ký hàm khi nâng cấp | Medium | Medium | Ghim phiên bản; test riêng từng adapter trước khi nâng | Claude | ADD-AIVIDEO-003 13.3 |
 | R2 | Code ngoài adapter import `app.*` qua đường tắt | Not rated | High | Test quét import chạy trong CI | Claude | ADD-AIVIDEO-003 5.4 |
 | R3 | MPT ngừng bảo trì hoặc đổi giấy phép | Low | Medium | Bản copy renderer đã tự chứa; adapter khác cùng interface | Claude | Thiết kế này |
+| R4 | Gói `mpt` ghim cứng FastAPI, Starlette, uvicorn, openai mà studio cũng dùng | High | Medium | Một `uv.lock` chung; studio dùng đúng các bản đó; nhánh nâng MPT chạy cả test web | Claude | `pyproject.toml` của MPT tại `82bb4a7` |
+| R5 | Renderer từ chối footage dạng ảnh | High | High | Bước `animate` dựng clip MP4 từ ảnh; hậu điều kiện kiểm trước render | Claude | Kiểm thử ngày 24/10/2026 |
 | R1 | Ứng viên được chọn thuộc revision cũ sau khi sửa scene | Medium | Medium | Sinh lại scene bị sửa đặt ứng viên mới làm selected; UI đánh dấu ứng viên lệch revision | Claude | Thiết kế này |
 | R2 | Ổ đĩa đầy dần | Medium | Low | Dọn ứng viên không được chọn sau N ngày; sao lưu `data/` | Claude | ADD-AIVIDEO-003 13.1 |
-| R3 | Ghi `assets.json` đồng thời từ worker và web | Low | Medium | Ghi qua file tạm rồi đổi tên; khóa theo task | Claude | Thiết kế này |
+| R3 | Ghi `assets.json` đồng thời từ worker và web | Medium | Medium | Một hàm ghi có `flock` theo task, file tạm, `fsync`, đổi tên; thread scene trả kết quả về luồng chính; web chỉ ghi khi task không `running` | Claude | Soát ngày 24/10/2026 |
+| R4 | Worker đang chạy rev 2 trong khi người lưu rev 3 | Medium | Medium | Hành động của người bị từ chối khi task `running`; có lệnh `task pause` | Claude | Soát ngày 24/10/2026 |
 | R1 | Adapter quên ghi pending trước lượt gọi | Not rated | High | Lớp ghi chi phí bọc mọi lượt gọi trả phí; test T05 | Claude | ADD-AIVIDEO-003 F03 |
 | R2 | Task tiêu nhiều khi chạy song song nhiều scene với API đắt | Medium | Medium | Gate keyframe trước bước đắt; giới hạn ở tài khoản; test T08 | Claude | ADD-AIVIDEO-003 4 |
 | R3 | Ước tính lệch hóa đơn | High | Low | Đối chiếu hằng tháng; chỉ dùng số đo được để ra quyết định | Tuan | ADD-AIVIDEO-003 F10 |
