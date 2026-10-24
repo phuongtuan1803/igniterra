@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.3"
+ver: "2.4"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -14,6 +14,7 @@ rev:
   - ["2.1", 2026-10-24, "Soát trước Gate 2: trạng thái thật của Gate 0–1, Gate 2 chia 2a (không tốn tiền) và 2b (adapter trả phí, đo), thứ tự việc mới có animate và phiếu duyệt, test T11–T12, ví dụ t_0042 theo D-02, P-01 đề xuất mpt 1.3.9"]
   - ["2.2", 2026-10-24, "Tuan chốt D-01 = build dựa trên lỗi C06 của pilot, bỏ baseline MPT; Gate 1 đóng theo quyết định, Gate 2b chỉ chờ giới hạn chi tiêu và ADR; Gate 2 đo theo mục tiêu tuyệt đối của Gate 0, T10 không còn áp dụng"]
   - ["2.3", 2026-10-24, "Tuan duyệt ADR-0004 và ADR-0006, chốt P-01 = mpt 1.3.9; giới hạn chi tiêu D-03 áp cho mọi provider trả phí, không riêng Gemini"]
+  - ["2.4", 2026-10-24, "P-02 chốt: LLM và ảnh qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1, đổi được); ADR-0005 được duyệt"]
 ---
 
 <!-- id:s1 -->
@@ -103,7 +104,7 @@ Mẫu nhật ký pilot, mỗi lần chạy một dòng. Chỉ điền số đã 
 Gate 2 là lần duy nhất core được viết. Thứ tự dưới đây đi từ thứ test được không tốn tiền tới thứ gọi dịch vụ thật, để mỗi bước có bản giả trước khi có adapter thật (đề xuất).
 
 <!-- id:s3.b2-2 -->
-Đề xuất chia Gate 2 thành hai nửa. Gate 2a (việc 1–6) không gọi API trả phí: dùng bản giả, Edge TTS và ảnh local như pilot, nên làm được ngay. Gate 2b (việc 7–8) bật adapter trả phí và đo trên 5 brief theo mục tiêu tuyệt đối của Gate 0; chỉ bắt đầu khi giới hạn chi tiêu đã đặt trên dashboard và ADR-0004 đến 0006 đã được duyệt. Không còn điều kiện baseline vì D-01 đã chốt là build.
+Đề xuất chia Gate 2 thành hai nửa. Gate 2a (việc 1–6) không gọi API trả phí: dùng bản giả, Edge TTS và ảnh local như pilot, nên làm được ngay. Gate 2b (việc 7–8) bật adapter trả phí và đo trên 5 brief theo mục tiêu tuyệt đối của Gate 0; chỉ bắt đầu khi giới hạn chi tiêu đã đặt ở tài khoản upstream và đã kiểm xong OmniRoute (ADR-0004 đến 0006 đã duyệt). Không còn điều kiện baseline vì D-01 đã chốt là build.
 
 <!-- id:s3.b2 -->
 <!-- report-kit:d2
@@ -121,11 +122,11 @@ a: "Gate 2a · 0 USD" {
 }
 b: "Gate 2b · adapter trả phí" {
   class: zone
-  w7: "7 · Adapter trả phí\nGeminiLLM, NanoBanana\n(sau khi đặt giới hạn chi tiêu)" {class: hands}
+  w7: "7 · Adapter trả phí\nOmniRouteLLM, OmniRouteImage\n(kiểm gateway, giới hạn chi tiêu)" {class: hands}
   w8: "8 · Đo\n5 brief → MP4, phiếu duyệt,\nso mục tiêu Gate 0" {class: brain}
 }
 a.w1 -> a.w2 -> a.w3 -> a.w4 -> a.w5 -> a.w6
-a -> b: "giới hạn chi tiêu đã đặt,\nADR đã duyệt"
+a -> b: "giới hạn chi tiêu đã đặt,\nđã kiểm OmniRoute"
 b.w7 -> b.w8
 ```
 -->
@@ -137,7 +138,8 @@ b.w7 -> b.w8
 <!-- id:s3.b3 -->
 ```chk
 - [x] ADR-0004 và ADR-0006 được duyệt (Tuan, 24/10/2026)
-- [ ] ADR-0005 được duyệt
+- [x] ADR-0005 được duyệt (Tuan, 24/10/2026)
+- [ ] Kiểm OmniRoute trước việc 7: hai model có trong `/v1/models`, cách gửi ảnh tham chiếu, tắt fallback ([05 · OmniRoute](05-modules-providers.md#s5))
 - [x] P-01: ghim `mpt==1.3.9`, commit `82bb4a7` (Tuan, 24/10/2026)
 - [ ] Giới hạn chi tiêu đặt ở tài khoản của mọi provider trả phí sẽ bật, trước việc 7 (D-03): chặn cứng hoặc nạp trước đúng trần; nếu provider chỉ có cảnh báo thì ghi rõ là chưa có chốt chặn
 - [x] D-01 = build, Tuan chốt ngày 24/10/2026 (bỏ baseline MPT)
@@ -229,15 +231,15 @@ Table: Điều kiện mở từng hạng mục Gate 4
 ## Ví dụ kiểm chứng đầu-cuối
 
 <!-- id:s6.b1 -->
-Task `t_0042` "Tín hiệu từ năm 2126", series `lyra7`, cấu hình Gate 3 (ảnh tĩnh có chuyển động camera, chưa có image-to-video), ra MP4 1080×1920 khoảng 55 giây (6 scene, trong giới hạn D-02) với chi phí ước tính khoảng $0,53. Brief: "Người gác cuối cùng trên trạm quỹ đạo nhận tín hiệu từ chính mình của 100 năm sau", 45–58 giây, trần 60 giây, tiếng Việt. Số liệu là ví dụ minh họa, chưa đo.
+Task `t_0042` "Tín hiệu từ năm 2126", series `lyra7`, cấu hình Gate 3 (ảnh tĩnh có chuyển động camera, chưa có image-to-video), ra MP4 1080×1920 khoảng 55 giây (6 scene, trong giới hạn D-02) với chi phí ước tính khoảng $0,53. Brief: "Người gác cuối cùng trên trạm quỹ đạo nhận tín hiệu từ chính mình của 100 năm sau", 45–58 giây, trần 60 giây, tiếng Việt. Số liệu là ví dụ minh họa, chưa đo; chi phí tính theo giá gọi thẳng Gemini, giá qua OmniRoute do tài khoản upstream quyết định.
 
 <!-- id:s6.b2 -->
 <!-- report-kit:d2
 ```d2
 # cap: t_0042 qua các bước: ScenePlan 3 revision, 7 ứng viên ảnh, khoảng 0,53 USD
 direction: down
-plan: "plan\nGemini 3.8 Flash\nrev 1, 6 scene\n0,06 USD" {class: brain}
-kf: "keyframes s01–s06\nNano Banana 2 + 3 refs Kai\n7 ứng viên (s03 hai lần)\n0,47 USD" {class: hands}
+plan: "plan\ncodex/gpt-5.6-luna\nrev 1, 6 scene\n0,06 USD" {class: brain}
+kf: "keyframes s01–s06\ncinf/gemini-nano-banana-2.1\n+ 3 refs Kai\n7 ứng viên (s03 hai lần)\n0,47 USD" {class: hands}
 g1: "gate keyframes\nsửa visual s03 → rev 2,\nchọn img_s03_a2, duyệt" {class: gate}
 vo: "voice s01–s06\nMptTTS vi-VN-NamMinhNeural\n0 USD" {class: hands}
 an: "animate s01–s06\nzoom theo movement\n0 USD" {class: hands}
@@ -258,8 +260,8 @@ g2 -> fix: "sau khi duyệt"
 Table: Các bước đã chạy của t_0042
 | Bước | Scene | Adapter | Kết quả | Chi phí ước tính |
 | --- | --- | --- | --- | --- |
-| `plan` | — | Gemini 3.8 Flash (SDK) | ScenePlan rev 1, 6 scene, khoảng 160 từ | $0,06 |
-| `keyframes` | s01–s06 | Nano Banana 2 + 3 ảnh tham chiếu Kai | 7 ứng viên (s03 sinh 2 lần) | $0,47 |
+| `plan` | — | `OmniRouteLLM` (`codex/gpt-5.6-luna`) | ScenePlan rev 1, 6 scene, khoảng 160 từ | $0,06 |
+| `keyframes` | s01–s06 | `OmniRouteImage` (`cinf/gemini-nano-banana-2.1`) + 3 ảnh tham chiếu Kai | 7 ứng viên (s03 sinh 2 lần) | $0,47 |
 | gate `keyframes` | — | Người duyệt | Sửa visual s03 ("hands out of frame") → rev 2, chạy lại s03, chọn `img_s03_a2`, duyệt | — |
 | `voice` | s01–s06 | `MptTTS` (Edge TTS vi-VN-NamMinhNeural) | 6 file giọng kèm mốc thời gian; tổng khoảng 55 giây, dưới trần 60 | $0 |
 | `subtitles` | — | Mốc Edge TTS (không cần whisper) | `full.ass` | $0 |
@@ -280,19 +282,15 @@ Với cấu hình có image-to-video (Gate 4, 4 clip Veo 3.1 Fast 720p), chi ph�
 ## Quyết định cần chốt
 
 <!-- id:s7.b1 -->
-Ba điểm dưới đây cần người duyệt xác nhận trước Gate 2; kèm ba ADR ở [sổ quyết định](../adr/index.md).
+P-01 và P-02 đã chốt, còn P-03; kèm ba ADR ở [sổ quyết định](../adr/index.md).
 
 <!-- id:s7.b2 -->
 > [!NOTE]
 > P-01 · Phiên bản MPT ghim: đã chốt ngày 24/10/2026, Tuan chọn `mpt==1.3.9` (commit `82bb4a7`), bản đã chạy ở Gate 1; vendor `video_project.py` cùng commit. Nâng phiên bản theo quy trình ở [07 · Vận hành](07-operations.md#s3).
 
 <!-- id:s7.b3 -->
-```q
-P-02 · Adapter ảnh cho keyframe có nhân vật?
-1. Nano Banana 2 qua SDK; dự phòng FLUX.2 klein 4B qua ComfyUI ở Gate 4
-2. FLUX.2 klein 4B qua ComfyUI ngay từ Gate 2
-rec: 1
-```
+> [!NOTE]
+> P-02 · Adapter LLM và ảnh: đã chốt ngày 24/10/2026, Tuan chọn OmniRoute với `codex/gpt-5.6-luna` (LLM) và `cinf/gemini-nano-banana-2.1` (keyframe có nhân vật). Model đổi được trong `studio.toml`. Dự phòng: FLUX.2 klein 4B qua ComfyUI ở Gate 4.
 
 <!-- id:s7.b4 -->
 ```q

@@ -2,7 +2,7 @@
 id: IGN-UI
 title: Igniterra — Giao diện review và CLI
 type: design
-ver: "2.1"
+ver: "2.2"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -12,6 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu (Giao diện web và Task API), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: CLI trước, 4 trang review, chọn ứng viên selected, sửa tạo revision, quyết định lượt gọi unknown; bỏ ngân sách và Settings ghi profile"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: phiếu duyệt C01–C09 và phút công ở gate final, lệnh review và task pause, không sửa khi task đang chạy, khai báo nguồn khi upload, trạng thái duration_exceeded"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -203,7 +204,7 @@ Task detail là nơi vận hành và debug: dòng thời gian các bước, mỗ
 <!-- id:s6.b2 -->
 ```text
 ┌─ t_0042 · Tín hiệu từ năm 2126 ──── waiting (unknown_call) ── đã ghi ~$0,40 ─┐
-│ ⚠ Lượt gọi t_0042:s06:keyframes:1 (gemini · nano-banana-2) gửi lúc 10:14:07, │
+│ ⚠ Lượt gọi t_0042:s06:keyframes:1 (omniroute · cinf/nb2.1) gửi lúc 10:14:07, │
 │   không có kết quả. Có thể đã bị tính phí.                                    │
 │   [Sinh lại s06]  [Bỏ qua, giữ ứng viên hiện có]                              │
 ├────────────────────────────────────────────────────────────────────────────────┤

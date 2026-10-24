@@ -2,15 +2,16 @@
 id: IGN-REVIEW-01
 title: Igniterra — Soát thiết kế trước Gate 2
 type: report
-ver: "1.2"
+ver: "1.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
-sum: Soát bộ thiết kế 2.0 với báo cáo G0/G1 và mã MPT 82bb4a7 trước khi viết code; 5 phát hiện chặn và 11 phát hiện cần làm trong Gate 2 đã được sửa vào tài liệu 2.1, Tuan đã chốt D-01 = build và bỏ baseline MPT; ADR-0004, ADR-0006 và mpt 1.3.9 đã duyệt; còn ADR-0005 và giới hạn chi tiêu chờ Tuan.
+sum: Soát bộ thiết kế 2.0 với báo cáo G0/G1 và mã MPT 82bb4a7 trước khi viết code; 5 phát hiện chặn và 11 phát hiện cần làm trong Gate 2 đã được sửa vào tài liệu 2.1, Tuan đã chốt D-01 = build và bỏ baseline MPT; ADR 0004–0006 và mpt 1.3.9 đã duyệt; Gate 2b dùng OmniRoute; còn giới hạn chi tiêu chờ Tuan.
 rev:
   - ["1.0", 2026-10-24, "Bản đầu: soát trước Gate 2, sửa đi kèm trong tài liệu thiết kế 2.1 và ADR 0004–0006 bản 0.2"]
   - ["1.1", 2026-10-24, "Q1 đã chốt: bỏ baseline, D-01 = build dựa trên lỗi C06 của pilot; Gate 2b chỉ chờ giới hạn chi tiêu và ADR"]
   - ["1.2", 2026-10-24, "Tuan duyệt ADR-0004, ADR-0006 và chốt mpt 1.3.9; Q4 áp cho mọi provider trả phí"]
+  - ["1.3", 2026-10-24, "ADR-0005 được duyệt; Gate 2b qua OmniRoute, giới hạn chi tiêu đặt ở tài khoản upstream"]
 ---
 
 <!-- id:s1 -->
@@ -25,7 +26,7 @@ Table: Tóm tắt phát hiện
 | --- | --- | --- |
 | Chặn: phải sửa trước khi code | 5 | Đã sửa trong tài liệu |
 | Cần làm trong Gate 2 | 11 | Đã sửa trong tài liệu |
-| Quyết định của Tuan | 4 | Q1, Q3 đã chốt, Q2 xong một phần, Q4 còn chờ, xem [mục cuối](#s6) |
+| Quyết định của Tuan | 4 | Q1–Q3 đã chốt, Q4 còn chờ, xem [mục cuối](#s6) |
 
 <!-- id:s1.b3 -->
 <!-- report-kit:d2
@@ -267,9 +268,9 @@ a: "Gate 2a\nkhung repo, contract, Fake*,\ncore, CLI, đường miễn phí\n(Ed
 cond: "Điều kiện mở 2b" {
   class: zone
   lim: "Đặt giới hạn chi tiêu\nở tài khoản provider (Q4)" {class: gate}
-  adr: "Duyệt ADR-0005\n(Q2)" {class: gate}
+  adr: "Kiểm OmniRoute\n(ảnh tham chiếu, fallback)" {class: gate}
 }
-b: "Gate 2b\nGeminiLLM, NanoBanana,\nđo 5 brief theo\nmục tiêu Gate 0" {class: brain}
+b: "Gate 2b\nOmniRouteLLM, OmniRouteImage,\nđo 5 brief theo\nmục tiêu Gate 0" {class: brain}
 d01 -> a
 a -> b: "core sẵn sàng"
 cond -> b
@@ -295,7 +296,7 @@ Chi tiết ở [08 · Gate 2](../../src/design/08-roadmap.md#s3).
 
 <!-- id:s6.b2 -->
 > [!NOTE]
-> Q2: ADR-0004 và ADR-0006 đã được Tuan duyệt ngày 24/10/2026. Còn ADR-0005 (hạn 29/10/2026).
+> Q2: ADR-0004, ADR-0005 và ADR-0006 đã được Tuan duyệt ngày 24/10/2026.
 
 <!-- id:s6.b3 -->
 > [!NOTE]
@@ -303,7 +304,7 @@ Chi tiết ở [08 · Gate 2](../../src/design/08-roadmap.md#s3).
 
 <!-- id:s6.b4 -->
 ```q
-Q4 · D-03: đặt giới hạn chi tiêu ở tài khoản của provider trả phí sẽ dùng, trước lượt gọi trả phí đầu tiên?
+Q4 · D-03: đặt giới hạn chi tiêu ở tài khoản upstream sau OmniRoute (cinf, codex), trước lượt gọi trả phí đầu tiên?
 1. Đặt 5 USD như trần kế hoạch G0 (chặn cứng hoặc nạp trước)
 2. Đặt mức khác (ghi chú)
 rec: 1

@@ -2,7 +2,7 @@
 id: IGN-ARC
 title: Igniterra — Kiến trúc tổng thể
 type: design
-ver: "2.1"
+ver: "2.2"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -12,6 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 4 tầng, core tối thiểu, MPT sau adapter, bỏ registry, profile YAML, router, ngân sách"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: bước animate, vendor video_project tại 82bb4a7, phụ thuộc ghim theo gói mpt, quy tắc web chỉ ghi khi task không chạy, ranh giới đường dẫn cho /files"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -74,14 +75,14 @@ core: Core (ta viết, không import MPT) {
 }
 adp: Adapter (bật theo năng lực đang dùng) {
   class: zone
-  direct: "API trực tiếp\nGeminiLLM, NanoBananaImage,\nVeoVideo (Gate 4)" {class: hands}
+  direct: "API trực tiếp\nOmniRouteLLM, OmniRouteImage,\nVeoVideo (Gate 4)" {class: hands}
   mpta: "studio/providers/mpt/\nMptTTS, MptSubtitleAligner,\nMptVideo (Gate 4)" {class: hands}
   rend: "Renderer\nvendor/video_project.py" {class: hands}
 }
 svc: Dịch vụ {
   class: zone
   mpt: "gói mpt\n(ghim phiên bản)" {class: plain}
-  api: "API cloud\nGemini, Veo" {class: plain}
+  api: "API cloud\nOmniRoute, Veo" {class: plain}
   ff: FFmpeg {class: plain}
   gpu: "ComfyUI\n(chỉ khi mở rộng)" {class: plain}
 }
@@ -284,7 +285,7 @@ igniterra/
 │   ├── prompt.py          # ghép prompt keyframe xác định
 │   ├── providers/
 │   │   ├── base.py        # 5 Protocol + Retryable, QualityFail, Unconfirmed, Fatal
-│   │   ├── direct/        # gemini_llm.py, nano_banana.py, veo.py (Gate 4)
+│   │   ├── direct/        # omniroute.py (LLM + ảnh), veo.py (Gate 4)
 │   │   ├── mpt/           # tts.py, subtitle.py, video.py — chỉ nơi này import app.*
 │   │   └── fake/          # FakeLLM, FakeImage, FakeTTS, FakeAligner, FakeVideo
 │   ├── render/            # adapter renderer gọi vendor/video_project.py
@@ -412,7 +413,7 @@ store: Lưu trữ {
 prov: Provider {
   class: zone
   g: "gói mpt ghim phiên bản\n(TTS, phụ đề, video)" {class: hands}
-  h: "SDK trực tiếp\n(Gemini, Nano Banana, Veo)" {class: hands}
+  h: "API trực tiếp\n(OmniRoute, Veo)" {class: hands}
 }
 tools: Công cụ local {
   class: zone

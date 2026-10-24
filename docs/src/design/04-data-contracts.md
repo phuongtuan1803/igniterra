@@ -2,7 +2,7 @@
 id: IGN-DAT
 title: Igniterra — Contract và dữ liệu
 type: design
-ver: "2.1"
+ver: "2.2"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -12,6 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: ScenePlan có revision, assets.json với selected, costs.jsonl thay cost_events và ngân sách, bỏ SpeechScript, SceneVisual, profile"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: contract Brief theo mẫu Gate 0, ScenePlan gắn hình bắt buộc, wps của giọng, nguồn và quyền của ứng viên, render revision thay cho một file final, bảng reviews (phiếu duyệt C01–C09, phút công), quy tắc ghi assets.json, cấu hình MPT nạp lúc import"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -296,8 +297,8 @@ Mỗi lần sinh ảnh, audio hay clip là một ứng viên; render chỉ dùng
 ```json
 // data/tasks/t_0042/assets.json — render chỉ đọc "selected"
 {"s03": {"image": {"selected": "img_s03_a2", "candidates": [
-   {"id": "img_s03_a1", "path": "keyframes/s03_a1.png", "provider": "gemini", "model": "nano-banana-2", "plan_rev": 2},
-   {"id": "img_s03_a2", "path": "keyframes/s03_a2.png", "provider": "gemini", "model": "nano-banana-2", "plan_rev": 3},
+   {"id": "img_s03_a1", "path": "keyframes/s03_a1.png", "provider": "omniroute", "model": "cinf/gemini-nano-banana-2.1", "plan_rev": 2},
+   {"id": "img_s03_a2", "path": "keyframes/s03_a2.png", "provider": "omniroute", "model": "cinf/gemini-nano-banana-2.1", "plan_rev": 3},
    {"id": "up_s03_1", "path": "uploads/s03.png", "provider": "user", "source": "ảnh tự chụp", "rights": "owned", "ai_generated": false}]},
   "voice": {"selected": "vo_s03_a1", "candidates": [{"id": "vo_s03_a1", "path": "voice/vo_s03_a1.mp3", "provider": "mpt:vi-VN-NamMinhNeural", "plan_rev": 3}]}}}
 ```
@@ -348,7 +349,7 @@ Mỗi adapter ghi lượng dùng (số ảnh, ký tự, giây video, token) vào
 <!-- id:s6.b2 -->
 ```json
 // data/tasks/t_0042/costs.jsonl — dòng pending ghi TRƯỚC lượt gọi, dòng kết quả ghi SAU
-{"ts": "2026-10-19T10:12:01", "request_id": "t_0042:s03:keyframes:2", "provider": "gemini", "model": "nano-banana-2", "status": "pending"}
+{"ts": "2026-10-19T10:12:01", "request_id": "t_0042:s03:keyframes:2", "provider": "omniroute", "model": "cinf/gemini-nano-banana-2.1", "status": "pending"}
 {"ts": "2026-10-19T10:12:03", "request_id": "t_0042:s03:keyframes:2", "status": "ok", "units": {"images": 1}, "est_usd": 0.067}
 ```
 
@@ -489,7 +490,7 @@ toml: "studio.toml\nadapter mặc định,\ngiới hạn song song" {class: gate
 task: "tasks.overrides\n(phần Nâng cao khi tạo task)" {class: gate}
 eff: "Cấu hình hiệu lực\ncủa bước" {class: hands}
 mpt: "MPT_HOME/config.toml\nkhóa API, provider MPT" {class: bad}
-env: "biến môi trường\nGEMINI_API_KEY..." {class: bad}
+env: "biến môi trường\nOMNIROUTE_API_KEY..." {class: bad}
 code -> toml: "bị ghi đè bởi"
 toml -> task: "bị ghi đè bởi"
 task -> eff
@@ -506,11 +507,17 @@ env -> eff: "adapter trực tiếp đọc"
 ```toml
 # studio.toml (đề xuất) — không chứa khóa API
 [adapters]
-llm       = "gemini"            # providers/direct/gemini_llm.py
-image     = "nano_banana"       # providers/direct/nano_banana.py
+llm       = "omniroute"         # providers/direct/omniroute.py (OmniRouteLLM)
+image     = "omniroute"         # providers/direct/omniroute.py (OmniRouteImage)
 tts       = "mpt"               # providers/mpt/tts.py, giọng lấy từ Series Bible
 subtitles = "mpt"               # providers/mpt/subtitle.py
 video     = "none"              # Gate 4: "mpt" hoặc "veo"
+
+[omniroute]                     # model đổi được, không sửa code; khóa nằm ở OMNIROUTE_API_KEY
+base_url    = "http://localhost:20128/v1"
+llm_model   = "codex/gpt-5.6-luna"
+image_model = "cinf/gemini-nano-banana-2.1"
+timeout_s   = 120               # quá hạn sau khi gửi → unknown, không retry
 
 [concurrency]                   # số scene chạy song song trong một bước, theo adapter
 image = 4

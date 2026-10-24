@@ -1,13 +1,13 @@
 ---
 id: ADR-0005
-title: ScenePlan có revision là contract kịch bản duy nhất, render dùng ứng viên selected
+title: "ScenePlan có revision là contract kịch bản duy nhất, render dùng ứng viên selected"
 type: adr
-ver: "0.2"
+ver: 0.3
 status: draft
 date: 2026-10-24
 owner: Tuan
 adr:
-  state: pending
+  state: approved
   week: W2
   deadline: 2026-10-29
   impact: high
@@ -18,9 +18,12 @@ adr:
   proposer: Claude
   decider: Tuan
   informed: "—"
+  decided: 2026-10-24
+  reason: Tuan duyệt ngày 24/10/2026 trong thread dự án.
 rev:
-  - ["0.1", 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-06..AD-08 và mục 6"]
-  - ["0.2", 2026-10-24, "Soát trước Gate 2: render cũng là revision (renders/r_NNN), quy tắc một người ghi assets.json, người chỉ sửa khi task không chạy, ứng viên mang nguồn và quyền"]
+  - [0.1, 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-06..AD-08 và mục 6"]
+  - [0.2, 2026-10-24, "Soát trước Gate 2: render cũng là revision (renders/r_NNN), quy tắc một người ghi assets.json, người chỉ sửa khi task không chạy, ứng viên mang nguồn và quyền"]
+  - [0.3, 2026-10-24, "Quyết định: Tuan duyệt"]
 ---
 
 <!-- id:summary -->
