@@ -2,15 +2,16 @@
 id: IGN-RUN
 title: Igniterra — Worker và luồng thực thi
 type: design
-ver: "2.0"
+ver: "2.1"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: Worker là một vòng lặp đơn giản qua danh sách bước cố định — bỏ qua bước đã xong, dừng ở gate, chạy bước qua adapter, kiểm tra, lưu checkpoint; retry, resume, lượt gọi trả phí không rõ kết quả và chạy lại một scene đều là nhánh của vòng lặp này.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.1, 7"], [Thành phần, "studio/pipeline.py, gates.py, costs.py"], [Gate xây, "2 (CLI), 3 (sửa trên web), 4 (motion)"]]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu (Pipeline Runner tổng quát), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: danh sách bước cố định, giọng đọc là đồng hồ chủ, pending trước lượt gọi trả phí, bỏ fan-out tổng quát, parallel, ngân sách"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2: thêm bước animate (renderer không nhận ảnh tĩnh), kiểm tra hậu điều kiện, trần thời lượng sau voice, input_hash gồm cấu hình, commit artifact, quy tắc ghi khi task đang chạy, lỗi sau khi gửi lượt gọi trả phí là unknown"]
 ---
 
 <!-- id:s1 -->
@@ -44,12 +45,12 @@ NFR-10
 ## Danh sách bước
 
 <!-- id:s2.b1 -->
-Danh sách bước của video là mã Python cố định. Giọng đọc chạy trước bước motion để clip được yêu cầu theo độ dài thật của lời đọc ([Đồng bộ thời lượng](#s9)).
+Danh sách bước của video là mã Python cố định. Giọng đọc chạy trước bước motion để clip được yêu cầu theo độ dài thật của lời đọc ([Đồng bộ thời lượng](#s9)). Renderer `video_project` chỉ nhận footage là video (bộ lọc `-format_whitelist` từ chối PNG/JPEG) và chỉ scale/crop, không có chuyển động camera; vì vậy bước `animate` biến ảnh selected thành clip MP4 có chuyển động theo khóa `movement` và đúng thời lượng giọng trước khi render.
 
 <!-- id:s2.b2 -->
 <!-- report-kit:d2
 ```d2
-# cap: Danh sách bước video: 2 gate, 4 bước theo scene, motion chỉ cho scene mode motion
+# cap: Danh sách bước video: 2 gate, 5 bước theo scene; animate dựng clip từ ảnh tĩnh vì renderer chỉ nhận video
 direction: down
 plan: "plan\nLLMProvider\n→ ScenePlan rev 1" {class: brain}
 kf: "keyframes\n(theo scene)\nImageProvider" {class: hands}
@@ -57,14 +58,15 @@ g1: "gate: keyframes\n(tùy chọn)" {class: gate}
 voice: "voice\n(theo scene)\nTTSProvider" {class: hands}
 sub: "subtitles\nmốc TTS hoặc\nSubtitleAligner" {class: hands}
 mot: "motion\n(scene mode: motion)\nVideoProvider, Gate 4" {class: hands}
+ani: "animate\n(theo scene, local)\nFFmpeg zoompan theo movement\n→ clip = thời lượng giọng" {class: hands}
 render: "render\nvideo_project\n→ MP4 9:16" {class: hands}
 g2: "gate: final" {class: gate}
-plan -> kf -> g1 -> voice -> sub -> mot -> render -> g2
+plan -> kf -> g1 -> voice -> sub -> mot -> ani -> render -> g2
 ```
 -->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s2.b2-dark.svg">
-<img alt="Danh sách bước video: 2 gate, 4 bước theo scene, motion chỉ cho scene mode motion" src="03-runner.figs/s2.b2-light.svg">
+<img alt="Danh sách bước video: 2 gate, 5 bước theo scene; animate dựng clip từ ảnh tĩnh vì renderer chỉ nhận video" src="03-runner.figs/s2.b2-light.svg">
 </picture>
 
 <!-- id:s2.b3 -->
@@ -77,7 +79,8 @@ Table: Bước, interface và đầu ra
 | `voice` | Có | `TTSProvider` | `vo_sXX` + mốc thời gian | 2 |
 | `subtitles` | Không | `SubtitleAligner` (khi TTS không trả mốc) | File phụ đề cả video | 2 |
 | `motion` (tùy chọn) | Có, chỉ scene `mode: motion` | `VideoProvider` | Ứng viên clip; lỗi thì giữ ảnh tĩnh | 4 |
-| `render` | Không | Renderer `video_project` | MP4 9:16, phụ đề burn-in | 2 |
+| `animate` | Có, scene dùng ảnh tĩnh (`mode: still`, hoặc motion lỗi) | FFmpeg local (không trả phí) | Ứng viên clip `provider: local:kenburns` từ ảnh selected, khóa `movement`, thời lượng giọng đo được | 2 |
+| `render` | Không | Renderer `video_project` | Render revision mới: MP4 9:16 (mỗi scene = clip selected + giọng selected), phụ đề burn-in | 2 |
 | gate `final` | — | — | Duyệt bản cuối | 2 |
 
 <!-- id:s2.b4 -->
@@ -90,6 +93,7 @@ VIDEO_STEPS = [
     Step("voice",     run=steps.voice,     per_scene=True),
     Step("subtitles", run=steps.subtitles, per_scene=False),
     Step("motion",    run=steps.motion,    per_scene=True,  paid=True, applies=lambda s: s.mode == "motion"),
+    Step("animate",   run=steps.animate,   per_scene=True,  applies=uses_still_image),  # mode still, hoặc motion lỗi
     Step("render",    run=steps.render,    per_scene=False),
     Gate("final"),
 ]
@@ -189,7 +193,7 @@ Task có 5 trạng thái. Chỉ worker chuyển `pending → running`; chỉ ng�
 direction: right
 pending: pending {class: plain}
 running: running {class: hands}
-waiting: "waiting\n(gate:keyframes, gate:final,\nunknown_call, retries_exhausted)" {class: gate}
+waiting: "waiting\n(gate:keyframes, gate:final,\nunknown_call, retries_exhausted,\nduration_exceeded, paused)" {class: gate}
 completed: completed {class: data}
 failed: failed {class: bad}
 pending -> running: "worker nhận"
@@ -215,6 +219,10 @@ Table: Trạng thái task
 | `waiting` | Chờ người; trường `wait_reason` cho biết vì sao | Người (CLI, trang review) |
 | `completed` | Gate `final` đã duyệt; MP4 là sản phẩm | — (sửa sau khi duyệt đưa task về `pending`) |
 | `failed` | Lỗi `Fatal` hoặc người hủy | Người có thể tạo task mới từ cùng brief |
+
+<!-- id:s4.b4 -->
+> [!IMPORTANT]
+> Hành động của người (sửa scene, chọn ứng viên, upload, quyết định gate) chỉ được nhận khi task không ở `running`. Trong lúc worker đang chạy, CLI và web từ chối và báo "task đang chạy"; người dừng task (`task pause`: worker dừng ở ranh giới mục kế tiếp, task `waiting` lý do `paused`) rồi mới sửa. Quy tắc này tránh worker đang chạy bước của rev 2 trong khi web ghi rev 3, và giữ `assets.json` chỉ có một người ghi tại một thời điểm.
 
 <!-- id:s5 -->
 ## StepRun, checkpoint và resume
@@ -249,19 +257,59 @@ Table: Khóa và đầu vào của StepRun (đề xuất)
 | --- | --- |
 | `task_id`, `step`, `scene` | Định danh mục; `scene = "_"` cho bước cả video |
 | `attempt` | Lượt thử, tăng khi thử lại hoặc chạy lại; khớp hậu tố `_aN` của ứng viên |
-| `input_hash` | Hash của phần ScenePlan mà bước đọc cho scene đó cùng id các ứng viên selected làm đầu vào |
+| `input_hash` | Hash của mọi thứ ảnh hưởng đầu ra: phần ScenePlan bước đọc cho scene đó, id các ứng viên selected làm đầu vào, tên adapter và model, tham số (giọng, tốc độ, kích thước, fps), phiên bản mẫu prompt và các trường Series Bible được dùng |
 | `plan_rev` | Revision ScenePlan lúc chạy |
 | `output_path`, `output_sha256` | File đầu ra và hash để kiểm khi resume |
 | `job_id` | Với bước bất đồng bộ (`motion`): lưu ngay sau `submit` |
 
 <!-- id:s5.b4 -->
-Nhờ `input_hash`, sửa một scene chỉ làm thay đổi đầu vào của chính scene đó và các bước cả video phụ thuộc vào nó; scene khác giữ StepRun `done` và được bỏ qua.
+Nhờ `input_hash`, sửa một scene chỉ làm thay đổi đầu vào của chính scene đó và các bước cả video phụ thuộc vào nó; scene khác giữ StepRun `done` và được bỏ qua. Vì hash gồm cả adapter, model và tham số, đổi giọng trong Series Bible hay đổi model ảnh cũng làm đúng các bước liên quan chạy lại, thay vì bị bỏ qua.
+
+<!-- id:s5.b5 -->
+Một bước chỉ được ghi `done` sau khi artifact đã được commit theo đúng thứ tự dưới đây (học từ `video_project` và `task_artifacts` của MPT). Bước sau chỉ đọc artifact đã commit; file tồn tại trên đĩa chưa đủ để coi là xong.
+
+<!-- id:s5.b6 -->
+<!-- report-kit:d2
+```d2
+# cap: Commit artifact: file và hash trước, bản ghi sau; chết ở bất kỳ điểm nào cũng không có StepRun done trỏ tới file dở
+direction: right
+tmp: "Ghi file tạm\ncùng thư mục" {class: hands}
+chk: "Kiểm tra\nhậu điều kiện" {shape: diamond; class: gate}
+mv: "fsync + đổi tên\nthành tên cuối" {class: data}
+reg: "Ghi ứng viên\nvào assets.json\n(file tạm + đổi tên)" {class: data}
+done: "StepRun done\n(output_sha256)" {class: gate}
+bad: "QualityFail\n(xóa file tạm)" {class: bad}
+tmp -> chk
+chk -> mv: đạt
+chk -> bad: trượt
+mv -> reg -> done
+```
+-->
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="03-runner.figs/s5.b6-dark.svg">
+<img alt="Commit artifact: file và hash trước, bản ghi sau; chết ở bất kỳ điểm nào cũng không có StepRun done trỏ tới file dở" src="03-runner.figs/s5.b6-light.svg">
+</picture>
+
+<!-- id:s5.b7 -->
+Table: Hậu điều kiện kiểm trước khi commit (đề xuất)
+| Bước | Kiểm tra | Trượt thì |
+| --- | --- | --- |
+| `keyframes` | Ảnh đọc được, cạnh ngắn ≥ 1080 px, tỉ lệ gần 9:16 | `QualityFail` |
+| `voice` | Có audio, thời lượng > 0, đo bằng ffprobe | `Retryable` |
+| `animate`, `motion` | Giải mã được toàn bộ, đúng 1080×1920, thời lượng ≥ thời lượng giọng | `QualityFail` |
+| `render` | Giải mã được toàn bộ, 1080×1920, có audio, tổng thời lượng ≤ `max_s` của brief | `QualityFail`; vượt trần thì `waiting` lý do `duration_exceeded` |
+
+<!-- id:s5.b8 -->
+Pilot Gate 1 cho thấy vì sao cần bảng này: một lượt dựng thử ra 941×1672 thay vì 1080×1920 mà không có lỗi nào được báo; chỉ phép kiểm kích thước bắt được nó ([báo cáo G0/G1](../../reports/g0-g1/README.md)).
 
 <!-- id:s6 -->
 ## Lượt gọi trả phí và job bất đồng bộ
 
 <!-- id:s6.b1 -->
-Mọi lượt gọi trả phí đi qua `costs.py`: ghi dòng `pending` trước khi gửi và dòng kết quả sau. Khi resume mà còn `pending` không có kết quả, task chuyển `waiting`; người quyết định, hệ thống không tự gửi lại (ADR-0006).
+Mọi lượt gọi trả phí đi qua `costs.py`: ghi dòng `pending` và `fsync` trước khi gửi, rồi ghi dòng kết quả sau. Khi resume mà còn `pending` không có kết quả, task chuyển `waiting`; người quyết định, hệ thống không tự gửi lại (ADR-0006).
+
+<!-- id:s6.b2-2 -->
+Lỗi xảy ra sau khi request đã có thể tới provider (đọc timeout, mất kết nối giữa chừng, 5xx, response thiếu id) không phải `Retryable` với lượt gọi trả phí: adapter ném `Unconfirmed`, trừ khi tài liệu provider nói rõ lỗi đó không tính phí hoặc request mang khóa idempotency. Chỉ lỗi chắc chắn chưa gửi (không kết nối được, 429 từ chối trước khi xử lý) mới được thử lại tự động. MPT xử lý MuAPI theo đúng cách này.
 
 <!-- id:s6.b2 -->
 <!-- report-kit:d2
@@ -337,7 +385,8 @@ act: Hành động {
   a1: "Chọn ứng viên khác" {class: plain}
   a2: "Sửa visual / góc máy sNN" {class: plain}
   a3: "Sửa narration sNN" {class: plain}
-  a4: "Upload asset sNN" {class: plain}
+  a4: "Upload ảnh sNN" {class: plain}
+  a6: "Upload clip, nhạc" {class: plain}
   a5: "Chạy lại sNN + ghi chú" {class: plain}
 }
 rerun: Chạy lại {
@@ -345,15 +394,19 @@ rerun: Chạy lại {
   kf: "keyframes sNN" {class: hands}
   vo: "voice sNN" {class: hands}
   sb: "subtitles" {class: hands}
+  an: "animate sNN" {class: hands}
   rd: "render\n(video_project chỉ dựng\nlại scene đổi + ghép)" {class: hands}
 }
-act.a1 -> rerun.rd
-act.a2 -> rerun.kf: "rev mới"
-act.a3 -> rerun.vo: "rev mới"
-act.a4 -> rerun.rd
+act.a2 -> rerun.kf
 act.a5 -> rerun.kf
-rerun.kf -> rerun.rd
+act.a3 -> rerun.vo
+act.a1 -> rerun.an
+act.a4 -> rerun.an
+act.a6 -> rerun.rd
+rerun.kf -> rerun.an
+rerun.vo -> rerun.an
 rerun.vo -> rerun.sb
+rerun.an -> rerun.rd
 rerun.sb -> rerun.rd
 ```
 -->
@@ -367,10 +420,10 @@ Table: Hành động và phạm vi chạy lại
 | Hành động | Ghi gì | Chạy lại |
 | --- | --- | --- |
 | Duyệt gate `keyframes` | Quyết định gate cho revision hiện hành | Tiếp từ `voice` |
-| Chọn ứng viên khác | `selected` trong `assets.json` | Chỉ `render` |
+| Chọn ứng viên khác | `selected` trong `assets.json` | Ảnh: `animate` sNN rồi `render`; clip, giọng: chỉ `render` |
 | Sửa `visual`, `shot` của sNN | ScenePlan revision mới | `keyframes` sNN; dừng lại ở gate `keyframes` |
-| Sửa `narration` của sNN | ScenePlan revision mới | `voice` sNN, `subtitles`, `render` |
-| Upload ảnh, clip, nhạc | Ứng viên `provider: user`, đặt làm selected | Chỉ `render` |
+| Sửa `narration` của sNN | ScenePlan revision mới | `voice` sNN, `subtitles`, `animate` sNN (thời lượng đổi), `render` |
+| Upload ảnh, clip, nhạc | Ứng viên `provider: user`, đặt làm selected; khai báo nguồn và quyền | Ảnh: `animate` sNN rồi `render`; clip, nhạc: chỉ `render` |
 | Chạy lại sNN kèm ghi chú | Ghi chú lưu vào StepRun mới, đưa vào prompt | Bước được chọn của sNN và các bước sau phụ thuộc |
 | Quyết định lượt gọi `unknown` | Dòng chi phí `unknown` giữ nguyên; quyết định ghi vào gate | Sinh lại mục đó, hoặc bỏ qua và dùng ứng viên có sẵn |
 | Sửa sau khi duyệt `final` | Revision mới; task về `pending` | Như các dòng trên, rồi dừng lại ở gate `final` |
@@ -392,9 +445,9 @@ Adapter chuyển mọi lỗi về 4 loại chung định nghĩa trong `providers
 direction: right
 err: Lỗi từ adapter {
   class: zone
-  r: "Retryable\n429, 5xx, timeout" {class: plain}
+  r: "Retryable\nchắc chắn chưa gửi:\nkhông kết nối, 429" {class: plain}
   q: "QualityFail(reason)" {class: plain}
-  u: "Unconfirmed\njob trả phí không rõ kết quả" {class: plain}
+  u: "Unconfirmed\nlượt gọi trả phí đã có thể tới\nprovider: timeout, 5xx, mất id" {class: plain}
   f: Fatal {class: plain}
 }
 act: Phản ứng {
@@ -424,7 +477,7 @@ Table: Cơ chế chịu lỗi
 | --- | --- |
 | Checkpoint | StepRun `done` kèm hash file; không cần lưu state riêng |
 | Resume | Khởi động lại worker → task `running` về hàng đợi → bỏ qua mục đã `done` |
-| Retry lỗi tạm thời | `Retryable` (429, 5xx, timeout): thử lại cùng đầu vào, có backoff, tối đa 3 lần |
+| Retry lỗi tạm thời | `Retryable`: thử lại cùng đầu vào, có backoff, tối đa 3 lần. Với lượt gọi trả phí chỉ áp cho lỗi chắc chắn chưa gửi; timeout, 5xx, mất id là `Unconfirmed` |
 | Retry vì chất lượng | `QualityFail(reason)` → chạy lại riêng scene đó, lý do đưa vào prompt |
 | Hết lượt thử | Fallback (clip lỗi → giữ ảnh tĩnh có chuyển động camera) hoặc `waiting` lý do `retries_exhausted` |
 | Lượt gọi trả phí không rõ kết quả | Còn `pending` không có kết quả, hoặc MPT ném `UnconfirmedTaskError` → `unknown`, task `waiting`; không tự gửi lại |
@@ -434,24 +487,31 @@ Table: Cơ chế chịu lỗi
 ## Đồng bộ thời lượng: giọng đọc là đồng hồ chủ
 
 <!-- id:s9.b1 -->
-Kịch bản không cần khớp chính xác theo giây. LLM đếm giây kém, nên `plan` giới hạn theo số từ (tiếng Việt khoảng 2,5–3 từ/giây) và kiểm tra tổng thời lượng ước tính trong ±10% mục tiêu. Thời lượng thật chỉ biết sau bước `voice`.
+Kịch bản không cần khớp chính xác theo giây. LLM đếm giây kém, nên `plan` giới hạn theo số từ và kiểm tra tổng thời lượng ước tính nằm trong khoảng mục tiêu của brief. Tốc độ đọc lấy từ giọng trong Series Bible (`wps`), không phải hằng số chung: pilot Gate 1 đo được 2,81–3,03 từ/giây với `vi-VN-NamMinhNeural` ở tốc độ 1.0, nên 96–107 từ chỉ cho 33,7–35,6 giây. Với khoảng 45–58 giây của D-02, `plan` nhắm khoảng 130–165 từ.
+
+<!-- id:s9.b2-2 -->
+Thời lượng thật chỉ biết sau bước `voice`. Ngay sau `voice`, worker cộng thời lượng đo được của các scene: vượt `max_s` của brief (60 giây cho pilot) thì task `waiting` lý do `duration_exceeded`, người chọn rút gọn narration (revision mới) hoặc chấp nhận tăng tốc độ đọc trong giới hạn nghe rõ; không render bản vượt trần.
 
 <!-- id:s9.b2 -->
 <!-- report-kit:d2
 ```d2
 # cap: Thời lượng đi một chiều: số từ → ước tính → giọng đo được → độ dài scene và clip
 direction: down
-plan: "plan\ntarget_s = ngân sách\n(số từ ÷ 2,5–3)" {class: brain}
-chk: "Tổng ước tính\ntrong ±10% mục tiêu?" {shape: diamond; class: gate}
+plan: "plan\ntarget_s = ngân sách\n(số từ ÷ wps của giọng)" {class: brain}
+chk: "Tổng ước tính trong\nkhoảng mục tiêu brief?" {shape: diamond; class: gate}
 voice: "voice\nđo thời lượng audio\ntừng scene" {class: hands}
-still: "Ảnh tĩnh\nco giãn tùy ý" {class: data}
+cap: "Tổng ≤ max_s?" {shape: diamond; class: gate}
+over: "waiting\nduration_exceeded" {class: bad}
+still: "animate: ảnh tĩnh\n→ clip đúng thời lượng" {class: data}
 clip: "Clip motion\nyêu cầu theo giây\ngiọng đã đo" {class: hands}
 render: "render\nđộ dài scene = audio;\nlặp footage ngắn, cắt dài" {class: hands}
 plan -> chk
 chk -> plan: "không: viết lại"
 chk -> voice: có
-voice -> still
-voice -> clip
+voice -> cap
+cap -> over: không
+cap -> still: có
+cap -> clip: có
 still -> render
 clip -> render
 ```
@@ -533,6 +593,7 @@ Lỗi cấu hình và schema phải lộ ra trước lượt gọi trả phí đ
 - [ ] Series Bible hợp lệ: ảnh tham chiếu tồn tại, khóa camera đầy đủ
 - [ ] Mỗi năng lực dùng tới có adapter trong `studio.toml` và adapter khởi tạo được
 - [ ] `MPT_HOME` trỏ tới `config.toml` có khóa cho provider đang chọn (adapter MPT tự kiểm)
-- [ ] FFmpeg chạy được
-- [ ] ScenePlan trả về qua Pydantic; tổng thời lượng ước tính trong ±10% mục tiêu
+- [ ] `ffmpeg` và `ffprobe` hệ thống chạy được (bản `imageio-ffmpeg` đi kèm MPT không có `ffprobe`, mà renderer cần nó)
+- [ ] Đã đặt giới hạn chi tiêu ở tài khoản provider cho mọi adapter trả phí đang bật (D-03)
+- [ ] ScenePlan trả về qua Pydantic; số scene trong giới hạn brief; mỗi hình bắt buộc của brief gắn với một scene và không xuất hiện trước nhịp cho phép; tổng thời lượng ước tính trong khoảng mục tiêu
 ```

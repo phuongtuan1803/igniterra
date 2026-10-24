@@ -2,9 +2,9 @@
 id: IGN-SYS
 title: Igniterra — Thiết kế hệ thống
 type: design
-ver: "2.0"
+ver: "2.1"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: Bối cảnh, mục tiêu, phạm vi, mô hình miền, yêu cầu và ràng buộc của studio, hệ thống sản xuất video ngắn bằng AI theo scene có duyệt thủ công, xây bằng core tối thiểu + adapter trên MoneyPrinterTurbo; điểm vào của bộ tài liệu thiết kế.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 (19/10/2026)"], [Kiến trúc, "Architecture D — core tối thiểu + adapter"], [Đối tượng, Người phát triển và vận hành]]
@@ -12,6 +12,7 @@ defines: [FR, NFR, CON]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: core tối thiểu + adapter, MPT làm thư viện provider, ScenePlan có revision, ứng viên selected, lộ trình theo decision gate"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2: brief theo mẫu Gate 0, CON-08 sản phẩm pilot (D-02), FR-17 hậu điều kiện và trần thời lượng, FR-18 phiếu duyệt, bước animate trong luồng giá trị, ràng buộc ffprobe và pin phụ thuộc của gói mpt"]
 ---
 
 <!-- id:s1 -->
@@ -126,14 +127,14 @@ Table: Tác nhân và hệ thống ngoài
 ## Mục tiêu và phạm vi
 
 <!-- id:s3.b1 -->
-Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Mọi con số chi phí và thời gian là ước tính cho tới khi đo ở Gate 1–2.
+Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Mọi con số chi phí và thời gian là ước tính cho tới khi đo ở Gate 2.
 
 <!-- id:s3.b2 -->
 Table: Mục tiêu hệ thống
 | ID | Mục tiêu | Đo bằng |
 | --- | --- | --- |
-| G-01 | Từ một brief ra MP4 9:16 có hình theo scene, giọng tiếng Việt, phụ đề, không thao tác file thủ công | 5 brief của Gate 0 ra MP4 ở Gate 2 |
-| G-02 | Hơn MPT nguyên bản trên cùng brief | Số video được duyệt hoặc phút công trên mỗi video được duyệt, so với baseline Gate 1 |
+| G-01 | Từ một brief ra MP4 9:16 có hình theo scene, giọng tiếng Việt, phụ đề, không thao tác file thủ công | 5 brief đã chốt ở Gate 0 ([g0-plan](../../reports/g0-g1/g0-plan.md)) ra MP4 ở Gate 2 |
+| G-02 | Đạt mục tiêu vận hành của Gate 0 trên 5 brief | Video đạt C01–C09; tối đa 15 phút chủ động mỗi video được duyệt; tổng chi pilot trong 5 USD. Không so với MPT vì baseline đã bỏ (D-01, 24/10/2026) |
 | G-03 | Người dùng kiểm soát từng scene | Chọn ứng viên, sửa scene, chạy lại riêng scene, duyệt gate |
 | G-04 | Không phụ thuộc cứng vào MPT | Bỏ MPT cho một năng lực = viết adapter khác cùng interface, đổi một dòng cấu hình |
 | G-05 | Chi phí minh bạch theo lượt gọi | `costs.jsonl` có từng lượt gọi trả phí; đối chiếu hóa đơn hằng tháng |
@@ -287,10 +288,11 @@ g1: "gate: keyframes\nchọn, sửa, chạy lại" {class: gate}
 voice: "voice\nvo_sXX + mốc thời gian" {class: hands}
 sub: "subtitles\nfull.ass" {class: hands}
 mot: "motion (tùy chọn,\nGate 4)" {class: hands}
+ani: "animate\nảnh tĩnh → clip\ntheo movement" {class: hands}
 render: "render\nvideo_project + FFmpeg" {class: hands}
 g2: "gate: final\nduyệt bản cuối" {class: gate}
 out: "final_9x16.mp4" {class: data}
-brief -> plan -> kf -> g1 -> voice -> sub -> mot -> render -> g2 -> out
+brief -> plan -> kf -> g1 -> voice -> sub -> mot -> ani -> render -> g2 -> out
 ```
 -->
 <picture>
@@ -308,22 +310,24 @@ Cột Gate là decision gate đầu tiên mà yêu cầu phải đạt (xem [08 
 Table: Yêu cầu chức năng
 | ID | Yêu cầu | Gate | Thiết kế ở |
 | --- | --- | --- | --- |
-| FR-01 | Tạo task từ brief (thời lượng, ngôn ngữ, series, ghi đè adapter/model tùy chọn) | 2 | 06, 04 |
-| FR-02 | Bước `plan` trả ScenePlan theo scene bằng structured output; `shot` là enum lấy từ Series Bible | 2 | 04, 05 |
+| FR-01 | Tạo task từ brief theo mẫu Gate 0: hook, nhân vật, diễn biến, twist, hình bắt buộc (kèm nhịp sớm nhất được xuất hiện), điều cấm, khoảng thời lượng và trần `max_s`, ngôn ngữ, series, ghi đè adapter/model tùy chọn | 2 | 06, 04 |
+| FR-02 | Bước `plan` trả ScenePlan theo scene bằng structured output; `shot` là enum lấy từ Series Bible; mỗi hình bắt buộc của brief gắn với một scene và không xuất hiện sớm hơn nhịp cho phép | 2 | 04, 05 |
 | FR-03 | Chạy danh sách bước cố định, lặp theo scene; bỏ qua StepRun `done` có file hợp lệ | 2 | 03 |
 | FR-04 | Mỗi lần sinh là một ứng viên; ứng viên đầu tiên mặc định là selected; render chỉ đọc selected | 2 | 04 |
 | FR-05 | Giọng đọc qua `TTSProvider`; phụ đề từ mốc của TTS, hoặc căn bằng `SubtitleAligner` khi TTS không trả mốc | 2 | 05 |
-| FR-06 | Render MP4 9:16 theo thời lượng giọng từng scene, chuyển động camera theo khóa `movement`, phụ đề burn-in; chỉ dựng lại scene đổi | 2 | 03, 05 |
+| FR-06 | Render MP4 9:16 theo thời lượng giọng từng scene, chuyển động camera theo khóa `movement` (bước `animate` dựng clip từ ảnh tĩnh), phụ đề burn-in; chỉ dựng lại scene đổi | 2 | 03, 05 |
 | FR-07 | Ghi `pending` vào `costs.jsonl` trước mỗi lượt gọi trả phí, `ok`/`failed`/`unknown` sau | 2 | 03, 04 |
 | FR-08 | Lượt gọi không rõ kết quả: task `waiting`, người quyết định; không tự gửi lại | 2 | 03, 06 |
 | FR-09 | Retry lỗi tạm thời (tối đa 3 lần, backoff); retry vì chất lượng chỉ cho scene lỗi, lý do đưa vào prompt | 2 | 03 |
 | FR-10 | Gate `keyframes` và `final`: dừng task, chờ duyệt, từ chối hoặc sửa | 2 (CLI), 3 (web) | 03, 06 |
 | FR-11 | Sửa narration, visual, góc máy, mode của một scene tạo ScenePlan revision mới; chỉ phần phụ thuộc chạy lại | 3 | 03, 04, 06 |
-| FR-12 | Upload ảnh, clip, nhạc riêng thành ứng viên `provider: user` và chọn được | 3 | 04, 06 |
+| FR-12 | Upload ảnh, clip, nhạc riêng thành ứng viên `provider: user` và chọn được; người upload khai báo nguồn và quyền sử dụng | 3 | 04, 06 |
 | FR-13 | Series Bible: style, mẫu nhân vật 2–3 ảnh tham chiếu, giọng, từ vựng camera, lexicon; prompt keyframe ghép xác định | 3 | 04 |
 | FR-14 | Trang review: Tasks, Storyboard, Task detail, Series; Settings đơn giản | 3 | 06 |
 | FR-15 | Image-to-video theo scene `mode: motion`, job bất đồng bộ submit/poll, lỗi thì giữ ảnh tĩnh | 4 | 03, 05 |
 | FR-16 | Quy trình khác (audiobook) bằng danh sách bước mới, dùng lại adapter | 4 | 05 |
+| FR-17 | Kiểm hậu điều kiện kỹ thuật trước khi commit artifact (giải mã được, 1080×1920, có audio, thời lượng); tổng giọng vượt `max_s` thì task `waiting`, không render bản vượt trần | 2 | 03 |
+| FR-18 | Gate `final` ghi phiếu duyệt: kết quả từng tiêu chí C01–C09 (đạt, trượt, chưa rõ, kèm timestamp), `accepted` và phút công chủ động của người duyệt | 2 (CLI), 3 (web) | 04, 06 |
 
 <!-- id:s7 -->
 ## Yêu cầu phi chức năng
@@ -334,7 +338,7 @@ Table: Yêu cầu phi chức năng
 | --- | --- | --- | --- |
 | NFR-01 | Chỉ file trong `studio/providers/mpt/` được import `app.*`; core không import adapter cụ thể | Test quét import chạy trong CI | 02, 05 |
 | NFR-02 | Không tự gửi lại lượt gọi trả phí khi kết quả không rõ | T05, T06: tắt worker giữa lượt gọi, chạy lại → `unknown`, không có lượt gọi mới | 03 |
-| NFR-03 | Không ghi đè: sửa tạo revision mới, sinh lại tạo ứng viên mới | Mọi file trong thư mục task chỉ được thêm | 04 |
+| NFR-03 | Không ghi đè: sửa tạo revision mới, sinh lại tạo ứng viên mới, render lại tạo render revision mới | Mọi file trong thư mục task chỉ được thêm; riêng `assets.json` được thay nguyên file qua file tạm | 04 |
 | NFR-04 | Mỗi provider interface có bản giả để test core không tốn tiền | `FakeTTS`, `FakeImage`... trong `tests/` | 05 |
 | NFR-05 | Mọi ứng viên và dòng chi phí ghi provider và model thật | Trường `provider`, `model` luôn có | 04 |
 | NFR-06 | Vận hành bởi một người trên một máy | 2 process, sao lưu bằng chép `data/` | 07 |
@@ -351,12 +355,13 @@ Table: Ràng buộc và giả định
 | ID | Ràng buộc / giả định | Hệ quả thiết kế |
 | --- | --- | --- |
 | CON-01 | Một người vận hành, một máy | Modular monolith, không broker, không microservice (AD-01) |
-| CON-02 | Python 3.11+, FFmpeg, gói `mpt`, API key là toàn bộ phụ thuộc nền | Stack ở [02 · Công nghệ](02-architecture.md#s8) |
+| CON-02 | Python 3.11+, FFmpeg và ffprobe hệ thống, gói `mpt`, API key là toàn bộ phụ thuộc nền; gói `mpt` ghim cứng nhiều thư viện (FastAPI, Starlette, uvicorn, openai, Streamlit) | Stack ở [02 · Công nghệ](02-architecture.md#s8); web của studio dùng đúng bản FastAPI mà `mpt` ghim |
 | CON-03 | MPT cập nhật gần như hằng ngày; gói `mpt` dùng tên package `app` | Ghim phiên bản; package của ta tên `studio`; ranh giới adapter |
 | CON-04 | Giá và sự tồn tại của provider thay đổi thường xuyên (OpenAI gỡ Sora 2 khỏi API ngày 24/09/2026) | Chỉ ghi nhật ký chi phí, giới hạn chi tiêu ở tài khoản provider (AD-10) |
 | CON-05 | Chính sách nền tảng (YouTube, TikTok, ACX, EU AI Act Điều 50 từ 02/08/2026) | Gate cuối do người; không tự đăng trước Gate 4 |
 | CON-06 | Model tự host có giấy phép khác nhau | Chỉ Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại |
-| CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Gate 1 đo baseline; mọi con số là ước tính tới khi đo |
+| CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Baseline MPT đã bỏ (D-01); Gate 2 đo trên studio; mọi con số là ước tính tới khi đo |
+| CON-08 | Sản phẩm pilot (D-02, chốt ở Gate 0): Short sci-fi bí ẩn tiếng Việt, 9:16, 45–58 giây, trần cứng 60 giây, 4–6 nhịp hình, nhạc tắt, không cận mặt cố định | Brief mang `max_s` và số scene; `plan` và hậu điều kiện kiểm trần; Series Bible ưu tiên bối cảnh, bóng người |
 
 <!-- id:s9 -->
 ## Thuộc tính chất lượng
@@ -404,8 +409,10 @@ Table: Kịch bản chất lượng
 | Đổi TTS | Đổi adapter TTS trong cấu hình | Task mới dùng provider mới; core và bước không đổi | T07 |
 | Worker chết sau khi gửi lượt gọi trả phí | Tắt worker ngay sau `pending` | Chạy lại: dòng `unknown`, task `waiting`, không gửi lại | T05 |
 | Worker chết khi đang poll job video | Tắt worker giữa poll | Chạy lại: poll `job_id` cũ, không submit mới | T06 |
-| Sửa một scene | Đổi narration s05 | ScenePlan rev mới; chỉ voice s05, subtitles, render chạy lại; 7 scene khác dùng lại | T02 |
-| Lỗi tạm thời | 429 / 5xx / timeout | Thử lại cùng đầu vào, backoff, tối đa 3 lần | T04 |
+| Sửa một scene | Đổi narration s05 | ScenePlan rev mới; chỉ voice s05, animate s05, subtitles, render chạy lại; 5 scene khác dùng lại | T02 |
+| Lỗi tạm thời | 429 / không kết nối được | Thử lại cùng đầu vào, backoff, tối đa 3 lần | T04 |
+| Timeout sau khi gửi lượt gọi trả phí | Đọc timeout hoặc 5xx từ API ảnh | `unknown`, task `waiting`; không tự gửi lại | T05 |
+| Giọng đọc vượt trần | Tổng giọng 63 giây với `max_s` 60 | Task `waiting` lý do `duration_exceeded`; không render | Test core |
 | MPT đổi chữ ký hàm | Nâng phiên bản `mpt` | Chỉ test adapter liên quan đỏ; core không ảnh hưởng | Test adapter |
 
 <!-- id:s10 -->

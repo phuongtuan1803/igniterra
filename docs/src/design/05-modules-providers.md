@@ -2,15 +2,16 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.0"
+ver: "2.1"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: Core định nghĩa 5 provider interface và 4 loại lỗi chung; adapter cài interface bằng SDK trực tiếp hoặc bằng MoneyPrinterTurbo, chỉ trong studio/providers/mpt/; mỗi interface có bản giả để test core không tốn tiền.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.2, 5, 9.2, 12"], [Thành phần, "studio/providers/, render/, vendor/"], [Gate xây, "2 (TTS, aligner, ảnh, renderer), 4 (video, ComfyUI, audiobook)"]]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu (Module và provider), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 5 provider interface, adapter MPT, chính sách dùng lại mã; bỏ module registry, ctx, router"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2 trên mã MPT 82bb4a7 (gói mpt 1.3.9): renderer không nhận ảnh tĩnh và không có chuyển động camera → bước animate; vendor tại 82bb4a7; ánh xạ lỗi sau khi gửi lượt gọi trả phí; lỗi unconfirmed theo từng provider; pin phụ thuộc của gói mpt; cấu hình MPT nạp lúc import"]
 ---
 
 <!-- id:s1 -->
@@ -38,7 +39,7 @@ class VideoProvider(Protocol):                       # tách submit/poll để r
     def submit(self, image: Path, prompt: str, seconds: int) -> str: ...
     def poll(self, job_id: str) -> AssetCandidate | None: ...
 
-# Lỗi chung: Retryable (429, 5xx, timeout) · QualityFail(reason) · Unconfirmed (job trả phí không rõ kết quả) · Fatal
+# Lỗi chung: Retryable (chắc chắn chưa gửi) · QualityFail(reason) · Unconfirmed (lượt gọi trả phí có thể đã tới provider) · Fatal
 ```
 
 <!-- id:s1.b3 -->
@@ -92,9 +93,9 @@ ifc -> fake.fk: "test"
 Table: Lỗi chung
 | Lỗi | Khi nào adapter ném | Worker làm gì |
 | --- | --- | --- |
-| `Retryable` | 429, 5xx, timeout; MPT trả `None` | Thử lại cùng đầu vào, backoff, tối đa 3 lần |
+| `Retryable` | Lượt gọi không trả phí bị 429, 5xx, timeout; MPT TTS trả `None`. Lượt gọi trả phí: chỉ khi chắc chắn chưa gửi (không kết nối được, 429 bị từ chối trước khi xử lý) | Thử lại cùng đầu vào, backoff, tối đa 3 lần |
 | `QualityFail(reason)` | Kết quả có nhưng không đạt kiểm tra | Chạy lại riêng scene đó, lý do vào prompt |
-| `Unconfirmed` | Job trả phí không rõ kết quả; MPT ném `UnconfirmedTaskError` | Ghi `unknown`, task `waiting` |
+| `Unconfirmed` | Lượt gọi trả phí đã có thể tới provider nhưng không có kết quả chắc chắn: đọc timeout, mất kết nối giữa chừng, 5xx, response thiếu id; MPT ném lỗi unconfirmed của provider | Ghi `unknown`, task `waiting` |
 | `Fatal` | Cấu hình sai, khóa API sai, nội dung bị từ chối | Task `failed` |
 
 <!-- id:s2 -->
@@ -168,7 +169,7 @@ adp: "studio/providers/mpt/" {
   class: zone
   t: "MptTTS\nSubMaker → AudioTrack\nNone → Retryable" {class: hands}
   a: "MptSubtitleAligner\ncreate + correct" {class: hands}
-  v: "MptVideo\nUnconfirmedTaskError →\nUnconfirmed" {class: hands}
+  v: "MptVideo\n*UnconfirmedTaskError →\nUnconfirmed" {class: hands}
 }
 mpt: "app.services (gói mpt)" {
   class: zone
@@ -201,7 +202,7 @@ Table: Bảng adapter
 | `ImageProvider` (nhân vật) | SDK trực tiếp (Nano Banana 2, có ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
 | `ImageProvider` (phụ) | MPT stock footage trong `material.py` | Trả ứng viên cho scene không cần nhân vật | Khi cần |
 | `VideoProvider` | MPT `generate_videos()` của từng provider, hoặc SDK Veo | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4 |
-| Renderer | `vendor/video_project.py` (bản copy) | `render(plan, assets)` → manifest → `create_revision`, `plan`, `render` | Gate 2 |
+| Renderer | `vendor/video_project.py` (bản copy tại `82bb4a7`) | `render(plan, assets)` → manifest (mỗi scene: clip selected dạng MP4, giọng selected, narration) → `create_revision`, `plan`, `render` | Gate 2 |
 
 <!-- id:s3.b4 -->
 Quy tắc giữ ranh giới:
@@ -211,6 +212,9 @@ Quy tắc giữ ranh giới:
 - Package của ta tên `studio`, không bao giờ `app` (gói `mpt` cài vào tên `app`).
 - API key và cấu hình provider nằm trong `config.toml` của MPT (`MPT_HOME`); adapter chỉ truyền tham số như giọng, tốc độ, văn bản.
 - Ghim phiên bản MPT; mỗi adapter có test riêng chạy trước khi nâng ([07 · Nâng MPT](07-operations.md#s3)).
+- MPT không có một lớp lỗi unconfirmed chung: mỗi provider có lớp riêng (`MuAPIUnconfirmedTaskError`, `VolcEngineSeedanceUnconfirmedTaskError`, `MetasoMiniMaxUnconfirmedTaskError`, `OFoxUnconfirmedTaskError`, `WaveSpeedUnconfirmedTaskError`, `InfistarVideoUnconfirmedError`, `OpenAIImageUnconfirmedError` tại `82bb4a7`). `MptVideo` giữ danh sách này và test adapter kiểm nó khi nâng MPT.
+- Gói `mpt` 1.3.9 ghim cứng các thư viện dùng chung với studio (`fastapi==0.136.3`, `starlette==1.2.1`, `uvicorn==0.32.1`, `openai==2.24.0`, `requests==2.33.1`, `pyyaml==6.0.3`) và kéo theo Streamlit, faster-whisper, Azure Speech, Redis client. Studio dùng đúng các bản đó trong một `uv.lock`; nâng MPT cũng là nâng web của ta, nên test web chạy cùng test adapter.
+- Test adapter kiểm cả cách ánh xạ tham số: pilot Gate 1 gặp `bgm_type="none"` bị từ chối trong manifest batch trong khi CLI `--bgm-type none` chạy được.
 
 <!-- id:s4 -->
 ## Ví dụ: adapter MptTTS
@@ -300,7 +304,7 @@ Table: Model và adapter mặc định
 Table: Chi phí ước tính một Short 60 giây theo cấu hình (báo cáo nghiên cứu, chưa đo thực tế)
 | Cấu hình | Chi phí ước tính | Nguồn |
 | --- | --- | --- |
-| Gate 3: ảnh tĩnh + chuyển động camera, Edge TTS | Khoảng $0,66–0,7 + nhạc thư viện | Ví dụ t_0042 ([08](08-roadmap.md#s6)) |
+| Gate 3: ảnh tĩnh + chuyển động camera, Edge TTS | Khoảng $0,53 cho 6 scene, nhạc tắt | Ví dụ t_0042 ([08](08-roadmap.md#s6)) |
 | Ảnh tĩnh có chuyển động camera (ước tính chung) | Khoảng $1–1,5 | ADD-AIVIDEO-003 mục 1 |
 | Gate 4: thêm 4 clip Veo 3.1 Fast 720p | Khoảng $5–7 | ADD-AIVIDEO-003 mục 11 |
 
@@ -313,7 +317,7 @@ Table: Cách dùng lại mã MPT
 | --- | --- | --- |
 | Dùng nguyên | WebUI/CLI của MPT ở Gate 1 | Không viết code |
 | Phụ thuộc pip, ghim phiên bản | `voice`, `subtitle`, `llm`, provider video | Chỉ gọi từ `studio/providers/mpt/` |
-| Copy (vendor) | `video_project.py` | Giữ header bản quyền, kèm `LICENSE-MPT`, ghi commit gốc `9e7d8b7` |
+| Copy (vendor) | `video_project.py` | Giữ header bản quyền, kèm `LICENSE-MPT`, ghi commit gốc `82bb4a7` (trùng gói `mpt` 1.3.9 đã chạy ở Gate 1; khác `9e7d8b7` đúng một dòng sửa `fsync`) |
 | Không dùng | `webui/Main.py`, `task.py`, `state.py`, `video.py`, `upload_post.py` | — |
 
 <!-- id:s7.b2 -->
@@ -321,7 +325,7 @@ Giấy phép MIT cho phép sao chép, sửa, dùng thương mại khi giữ thô
 
 <!-- id:s7.b3 -->
 > [!NOTE]
-> `video_project.py` chưa có phụ đề và chuyển cảnh. Phụ đề được burn-in sau export; chuyển cảnh thêm bằng bước FFmpeg `xfade` vào bản copy khi cần. Mọi sửa đổi bản copy ghi lại trong header.
+> `video_project.py` tại `82bb4a7` (đã kiểm ngày 24/10/2026): footage phải là video, vì đầu vào bị lọc bằng `-format_whitelist` gồm mov, matroska, avi, mpegts, mpegvideo, ogg, flv và các định dạng âm thanh; PNG bị từ chối với "Format not on whitelist". Stage scene chỉ scale/crop/fps rồi lặp footage tới hết thời lượng giọng; không có chuyển động camera, phụ đề hay chuyển cảnh. Vì vậy: bước `animate` dựng clip MP4 có chuyển động từ ảnh selected; phụ đề burn-in sau export; chuyển cảnh thêm bằng `xfade` khi cần. Giữ bản copy không sửa để so được với upstream; nếu buộc phải sửa, ghi lại trong header.
 
 <!-- id:s8 -->
 ## Khi nào dùng AI agent

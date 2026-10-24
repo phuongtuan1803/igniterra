@@ -18,6 +18,7 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 
 - [Gate 0–1: quyết định, kết quả thực thi và bằng chứng](reports/g0-g1/README.md) — G0 đã chốt; G1 có preview kỹ thuật, chưa hoàn tất baseline hoặc quyết định build/reuse.
 - [Bài học kiến trúc từ MPT](reports/g0-g1/mpt-architecture-review.md) — nhận xét từ mã nguồn ghim commit, không phải benchmark.
+- [Soát thiết kế trước Gate 2](reports/design-review-2026-10-24/README.md) — 5 phát hiện chặn, 11 phát hiện cần làm, đã sửa vào tài liệu 2.1; 4 quyết định chờ Tuan.
 
 ## Cách viết và build
 
@@ -28,7 +29,7 @@ Bản Report Kit dùng để viết bộ này: commit `cefd883`. Mã D2 nằm tr
 ```sh
 git clone https://github.com/phuongtuan1803/report-kit && cd report-kit
 git checkout cefd883 && uv sync && npm ci
-uv run report check  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # kiểm nguồn, SVG cập nhật (thêm --browser để soát bố cục)
+uv run report check  ../igniterra/docs/src/design ../igniterra/docs/src/adr ../igniterra/docs/reports/design-review-2026-10-24   # kiểm nguồn, SVG cập nhật (thêm --browser để soát bố cục)
 uv run report build  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # SVG + HTML vào docs/html/
 uv run report adr-index ../igniterra/docs/src/adr                           # sau khi sửa ADR
 ```
