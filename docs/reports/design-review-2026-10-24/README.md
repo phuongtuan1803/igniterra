@@ -253,7 +253,7 @@ p2 -> p3: parent
 ## Lộ trình đề xuất
 
 <!-- id:s5.b1 -->
-Gate 1 chưa xong: chưa có 5 video MPT nguyên bản với Pexels, chưa chấm đủ checklist, D-01 chưa quyết định. Theo lộ trình 2.0, chưa được viết dòng code nào. Đề xuất chia Gate 2 thành hai nửa để không phải chờ mà cũng không bỏ phép so sánh:
+Gate 1 chưa xong: chưa có 5 video MPT nguyên bản, chưa chấm đủ checklist, D-01 chưa quyết định. Theo lộ trình 2.0, chưa được viết dòng code nào. Đề xuất chia Gate 2 thành hai nửa để không phải chờ mà cũng không bỏ phép so sánh:
 
 <!-- id:s5.b2 -->
 <!-- report-kit:d2
@@ -263,7 +263,7 @@ direction: right
 now: "Ngay bây giờ" {
   class: zone
   a: "Gate 2a\nkhung repo, contract, Fake*,\ncore, CLI, đường miễn phí\n(Edge TTS, animate, render)" {class: brain}
-  base: "Hoàn tất baseline Gate 1\n5 video MPT + Pexels,\nchấm C01–C09 (gần 0 USD)" {class: hands}
+  base: "Hoàn tất baseline Gate 1\n5 video MPT, nguồn local\n4–6 ảnh mỗi brief,\nchấm C01–C09 (0 USD)" {class: hands}
 }
 cond: "D-01: MPT trượt\nyêu cầu bắt buộc?" {shape: diamond; class: gate}
 b: "Gate 2b\nGeminiLLM, NanoBanana,\nđo 5 brief, so MPT" {class: brain}
@@ -282,6 +282,9 @@ now.a -> b: "core sẵn sàng"
 </picture>
 
 <!-- id:s5.b3 -->
+Pexels không còn cấp API key (Tuan báo ngày 24/10/2026), nên baseline dùng `video_source = "local"` của MPT, với 4–6 ảnh cho mỗi brief theo đúng nhịp đã chốt. Cấu hình nên dùng `video_concat_mode = "sequential"` và `video_clip_duration` xấp xỉ tổng giọng chia số ảnh. Ở chế độ này MPT cắt và ghép tư liệu theo độ dài clip cố định để lấp đầy một file giọng duy nhất (`combine_videos`, mặc định `random` và 5 giây), không gắn từng ảnh với câu kể tương ứng. Đây đúng là điểm cần đo cho C03 và C06, và vẫn tốn 0 USD. Có thể dùng Pixabay hoặc Coverr làm nguồn stock thay thế, nếu sau này cần đúng kiểu baseline stock.
+
+<!-- id:s5.b4 -->
 Gate 2a dùng bản giả, Edge TTS miễn phí và ảnh local như pilot, nên làm được ngay mà không tốn tiền. Nếu baseline cho thấy MPT đạt checklist, chỉ mất phần việc không tốn tiền. Chi tiết ở [08 · Gate 2](../../src/design/08-roadmap.md#s3).
 
 <!-- id:s6 -->
@@ -290,7 +293,7 @@ Gate 2a dùng bản giả, Edge TTS miễn phí và ảnh local như pilot, nên
 <!-- id:s6.b1 -->
 ```q
 Q1 · Bắt đầu Gate 2 thế nào khi Gate 1 chưa xong?
-1. Làm Gate 2a ngay; hoàn tất baseline Gate 1 (cần Pexels key) trước Gate 2b
+1. Làm Gate 2a ngay; hoàn tất baseline Gate 1 với nguồn `local` (4–6 ảnh mỗi brief) trước Gate 2b
 2. Bỏ baseline, ghi D-01 = build với lý do C06 của pilot, làm cả Gate 2
 3. Hoàn tất baseline Gate 1 trước, chưa viết code
 rec: 1
