@@ -1,27 +1,30 @@
 ---
 id: ADR-0004
-title: Core tối thiểu + adapter, MoneyPrinterTurbo là thư viện provider
+title: "Core tối thiểu + adapter, MoneyPrinterTurbo là thư viện provider"
 type: adr
-ver: "0.3"
+ver: 0.4
 status: draft
 date: 2026-10-24
 owner: Tuan
 adr:
-  state: pending
+  state: approved
   week: W2
   deadline: 2026-10-29
   impact: high
   door: one
   cost: 0 USD
   review: 2027-01-22
-  gist: Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản (đề xuất mpt 1.3.9), chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta.
+  gist: "Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim mpt 1.3.9, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta."
   proposer: Claude
   decider: Tuan
   informed: "—"
+  decided: 2026-10-24
+  reason: Tuan duyệt ngày 24/10/2026 trong thread dự án.
 rev:
-  - ["0.1", 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-01..AD-04, AD-13 và mục 4–5"]
-  - ["0.2", 2026-10-24, "Soát trước Gate 2: ghim mpt 1.3.9 và vendor tại 82bb4a7; renderer không nhận ảnh tĩnh nên thêm bước animate; rủi ro pin phụ thuộc; chỉ phần trả phí của Gate 2 chờ baseline Gate 1"]
-  - ["0.3", 2026-10-24, "Tuan chốt D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; Gate 1 không còn chặn quyết định này"]
+  - [0.1, 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-01..AD-04, AD-13 và mục 4–5"]
+  - [0.2, 2026-10-24, "Soát trước Gate 2: ghim mpt 1.3.9 và vendor tại 82bb4a7; renderer không nhận ảnh tĩnh nên thêm bước animate; rủi ro pin phụ thuộc; chỉ phần trả phí của Gate 2 chờ baseline Gate 1"]
+  - [0.3, 2026-10-24, Tuan chốt D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; Gate 1 không còn chặn quyết định này]
+  - [0.4, 2026-10-24, "Quyết định: Tuan duyệt"]
 ---
 
 <!-- id:summary -->
@@ -80,7 +83,7 @@ Table: Việc phải xong trước
 | Việc | Người làm | Bị chặn |
 | --- | --- | --- |
 | ~~Gate 1: 5 video từ MPT nguyên bản và nhật ký pilot~~ Đã gỡ: bỏ baseline, D-01 = build (24/10/2026) | Tuan | Không còn chặn; Gate 2b chỉ chờ giới hạn chi tiêu và ADR này |
-| Chốt phiên bản MPT ghim (P-01) | Tuan | Adapter MPT, `vendor/video_project.py` |
+| ~~Chốt phiên bản MPT ghim (P-01)~~ Đã chốt `mpt==1.3.9` (24/10/2026) | Tuan | Adapter MPT, `vendor/video_project.py` |
 | Duyệt ADR này | Tuan | Khởi tạo package `studio/` |
 
 <!-- id:risks -->

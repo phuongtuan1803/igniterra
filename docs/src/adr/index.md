@@ -2,7 +2,7 @@
 id: ADR-INDEX
 title: Decision register (ADRs)
 type: adr_index
-ver: 1.2
+ver: 1.4
 status: final
 date: 2026-10-24
 owner: Tuan
@@ -10,6 +10,8 @@ rev:
   - [1.0, 2026-10-19, Generated from the ADRs]
   - [1.1, 2026-10-22, Generated from the ADRs]
   - [1.2, 2026-10-24, Generated from the ADRs]
+  - [1.3, 2026-10-24, Generated from the ADRs]
+  - [1.4, 2026-10-24, Generated from the ADRs]
 ---
 
 <!-- id:summary -->
@@ -18,8 +20,8 @@ rev:
 <!-- id:summary.b1 -->
 ```kpi
 ADRs | 6
-Pending | 3
-Approved | 0
+Pending | 1
+Approved | 2
 One-way | 5
 Nearest due | 2026-10-29
 ```
@@ -34,24 +36,16 @@ Table: ADR list
 | [ADR-0001](0001-generic-fan-out.md) | Module khai báo fan_out trỏ tới một danh sách trong contract; runner không viết cứng "theo scene". | High | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
 | [ADR-0002](0002-speechscript-contract.md) | voice đọc SpeechScript (danh sách đoạn id, text, speaker) thay vì ScenePlan; mỗi quy trình tự sinh SpeechScript. | High | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
 | [ADR-0003](0003-parallel-step-groups.md) | Profile chấp nhận nhóm parallel ngay từ Phase 1; runner được phép chạy các bước trong nhóm lần lượt cho tới khi cần nhanh hơn. | Medium | One-way | 0 USD | W1 · 2026-10-26 | Rejected · 2026-10-19 |
-| [ADR-0004](0004-minimal-core-mpt-adapters.md) | Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản (đề xuất mpt 1.3.9), chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
+| [ADR-0004](0004-minimal-core-mpt-adapters.md) | Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim mpt 1.3.9, chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta. | High | One-way | 0 USD | W2 · 2026-10-29 | Approved · 2026-10-24 |
 | [ADR-0005](0005-sceneplan-revisions-selected.md) | ScenePlan là contract kịch bản duy nhất (lời đọc lấy từ narration); sửa tạo revision bất biến mới; mỗi lần sinh là một ứng viên và render chỉ đọc ứng viên selected trong assets.json. | High | One-way | 0 USD | W2 · 2026-10-29 | Pending approval |
-| [ADR-0006](0006-paid-call-ledger.md) | Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider. | Medium | Two-way | 0 USD | W2 · 2026-10-29 | Pending approval |
+| [ADR-0006](0006-paid-call-ledger.md) | Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider. | Medium | Two-way | 0 USD | W2 · 2026-10-29 | Approved · 2026-10-24 |
 
 <!-- id:decide -->
 ## Recorded decisions
 
 <!-- id:decide.b1 -->
 ```chk
-- [ ] ADR-0004 · Ta viết một core Python nhỏ (contract, danh sách bước, trạng thái, gate, nhật ký chi phí) và gọi MPT qua adapter; MPT ghim phiên bản (đề xuất mpt 1.3.9), chỉ studio/providers/mpt/ được import app.*; copy duy nhất video_project.py tại 82bb4a7, không sửa; ảnh tĩnh thành clip qua bước animate của ta.
-  - Approve
-  - Reject
-  - Request changes
 - [ ] ADR-0005 · ScenePlan là contract kịch bản duy nhất (lời đọc lấy từ narration); sửa tạo revision bất biến mới; mỗi lần sinh là một ứng viên và render chỉ đọc ứng viên selected trong assets.json.
-  - Approve
-  - Reject
-  - Request changes
-- [ ] ADR-0006 · Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider.
   - Approve
   - Reject
   - Request changes

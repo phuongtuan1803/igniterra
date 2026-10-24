@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -13,6 +13,7 @@ rev:
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: decision gate 0–4 có lối ra dừng xây, test T01–T10, nhật ký pilot, quyết định P-01..P-03 và D-01..D-07"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: trạng thái thật của Gate 0–1, Gate 2 chia 2a (không tốn tiền) và 2b (adapter trả phí, đo), thứ tự việc mới có animate và phiếu duyệt, test T11–T12, ví dụ t_0042 theo D-02, P-01 đề xuất mpt 1.3.9"]
   - ["2.2", 2026-10-24, "Tuan chốt D-01 = build dựa trên lỗi C06 của pilot, bỏ baseline MPT; Gate 1 đóng theo quyết định, Gate 2b chỉ chờ giới hạn chi tiêu và ADR; Gate 2 đo theo mục tiêu tuyệt đối của Gate 0, T10 không còn áp dụng"]
+  - ["2.3", 2026-10-24, "Tuan duyệt ADR-0004 và ADR-0006, chốt P-01 = mpt 1.3.9; giới hạn chi tiêu D-03 áp cho mọi provider trả phí, không riêng Gemini"]
 ---
 
 <!-- id:s1 -->
@@ -135,9 +136,10 @@ b.w7 -> b.w8
 
 <!-- id:s3.b3 -->
 ```chk
-- [ ] ADR-0004, ADR-0005, ADR-0006 được duyệt
-- [ ] P-01: phiên bản MPT ghim, ghi số phiên bản và commit (đề xuất `mpt==1.3.9`, commit `82bb4a7`)
-- [ ] Giới hạn chi tiêu đặt trên dashboard của Gemini trước việc 7 (D-03)
+- [x] ADR-0004 và ADR-0006 được duyệt (Tuan, 24/10/2026)
+- [ ] ADR-0005 được duyệt
+- [x] P-01: ghim `mpt==1.3.9`, commit `82bb4a7` (Tuan, 24/10/2026)
+- [ ] Giới hạn chi tiêu đặt ở tài khoản của mọi provider trả phí sẽ bật, trước việc 7 (D-03): chặn cứng hoặc nạp trước đúng trần; nếu provider chỉ có cảnh báo thì ghi rõ là chưa có chốt chặn
 - [x] D-01 = build, Tuan chốt ngày 24/10/2026 (bỏ baseline MPT)
 - [ ] Test quét import xanh: chỉ `studio/providers/mpt/` import `app.*`
 - [ ] Test core với bản giả: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene
@@ -281,13 +283,8 @@ Với cấu hình có image-to-video (Gate 4, 4 clip Veo 3.1 Fast 720p), chi ph�
 Ba điểm dưới đây cần người duyệt xác nhận trước Gate 2; kèm ba ADR ở [sổ quyết định](../adr/index.md).
 
 <!-- id:s7.b2 -->
-```q
-P-01 · Phiên bản MPT ghim?
-1. `mpt==1.3.9` (commit `82bb4a7`): bản đã chạy ở Gate 1 và là bản mới nhất trên PyPI ngày 24/10/2026; vendor `video_project.py` cùng commit
-2. Bản phát hành mới nhất tại thời điểm bắt đầu Gate 2; ghi lại số phiên bản và commit
-3. Commit 9e7d8b7 đã phân tích (17/10/2026)
-rec: 1
-```
+> [!NOTE]
+> P-01 · Phiên bản MPT ghim: đã chốt ngày 24/10/2026, Tuan chọn `mpt==1.3.9` (commit `82bb4a7`), bản đã chạy ở Gate 1; vendor `video_project.py` cùng commit. Nâng phiên bản theo quy trình ở [07 · Vận hành](07-operations.md#s3).
 
 <!-- id:s7.b3 -->
 ```q
@@ -311,7 +308,7 @@ Table: Quyết định vận hành còn mở
 | --- | --- | --- | --- |
 | D-01 | Build hay reuse | Đã chốt: build (core + adapter), dựa trên lỗi C06 của pilot; bỏ baseline MPT nên mất phép so sánh T10 | Tuan chốt 24/10/2026 |
 | D-02 | Thể loại video pilot | Đã chốt: Short sci-fi bí ẩn tiếng Việt, tối đa 60 giây (CON-08) | Gate 0 (xong) |
-| D-03 | Mức chi tiêu tối đa của pilot | Đã chốt trần kế hoạch 5 USD; còn phải đặt trên dashboard provider | Trước lượt gọi trả phí đầu tiên |
+| D-03 | Mức chi tiêu tối đa của pilot | Đã chốt trần kế hoạch 5 USD; còn phải đặt ở tài khoản của từng provider trả phí sẽ dùng (provider nào cũng được) | Trước lượt gọi trả phí đầu tiên |
 | D-04 | Khi nào thêm image-to-video | Khi Gate 3 cho thấy ảnh tĩnh không đủ cho thể loại đã chọn | Sau Gate 3 |
 | D-05 | Khi nào thêm GPU tự host | Khi số liệu chi phí trên asset được duyệt chứng minh lợi ích | Sau baseline sản xuất |
 | D-06 | Khi nào làm audiobook | Khi có workload thật | Không ràng buộc |
