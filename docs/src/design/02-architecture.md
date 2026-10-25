@@ -2,15 +2,17 @@
 id: IGN-ARC
 title: Igniterra — Kiến trúc tổng thể
 type: design
-ver: "2.0"
+ver: "2.2"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: Modular monolith Python gồm 4 tầng (giao diện, core, adapter, dịch vụ); core tối thiểu do ta viết gọi 5 provider interface, MPT chỉ nằm sau adapter; 2 process chia sẻ SQLite và thư mục data/.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 1–5, 9"], [Kiểu kiến trúc, "Modular monolith, core + adapter"], [Yêu cầu, "01 · Thiết kế hệ thống"]]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 4 tầng, core tối thiểu, MPT sau adapter, bỏ registry, profile YAML, router, ngân sách"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2: bước animate, vendor video_project tại 82bb4a7, phụ thuộc ghim theo gói mpt, quy tắc web chỉ ghi khi task không chạy, ranh giới đường dẫn cho /files"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -73,14 +75,14 @@ core: Core (ta viết, không import MPT) {
 }
 adp: Adapter (bật theo năng lực đang dùng) {
   class: zone
-  direct: "API trực tiếp\nGeminiLLM, NanoBananaImage,\nVeoVideo (Gate 4)" {class: hands}
+  direct: "API trực tiếp\nOmniRouteLLM, OmniRouteImage,\nVeoVideo (Gate 4)" {class: hands}
   mpta: "studio/providers/mpt/\nMptTTS, MptSubtitleAligner,\nMptVideo (Gate 4)" {class: hands}
   rend: "Renderer\nvendor/video_project.py" {class: hands}
 }
 svc: Dịch vụ {
   class: zone
   mpt: "gói mpt\n(ghim phiên bản)" {class: plain}
-  api: "API cloud\nGemini, Veo" {class: plain}
+  api: "API cloud\nOmniRoute, Veo" {class: plain}
   ff: FFmpeg {class: plain}
   gpu: "ComfyUI\n(chỉ khi mở rộng)" {class: plain}
 }
@@ -154,7 +156,7 @@ host.worker -> ext.gpu: HTTP
 Table: Thành phần chạy và trách nhiệm
 | Thành phần | Trách nhiệm | Không làm |
 | --- | --- | --- |
-| web | Hiển thị task, storyboard, chi phí; ghi quyết định gate, selected, ScenePlan revision mới | Không gọi provider, không chạy bước |
+| web | Hiển thị task, storyboard, chi phí; ghi quyết định gate, selected, ScenePlan revision mới, phiếu duyệt | Không gọi provider, không chạy bước; không ghi vào task đang `running` |
 | CLI | Tạo task, chạy worker, duyệt gate, chạy một bước khi debug | Không có logic riêng: gọi cùng hàm core như web |
 | worker | Nhận task `pending`, chạy danh sách bước, checkpoint, retry, dừng ở gate | Không render HTML |
 | `studio.db` | Task, StepRun, quyết định gate | Không chứa file nhị phân |
@@ -175,7 +177,7 @@ direction: down
 core: studio (core) {
   class: zone
   pipeline: "pipeline.py\ndanh sách bước + worker loop" {class: gate}
-  stp: "steps/\nplan, keyframes, voice,\nsubtitles, motion, render" {class: hands}
+  stp: "steps/\nplan, keyframes, voice,\nsubtitles, motion,\nanimate, render" {class: hands}
   gates: "gates.py\nkeyframes, final" {class: gate}
   store: "store.py\nSQLite: task, StepRun" {class: data}
   files: "taskdir.py\nplan rev, assets.json" {class: data}
@@ -261,6 +263,8 @@ ui -> app: "CẤM import" {class: bad}
 <!-- id:s5.b3 -->
 - Bước chỉ gọi adapter qua interface lấy từ bảng tên (`providers.get("tts")`), không import lớp adapter.
 - Bước đọc đầu ra trước đó qua thư mục task (ScenePlan revision hiện hành, `selected`), không qua biến trong bộ nhớ, nên resume chỉ cần đọc lại file.
+- Web và worker không cùng ghi một task: hành động của người bị từ chối khi task đang `running`; mọi lần ghi `assets.json` đi qua một hàm có khóa file ([04 · Ai ghi gì](04-data-contracts.md#s1)).
+- Route `/files/*` chỉ phục vụ file nằm trong `data/` sau khi chuẩn hóa bằng `realpath` và so `commonpath`, không so tiền tố chuỗi (cách MPT làm trong `file_security.py`).
 - Package của ta tên `studio`, không bao giờ `app` (gói `mpt` cài vào tên `app`).
 - API key và cấu hình provider MPT nằm trong `config.toml` của MPT (`MPT_HOME`); adapter chỉ truyền tham số như giọng, tốc độ, văn bản.
 
@@ -272,7 +276,7 @@ Bố cục package đề xuất (chốt khi khởi tạo repo ở Gate 2):
 igniterra/
 ├── studio/
 │   ├── pipeline.py        # danh sách bước, worker loop, retry, resume
-│   ├── steps/             # plan.py, keyframes.py, voice.py, subtitles.py, motion.py, render.py
+│   ├── steps/             # plan.py, keyframes.py, voice.py, subtitles.py, motion.py, animate.py, render.py
 │   ├── gates.py           # gate keyframes, final; hành động sửa
 │   ├── contracts.py       # ScenePlan, AudioTrack, AssetCandidate, CostEvent, SeriesBible
 │   ├── store.py           # SQLite: tasks, step_runs, gate_decisions
@@ -281,11 +285,11 @@ igniterra/
 │   ├── prompt.py          # ghép prompt keyframe xác định
 │   ├── providers/
 │   │   ├── base.py        # 5 Protocol + Retryable, QualityFail, Unconfirmed, Fatal
-│   │   ├── direct/        # gemini_llm.py, nano_banana.py, veo.py (Gate 4)
+│   │   ├── direct/        # omniroute.py (LLM + ảnh), veo.py (Gate 4)
 │   │   ├── mpt/           # tts.py, subtitle.py, video.py — chỉ nơi này import app.*
 │   │   └── fake/          # FakeLLM, FakeImage, FakeTTS, FakeAligner, FakeVideo
 │   ├── render/            # adapter renderer gọi vendor/video_project.py
-│   ├── vendor/            # video_project.py (copy MPT 9e7d8b7) + LICENSE-MPT
+│   ├── vendor/            # video_project.py (copy MPT 82bb4a7 = mpt 1.3.9) + LICENSE-MPT
 │   ├── web/               # FastAPI routes, Jinja2 templates (Gate 3)
 │   └── cli.py             # python -m studio task new | worker | gate | run-step
 ├── studio.toml
@@ -409,7 +413,7 @@ store: Lưu trữ {
 prov: Provider {
   class: zone
   g: "gói mpt ghim phiên bản\n(TTS, phụ đề, video)" {class: hands}
-  h: "SDK trực tiếp\n(Gemini, Nano Banana, Veo)" {class: hands}
+  h: "API trực tiếp\n(OmniRoute, Veo)" {class: hands}
 }
 tools: Công cụ local {
   class: zone
@@ -430,7 +434,7 @@ app -> tools
 Table: Nền tảng
 | Thành phần | Chọn | Thay thế | Khi nào đổi |
 | --- | --- | --- | --- |
-| Ngôn ngữ | Python 3.11+ với `uv` | — | Cùng yêu cầu Python của MPT |
+| Ngôn ngữ | Python 3.11+ với `uv`; một `uv.lock` chung với gói `mpt` | — | Cùng yêu cầu Python của MPT (`>=3.11`; pilot chạy 3.13). Các thư viện `mpt` ghim cứng (FastAPI, Starlette, uvicorn, openai) là bản studio dùng |
 | Giao diện | FastAPI + Jinja2 + HTMX | NiceGUI | Khi muốn viết UI hoàn toàn bằng Python |
 | Contract | Pydantic v2 | — | Dùng luôn làm schema structured output của LLM |
 | Trạng thái | SQLite (WAL) + file JSON | Postgres | Khi có worker trên nhiều máy; phải sửa phần nhận task, không chỉ đổi URL (AD-11) |
@@ -497,7 +501,7 @@ Kiến trúc lớn lên theo decision gate, không theo phase cố định. Mỗ
 grid-rows: 2
 grid-columns: 5
 g0: "Gate 0\nMục tiêu\n\nchưa có code\n5 brief + checklist" {class: plain}
-g1: "Gate 1\nBaseline MPT\n\nMPT nguyên bản\nnhật ký pilot" {class: plain}
+g1: "Gate 1\nPilot MPT\n\nđã đóng: bỏ baseline,\nD-01 = build" {class: plain}
 g2: "Gate 2\nCore + adapter, CLI\n\ncontract, StepRun,\ncosts.jsonl, MptTTS,\naligner, ảnh, renderer" {class: brain}
 g3: "Gate 3\nDuyệt và sửa\n\ntrang review, selected,\nrerun scene,\nSeries Bible" {class: brain}
 g4: "Gate 4\nMở rộng\n\nimage-to-video,\nComfyUI, audiobook,\nđăng bài" {class: hands}

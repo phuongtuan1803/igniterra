@@ -2,15 +2,17 @@
 id: IGN-OPS
 title: Igniterra — Triển khai và vận hành
 type: design
-ver: "2.0"
+ver: "2.2"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: Chạy hệ thống trên một máy với 2 process, quản lý bí mật qua config.toml của MPT và biến môi trường, nâng phiên bản MPT an toàn, quan sát bằng SQLite và costs.jsonl, sao lưu bằng chép data/, rủi ro, hạn chế và runbook sự cố.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 3, 5.4, 7.2, 13"], [Môi trường, "Một máy (+ GPU tùy chọn ở Gate 4)"], [Gate, "2–4"]]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: MPT_HOME, quy trình nâng MPT, costs.jsonl, quyết định unknown; bỏ pricing.yaml, ngân sách, router"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2: FFmpeg và ffprobe hệ thống, MPT_HOME riêng, vendor tại 82bb4a7, nâng MPT kéo theo test web, giới hạn chi tiêu trước lượt gọi trả phí đầu tiên, runbook duration_exceeded và lệch phụ đề"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -32,7 +34,7 @@ main: Máy chính {
   ff: "FFmpeg\nfaster-whisper (qua MPT)" {class: hands}
 }
 gpu: "Máy GPU / pod\nComfyUI API (Gate 4)" {class: hands}
-cloud: "API cloud\nGemini, Veo, ElevenLabs" {class: plain}
+cloud: "API cloud\nOmniRoute (codex, openrouter),\nVeo, ElevenLabs" {class: plain}
 backup: "Nơi sao lưu\n(ổ khác / cloud)" {shape: cylinder; class: data}
 op -> net -> main.web
 main.worker -> main.venv
@@ -69,7 +71,7 @@ Gate 2 chỉ cần CLI và worker. Web xuất hiện ở Gate 3. GPU tự host c
 # cap: Khóa chỉ nằm ở config.toml của MPT và biến môi trường; studio.toml và log không bao giờ chứa khóa
 direction: right
 mptcfg: "MPT_HOME/config.toml\nkhóa ElevenLabs, Azure...,\nprovider MPT" {shape: page; class: bad}
-env: ".env\nGEMINI_API_KEY, BASIC_AUTH,\nMPT_HOME" {shape: page; class: bad}
+env: ".env\nOMNIROUTE_API_KEY, BASIC_AUTH,\nMPT_HOME" {shape: page; class: bad}
 toml: "studio.toml\nadapter, song song, retry\n(không khóa)" {shape: page; class: gate}
 worker: worker {class: brain}
 web: web {class: brain}
@@ -91,6 +93,9 @@ worker -> log: "không bao giờ ghi khóa" {class: bad}
 - `.env` và `config.toml` của MPT không commit; có `.env.example` liệt kê tên biến.
 - Cấu hình MPT là toàn cục: một người vận hành, một cấu hình; không chạy hai cấu hình MPT song song.
 - Logger lọc mọi giá trị trùng với biến bí mật trước khi ghi (NFR-07).
+- `MPT_HOME` là thư mục riêng (ví dụ `~/.config/studio/mpt/`), quyền `600` cho `config.toml`, ngoài `data/` để sao lưu `data/` không mang theo khóa. MPT nạp file này một lần lúc import và có thể tự ghi lại nó.
+- Trước lượt gọi trả phí đầu tiên của mỗi adapter: đặt giới hạn chi tiêu ở tài khoản provider (D-03, pilot 5 USD). Với OmniRoute, giới hạn đặt ở tài khoản upstream (openrouter, codex), vì gateway chỉ theo dõi hạn mức. Ở báo cáo G0/G1 giới hạn này chưa được đặt.
+- FFmpeg và ffprobe cài từ hệ thống (bản 6 trở lên). `imageio-ffmpeg` đi kèm MPT chỉ có `ffmpeg`, còn renderer gọi cả `ffprobe`.
 
 <!-- id:s3 -->
 ## Nâng phiên bản MPT
@@ -123,7 +128,7 @@ fix -> stay: "không đáng sửa"
 </picture>
 
 <!-- id:s3.b3 -->
-`vendor/video_project.py` không nâng theo gói `mpt`: nó là bản copy tại commit `9e7d8b7`. Chỉ cập nhật bản copy khi upstream sửa lỗi liên quan, ghi commit mới vào header.
+`vendor/video_project.py` không nâng theo gói `mpt`: nó là bản copy tại commit `82bb4a7` (gói `mpt` 1.3.9, bản đã chạy ở Gate 1). Chỉ cập nhật bản copy khi upstream sửa lỗi liên quan, ghi commit mới vào header. Vì `mpt` ghim FastAPI, Starlette và uvicorn mà web của ta cũng dùng, nhánh nâng MPT chạy thêm test web.
 
 <!-- id:s4 -->
 ## Quan sát và debug
@@ -200,7 +205,9 @@ Table: Kiểm soát bảo mật và tuân thủ
 | --- | --- | --- |
 | Truy cập UI | Chỉ `localhost`, hoặc sau Tailscale/basic auth; không mở ra Internet | 3 |
 | API key | `config.toml` của MPT và `.env`; không hiện trên UI, không vào log | 2 |
-| Lệnh shell | FFmpeg chỉ qua renderer và adapter; LLM không bao giờ viết lệnh | 2 |
+| Lệnh shell | FFmpeg chỉ qua renderer, bước `animate` và adapter, gọi bằng danh sách đối số (không qua shell); LLM không bao giờ viết lệnh | 2 |
+| Đường dẫn file | `/files/*` và upload chuẩn hóa bằng `realpath` + `commonpath` trong `data/` | 3 |
+| Công bố nội dung AI | Mỗi ứng viên mang `ai_generated`; phiếu duyệt C09 kiểm mô tả phát hành ghi "truyện hư cấu, hình và giọng AI" khi áp dụng | 2 |
 | Quyền giọng nói, hình ảnh, văn bản, nhạc | Chỉ clone giọng có đồng ý bằng văn bản; khai báo quyền khi tạo task; hệ thống chỉ lưu hồ sơ, không tự xác minh | 2 |
 | YouTube không trả tiền cho nội dung hàng loạt, lặp lại | Gate cuối do người duyệt; đa dạng format và góc nhìn | 2 |
 | TikTok: app chưa audit chỉ đăng chế độ riêng tư | Upload tay hoặc nháp; nộp audit sớm nếu cần | 4 |
@@ -281,6 +288,10 @@ Table: Triệu chứng, nguyên nhân và cách xử lý
 | Adapter MPT lỗi sau khi nâng | Chữ ký hàm đổi | Quay về phiên bản ghim cũ; sửa adapter theo [quy trình nâng](#s3) |
 | `database is locked` | Hai writer ghi lâu cùng lúc | Kiểm WAL; giữ giao dịch ngắn; một worker |
 | Video thiếu phụ đề | TTS không trả mốc thời gian | Kiểm `SubtitleAligner` (faster-whisper) đã bật |
+| Phụ đề lệch dần về cuối video | Mốc từng scene cộng dồn từ thời lượng đo khác cách renderer đo, hoặc khoảng đệm AAC khi ghép scene | Tính offset từ bản ghi timing của `video_project`; kiểm câu cuối của scene cuối trong T01 |
+| Task `waiting` lý do `duration_exceeded` | Tổng giọng vượt `max_s` của brief | Rút gọn narration scene dài nhất (revision mới) hoặc tăng nhẹ tốc độ đọc trong Series Bible |
+| Render báo "Format not on whitelist" | Footage của scene là ảnh, chưa qua `animate` | Kiểm bước `animate` đã chạy và clip là selected |
+| `ffprobe` không tìm thấy | Chỉ có `ffmpeg` từ `imageio-ffmpeg` | Cài FFmpeg hệ thống |
 | Phát âm sai tên riêng | Thiếu mục `lexicon` | Thêm vào Series Bible; chạy lại `voice` của scene đó |
 | Ổ đĩa gần đầy | Ứng viên tích lũy | Chạy dọn ứng viên không được chọn; sao lưu trước |
 

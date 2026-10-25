@@ -2,15 +2,17 @@
 id: IGN-UI
 title: Igniterra — Giao diện review và CLI
 type: design
-ver: "2.0"
+ver: "2.2"
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 sum: CLI ở Gate 2 và một ứng dụng web nhỏ do server render (FastAPI + Jinja2 + HTMX) từ Gate 3; màn hình quan trọng nhất là Storyboard, nơi xem kịch bản theo scene, chọn ứng viên, sửa và chạy lại ở cùng một chỗ.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 8"], [Thành phần, "studio/cli.py, studio/web/"], [Gate xây, "2 (CLI), 3 (trang review, Settings)"]]
 rev:
   - ["1.0", 2026-10-19, "Bản đầu (Giao diện web và Task API), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: CLI trước, 4 trang review, chọn ứng viên selected, sửa tạo revision, quyết định lượt gọi unknown; bỏ ngân sách và Settings ghi profile"]
+  - ["2.1", 2026-10-24, "Soát trước Gate 2: phiếu duyệt C01–C09 và phút công ở gate final, lệnh review và task pause, không sửa khi task đang chạy, khai báo nguồn khi upload, trạng thái duration_exceeded"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -154,12 +156,16 @@ Mọi thay đổi là bản ghi mới, không ghi đè, nên luôn quay lại đ
 Table: Hành động và kết quả trong hệ thống
 | Hành động | Kết quả trong hệ thống |
 | --- | --- |
-| Chọn ứng viên khác | Đổi `selected` trong `assets.json`; chỉ `render` chạy lại |
+| Chọn ứng viên khác | Đổi `selected` trong `assets.json`; ảnh thì `animate` rồi `render`, clip hoặc giọng thì chỉ `render` |
 | Sửa narration, visual, góc máy (dropdown theo từ vựng camera), mode | Tạo ScenePlan revision mới; chỉ scene bị sửa sinh lại ảnh và/hoặc giọng |
-| Upload ảnh, clip, nhạc của riêng mình | Thêm ứng viên `provider: user` và chọn nó |
+| Upload ảnh, clip, nhạc của riêng mình | Thêm ứng viên `provider: user` kèm nguồn và quyền người khai báo, rồi chọn nó |
 | Chạy lại kèm ghi chú | Ghi chú đưa vào prompt của lượt sau |
 | Ghi đè adapter/model cho một task | Lưu trong task; không đổi cấu hình chung; model thật được ghi vào ứng viên và chi phí |
 | Quyết định lượt gọi `unknown` | Sinh lại mục đó hoặc bỏ qua; quyết định ghi vào `gate_decisions` |
+| Duyệt gate `final` | Ghi phiếu duyệt vào `reviews`: từng tiêu chí C01–C09 đạt, trượt hoặc chưa rõ kèm timestamp, `accepted`, phút công; rồi quyết định gate |
+
+<!-- id:s5.b3-2 -->
+Mọi nút sửa bị tắt khi task đang `running`; thẻ trạng thái hiện "đang chạy bước X" và nút "Tạm dừng". Worker dừng ở ranh giới mục kế tiếp, task về `waiting` lý do `paused`, rồi người mới sửa được. Cách này giữ một người ghi cho mỗi task mà không cần khóa phức tạp.
 
 <!-- id:s5.b3 -->
 <!-- report-kit:d2
@@ -197,14 +203,14 @@ Task detail là nơi vận hành và debug: dòng thời gian các bước, mỗ
 
 <!-- id:s6.b2 -->
 ```text
-┌─ t_0042 · Tín hiệu từ năm 2126 ──── waiting (unknown_call) ── đã ghi ~$0,60 ─┐
-│ ⚠ Lượt gọi t_0042:s06:keyframes:1 (gemini · nano-banana-2) gửi lúc 10:14:07, │
+┌─ t_0042 · Tín hiệu từ năm 2126 ──── waiting (unknown_call) ── đã ghi ~$0,40 ─┐
+│ ⚠ Lượt gọi t_0042:s06:keyframes:1 (omniroute·gemini-flash) gửi lúc 10:14:07, │
 │   không có kết quả. Có thể đã bị tính phí.                                    │
 │   [Sinh lại s06]  [Bỏ qua, giữ ứng viên hiện có]                              │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │ ✔ plan        1 lượt   $0,06   ▸ input  ▸ ScenePlan rev 1  ▸ log              │
-│ ◐ keyframes   s01–s05 ✔  s06 ?  s07–s08 ·                                     │
-│ · gate: keyframes · voice · subtitles · render · gate: final                  │
+│ ◐ keyframes   s01–s05 ✔  s06 ?                                                │
+│ · gate: keyframes · voice · subtitles · animate · render · gate: final        │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │ costs.jsonl (12 dòng) · log worker (50 dòng cuối) · [Tải toàn bộ artifact]     │
 └────────────────────────────────────────────────────────────────────────────────┘
@@ -224,6 +230,8 @@ Table: Lệnh CLI đề xuất
 | `python -m studio worker` | Chạy worker (vòng lặp) |
 | `python -m studio task show t_0042` | Trạng thái, bước, `wait_reason`, đường dẫn ứng viên, chi phí |
 | `python -m studio gate t_0042 approve\|reject [--note ...]` | Quyết định gate hiện tại |
+| `python -m studio review t_0042 --checklist review.json [--minutes 12]` | Ghi phiếu duyệt gate `final` (C01–C09, `accepted`, phút công); bắt buộc trước `gate ... approve` ở gate `final` |
+| `python -m studio task pause t_0042` | Yêu cầu worker dừng task ở ranh giới mục kế tiếp để sửa |
 | `python -m studio select t_0042 s03 img_s03_a2` | Đổi selected |
 | `python -m studio scene edit t_0042 s03 --visual "..."` | Tạo ScenePlan revision mới |
 | `python -m studio unknown t_0042 s06 retry\|skip` | Quyết định lượt gọi `unknown` |

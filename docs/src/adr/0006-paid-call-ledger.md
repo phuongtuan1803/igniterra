@@ -1,25 +1,29 @@
 ---
 id: ADR-0006
-title: Ghi pending trước lượt gọi trả phí, nhật ký chi phí thay cho ngân sách đặt trước
+title: "Ghi pending trước lượt gọi trả phí, nhật ký chi phí thay cho ngân sách đặt trước"
 type: adr
-ver: "0.1"
+ver: 0.3
 status: draft
-date: 2026-10-22
+date: 2026-10-24
 owner: Tuan
 adr:
-  state: pending
+  state: approved
   week: W2
   deadline: 2026-10-29
   impact: mid
   door: two
   cost: 0 USD
   review: 2027-01-22
-  gist: Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider.
+  gist: "Mỗi lượt gọi trả phí ghi dòng pending vào costs.jsonl trước khi gửi và dòng ok/failed/unknown sau; kết quả không rõ thì task waiting, người quyết định; không đặt ngân sách hay pricing.yaml, giới hạn chi tiêu đặt ở tài khoản provider."
   proposer: Claude
   decider: Tuan
   informed: "—"
+  decided: 2026-10-24
+  reason: Tuan duyệt ngày 24/10/2026 trong thread dự án.
 rev:
-  - ["0.1", 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-09, AD-10 và mục 7.1–7.2"]
+  - [0.1, 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-09, AD-10 và mục 7.1–7.2"]
+  - [0.2, 2026-10-24, "Soát trước Gate 2: fsync dòng pending trước khi gửi; timeout, 5xx, mất id sau khi gửi là unknown chứ không retry; lỗi unconfirmed của MPT theo từng provider"]
+  - [0.3, 2026-10-24, "Quyết định: Tuan duyệt"]
 ---
 
 <!-- id:summary -->
@@ -27,7 +31,7 @@ rev:
 
 <!-- id:summary.b1 -->
 > [!IMPORTANT]
-> Quyết định: adapter ghi `{"status": "pending"}` vào `costs.jsonl` trước mỗi lượt gọi trả phí và một dòng kết quả `ok`, `failed` hoặc `unknown` sau. Khi chạy lại mà còn `pending` không có kết quả, hoặc MPT ném `UnconfirmedTaskError`, task chuyển `waiting` và người quyết định; hệ thống không tự gửi lại.
+> Quyết định: adapter ghi `{"status": "pending"}` vào `costs.jsonl` trước mỗi lượt gọi trả phí và một dòng kết quả `ok`, `failed` hoặc `unknown` sau. Dòng `pending` được `fsync` trước khi gửi request. Khi chạy lại mà còn `pending` không có kết quả, khi lỗi xảy ra sau lúc request có thể đã tới provider (timeout, 5xx, response thiếu id), hoặc MPT ném lỗi unconfirmed của provider, task chuyển `waiting` và người quyết định; hệ thống không tự gửi lại.
 
 <!-- id:summary.b2 -->
 Thiết kế không hứa "không bao giờ trả tiền hai lần" (bản rà soát F03); nó hứa không tự trả tiền lần hai mà người không biết. Ngân sách đặt trước và `pricing.yaml` bị bỏ vì giá đổi thường xuyên và ước tính lệch hóa đơn (F10). Khuyến nghị: duyệt.
