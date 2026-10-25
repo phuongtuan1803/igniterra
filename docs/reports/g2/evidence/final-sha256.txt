@@ -1,0 +1,5 @@
+b663d7a8bbe0e1c10e97102ce23e1d0fe7367bd9898845753bc805ea4e63d0af  data/tasks/t_0001/renders/r_001/final_9x16.mp4
+3bd9fb16b7a4be510b704e57df084bb24012f0ec70791b967939bc9e8656c420  data/tasks/t_0003/renders/r_001/final_9x16.mp4
+0e81d7c01dd882afe0de0161047a265b5306e0de1b2b035cdfb179a5eff20eb9  data/tasks/t_0004/renders/r_001/final_9x16.mp4
+c050e099f5628ced5909f8ace35e205224499de934be36ec2d9bfac18067d380  data/tasks/t_0005/renders/r_001/final_9x16.mp4
+e568c14e4151b0228844b81e6e2a6a17c0e8eb2ee7bc463a6b2f6d04b17174a4  data/tasks/t_0006/renders/r_001/final_9x16.mp4

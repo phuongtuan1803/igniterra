@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "parent": null,
+  "series": null,
+  "title": "Một phút ký ức",
+  "cast": {
+    "nguoi_dan_ong": "An anonymous adult man with a slim build, wearing a charcoal coat, gray shirt, dark trousers, and worn black shoes; always shown from behind, in silhouette, or at a distance."
+  },
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Mỗi lần chiếc máy sáng lên, người đàn ông quên một điều về mình. Trong phòng tối, thiết bị lạ đếm ngược bằng ánh xanh. Anh đứng quay lưng, chờ phút ấy trôi qua, không biết vì sao đến đây.",
+      "visual": "A dark room contains a small glowing device on a metal table, its blue light pulsing toward nguoi_dan_ong standing with his back to the camera. The rest of the room fades into deep shadow.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "push_in"
+      },
+      "characters": [
+        "nguoi_dan_ong"
+      ],
+      "shows": [
+        "phòng tối",
+        "thiết bị phát sáng"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Anh đặt giấy cạnh máy, ghi điều cần nhớ: thích mùi mưa, ghét tiếng còi, nhớ lý do bước vào đây. Ngẩng lên, dòng đầu tiên đã xa lạ.",
+      "visual": "Nguoi_dan_ong sits at the table with several blank paper sheets beside the glowing device, writing with a dark pen. Blue light falls across his hunched back while the surrounding room stays dim.",
+      "shot": {
+        "size": "medium",
+        "angle": "high",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "nguoi_dan_ong"
+      ],
+      "shows": [
+        "phòng tối",
+        "thiết bị phát sáng",
+        "giấy ghi chú"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Lần sáng kế tiếp, anh tìm tên mình trong túi, rồi khựng lại. Tấm thẻ vẫn còn, nhưng cái tên không gọi được anh. Anh nhìn bóng trên vách và viết: nếu quên tên, hãy tin điều cuối cùng.",
+      "visual": "Nguoi_dan_ong stands before a rough wall, holding a small card loosely in one hand while his distorted shadow stretches behind him. The device glows faintly on the table in the background, and a paper sheet lies nearby.",
+      "shot": {
+        "size": "medium",
+        "angle": "low",
+        "movement": "static"
+      },
+      "characters": [
+        "nguoi_dan_ong"
+      ],
+      "shows": [
+        "phòng tối",
+        "thiết bị phát sáng",
+        "giấy ghi chú"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Bộ đếm gần về không. Ký ức rơi rụng từng mảnh. Anh cầm tờ cuối cùng, chưa đọc, khi nghe tiếng động khẽ phía bên kia cửa.",
+      "visual": "Nguoi_dan_ong reaches for the last paper sheet on the table as the device emits a weak blue pulse. In the far background, a closed room door stands in darkness, with a thin line of muted light beneath it.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "nguoi_dan_ong"
+      ],
+      "shows": [
+        "phòng tối",
+        "thiết bị phát sáng",
+        "giấy ghi chú",
+        "cửa phòng"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s05",
+      "narration": "Dòng cuối nói rằng con gái đang đợi ngoài cửa. Anh hiểu đã dùng máy để quên nỗi đau, không muốn quên người mình yêu. Anh tắt máy quay về phía cánh cửa.",
+      "visual": "Nguoi_dan_ong turns away from the now-dark device toward the closed room door. His hand hovers near the switch, while a soft human-sized shadow rests beyond the light beneath the door.",
+      "shot": {
+        "size": "medium",
+        "angle": "high",
+        "movement": "pan_left"
+      },
+      "characters": [
+        "nguoi_dan_ong"
+      ],
+      "shows": [
+        "phòng tối",
+        "giấy ghi chú",
+        "cửa phòng"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "plan: codex/gpt-5.6-luna"
+}

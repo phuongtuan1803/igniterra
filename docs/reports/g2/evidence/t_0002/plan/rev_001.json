@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "parent": null,
+  "series": null,
+  "title": "Người làm vườn cuối cùng",
+  "cast": {
+    "robot_bao_tri": "A small, weathered maintenance robot with a narrow metal body, jointed mechanical arms, dim amber chest light, tracked feet, and a rounded sensor head; faded gray casing with rust marks."
+  },
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Robot vẫn tưới một chậu đất suốt nhiều năm sau khi con người biến mất. Thành phố câm lặng, đại lộ phủ bụi, cửa sổ vỡ nhìn xuống đường không còn dấu chân.",
+      "visual": "A deserted city avenue covered in dust, broken windows, and abandoned vehicles under pale overcast light. robot_bao_tri walks far in the background, seen from behind between silent buildings.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "đô thị bỏ hoang"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Robot hứng từng giọt nước ở trạm cấp bỏ hoang, mang bình kim loại về qua quảng trường nứt gãy. Nó tưới chậu đất trống, rồi đứng chờ trong màn đêm lạnh.",
+      "visual": "Inside a ruined water station, robot_bao_tri holds a dented metal container beneath a leaking pipe. In the same distant courtyard, it tilts the container over a bare clay pot beneath cold moonlight.",
+      "shot": {
+        "size": "medium",
+        "angle": "eye_level",
+        "movement": "push_in"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "tưới chậu đất"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Pin xuống thấp, các khớp máy chậm dần. Robot tắt đèn phụ, dành phần năng lượng cuối để giữ ấm quanh chậu. Bên trong vẫn chỉ có đất khô, không dấu hiệu.",
+      "visual": "A roofless maintenance room at night, with robot_bao_tri crouched beside an empty pot. A faint orange heating ring glows around the dry soil while the robot's chest light weakens.",
+      "shot": {
+        "size": "close_up",
+        "angle": "low",
+        "movement": "static"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Qua một đêm dài, mặt đất tách ra. Một mầm xanh nhỏ run rẩy vươn lên dưới quầng nhiệt. Robot che gió bằng cánh tay máy, lặng lẽ ghi nhận sự sống đầu tiên.",
+      "visual": "A tiny green sprout breaks through dry soil inside the pot, illuminated by a weak orange heat ring. robot_bao_tri shields it with one mechanical arm as dawn light enters the ruined room.",
+      "shot": {
+        "size": "close_up",
+        "angle": "eye_level",
+        "movement": "pan_left"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "mầm cây"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s05",
+      "narration": "Đúng lúc chiếc lá đầu tiên mở ra, robot trao pin cuối cho bộ sưởi. Vòng nhiệt vẫn đỏ, còn thân máy tắt hẳn. Người làm vườn cuối cùng ngừng hoạt động khi sự sống trở lại.",
+      "visual": "The first leaf opens above the pot while the orange heating ring remains warm. robot_bao_tri is motionless beside it, chest light extinguished, its silhouette fading into the quiet ruined city.",
+      "shot": {
+        "size": "wide",
+        "angle": "high",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "mầm cây"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "plan: codex/gpt-5.6-luna"
+}

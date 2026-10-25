@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "revision": 2,
+  "parent": 1,
+  "series": null,
+  "title": "Người làm vườn cuối cùng",
+  "cast": {
+    "robot_bao_tri": "A compact maintenance robot with a weathered white metal shell, narrow industrial torso, jointed mechanical arms, small amber status light on its back, and tracked feet; no visible face."
+  },
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Robot vẫn tưới một chậu đất suốt nhiều năm sau khi con người biến mất. Giữa những đại lộ phủ bụi, nó đi qua các cửa kính tối om, nghe gió luồn trong những tòa nhà rỗng. Không còn bước chân nào đáp lại.",
+      "visual": "A deserted city boulevard stretches between dark glass towers, buried in dust and pale weeds. robot_bao_tri appears far away, moving alone beneath broken streetlights in cold morning haze.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "pan_left"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "đô thị bỏ hoang"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Trong kho chứa ngập nước mưa, robot tìm thấy một bình kim loại còn nguyên. Nó kéo bình về bằng đôi tay máy, chậm chạp nhưng chính xác, rồi nghiêng vòi trên chậu đất. Nước rơi xuống, thấm vào lớp đất nâu lạnh ngắt.",
+      "visual": "Inside a flooded storage room, robot_bao_tri carries a dented metal water container toward a small clay pot filled only with dark soil. A thin stream falls from its mechanical nozzle under a shaft of gray light.",
+      "shot": {
+        "size": "medium",
+        "angle": "high",
+        "movement": "push_in"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "tưới chậu đất"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Những ngày tiếp theo, thành phố vẫn im lặng, còn robot vẫn quay lại. Đèn báo trên lưng nó chuyển sang màu đỏ; pin chỉ đủ cho vài chu kỳ nữa. Nó tắt đèn đường, khóa các cánh cửa, dành phần năng lượng cuối cùng sưởi ấm chậu đất trống.",
+      "visual": "Night in a quiet workshop. robot_bao_tri sits beside an empty clay pot of bare soil, both mechanical arms gently around the pot to keep it warm. A small red status lamp glows on its back; the dark city is visible through a window.",
+      "shot": {
+        "size": "close_up",
+        "angle": "low",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Robot tắt đi đúng lúc một mầm xanh đội đất trồi lên, khi sự sống đầu tiên trở lại.",
+      "visual": "At dawn, the silent robot_bao_tri sits beside the pot, its amber light extinguished. A single delicate green sprout rises from the soil as warm sunlight enters the abandoned room.",
+      "shot": {
+        "size": "close_up",
+        "angle": "eye_level",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "robot_bao_tri"
+      ],
+      "shows": [
+        "mầm cây"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "Claude (agent): diễn đạt lại visual s03 sau 3 lần Gemini chặn moderation"
+}

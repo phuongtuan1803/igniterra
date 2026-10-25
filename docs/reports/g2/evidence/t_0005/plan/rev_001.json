@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "parent": null,
+  "series": null,
+  "title": "Bức thư gửi ngôi sao đã tắt",
+  "cast": {
+    "co_gai": "Adult woman with a slim build, shoulder-length dark hair, wearing a charcoal coat, cream scarf, dark trousers, and worn brown boots."
+  },
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Cô gái vẫn gửi thư tới một ngôi sao mà ai cũng nói đã chết. Mỗi đêm, cô lên đài quan sát, đặt giấy vào máy phát và hướng ăng-ten.",
+      "visual": "A solitary observatory dome on a dark hill, with a star-filled sky above. co_gai stands with her back to the camera beside a metal transmitter, raising a narrow antenna toward one dim patch of sky.",
+      "shot": {
+        "size": "wide",
+        "angle": "low",
+        "movement": "push_in"
+      },
+      "characters": [
+        "co_gai"
+      ],
+      "shows": [
+        "bầu trời sao",
+        "ăng-ten hoặc đài quan sát"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Người trong thị trấn bảo chẳng có ai trả lời. Họ chỉ vào nơi ngôi sao đã tắt từ lâu. Cô vẫn trở lại liên tục.",
+      "visual": "Inside a quiet observatory, co_gai sits alone near a large telescope while distant town lights shimmer below through the window. The empty chair beside her and the inactive equipment emphasize the silence.",
+      "shot": {
+        "size": "medium",
+        "angle": "eye_level",
+        "movement": "pan_left"
+      },
+      "characters": [
+        "co_gai"
+      ],
+      "shows": [
+        "ăng-ten hoặc đài quan sát"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Một đêm, máy thu phát tiếng người giữa lớp nhiễu. Con còn thức không? Cô đứng sững; giọng ấy giống cha, người mất tích trong chuyến thám hiểm năm xưa.",
+      "visual": "A dim control room lit by a small green receiver lamp, with co_gai frozen in silhouette beside the console. Thin cables and analog dials fill the foreground, while no other person is visible.",
+      "shot": {
+        "size": "close_up",
+        "angle": "high",
+        "movement": "static"
+      },
+      "characters": [
+        "co_gai"
+      ],
+      "shows": [
+        "máy thu tín hiệu"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Tín hiệu tiếp tục, như một bức thư mắc kẹt trong thời gian. Cha kể về đêm cuối trên con tàu, rồi gửi lời chào về nhà. Cô nghe đến sáng.",
+      "visual": "Before dawn, co_gai sits with her back to the camera at the receiver console, one hand resting near the speaker. A pale blue glow enters through the observatory window, and the machine remains active.",
+      "shot": {
+        "size": "medium",
+        "angle": "eye_level",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "co_gai"
+      ],
+      "shows": [
+        "máy thu tín hiệu",
+        "ăng-ten hoặc đài quan sát"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s05",
+      "narration": "Cuối cùng, cô thấy thời điểm truyền đi: cha đã trả lời trước khi cô bắt đầu gửi. Ông không nghe thấy cô. Ánh sáng chỉ vừa tới nơi, mang giọng nói từ nhiều năm trước. Cô đặt lá thư xuống, bầu trời lặng im.",
+      "visual": "A wide observatory rooftop under a vast starry sky, with co_gai seen from behind lowering an unopened letter beside the silent antenna. The first gray light of dawn touches the empty horizon, with no figure or ship present.",
+      "shot": {
+        "size": "wide",
+        "angle": "high",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "co_gai"
+      ],
+      "shows": [
+        "bầu trời sao",
+        "ăng-ten hoặc đài quan sát"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "plan: codex/gpt-5.6-luna"
+}

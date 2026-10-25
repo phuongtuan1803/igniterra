@@ -1,0 +1,45 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Be Vietnam Pro,66,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,4,1,2,90,90,461,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.10,0:00:01.71,Default,,0,0,0,,Mỗi lần chiếc\Nmáy sáng lên
+Dialogue: 0,0:00:01.89,0:00:03.62,Default,,0,0,0,,người đàn ông quên\Nmột điều về mình
+Dialogue: 0,0:00:04.46,0:00:05.38,Default,,0,0,0,,Trong phòng tối
+Dialogue: 0,0:00:05.54,0:00:07.35,Default,,0,0,0,,thiết bị lạ đếm\Nngược bằng ánh xanh
+Dialogue: 0,0:00:08.19,0:00:09.21,Default,,0,0,0,,Anh đứng quay lưng
+Dialogue: 0,0:00:09.36,0:00:10.66,Default,,0,0,0,,chờ phút ấy trôi qua
+Dialogue: 0,0:00:10.82,0:00:12.18,Default,,0,0,0,,không biết vì\Nsao đến đây
+Dialogue: 0,0:00:13.13,0:00:14.31,Default,,0,0,0,,Anh đặt giấy cạnh máy
+Dialogue: 0,0:00:14.46,0:00:15.45,Default,,0,0,0,,ghi điều cần nhớ
+Dialogue: 0,0:00:15.63,0:00:16.46,Default,,0,0,0,,thích mùi mưa
+Dialogue: 0,0:00:16.63,0:00:17.50,Default,,0,0,0,,ghét tiếng còi
+Dialogue: 0,0:00:17.67,0:00:19.01,Default,,0,0,0,,nhớ lý do bước vào đây
+Dialogue: 0,0:00:19.85,0:00:20.53,Default,,0,0,0,,Ngẩng lên
+Dialogue: 0,0:00:20.67,0:00:22.17,Default,,0,0,0,,dòng đầu tiên đã xa lạ
+Dialogue: 0,0:00:23.13,0:00:24.21,Default,,0,0,0,,Lần sáng kế tiếp
+Dialogue: 0,0:00:24.42,0:00:25.92,Default,,0,0,0,,anh tìm tên\Nmình trong túi
+Dialogue: 0,0:00:26.08,0:00:27.00,Default,,0,0,0,,rồi khựng lại
+Dialogue: 0,0:00:27.83,0:00:28.86,Default,,0,0,0,,Tấm thẻ vẫn còn
+Dialogue: 0,0:00:29.02,0:00:30.73,Default,,0,0,0,,nhưng cái tên\Nkhông gọi được anh
+Dialogue: 0,0:00:31.57,0:00:33.10,Default,,0,0,0,,Anh nhìn bóng\Ntrên vách và viết
+Dialogue: 0,0:00:33.37,0:00:34.26,Default,,0,0,0,,nếu quên tên
+Dialogue: 0,0:00:34.41,0:00:35.52,Default,,0,0,0,,hãy tin điều cuối cùng
+Dialogue: 0,0:00:36.48,0:00:37.84,Default,,0,0,0,,Bộ đếm gần về không
+Dialogue: 0,0:00:38.68,0:00:40.30,Default,,0,0,0,,Ký ức rơi rụng từng mảnh
+Dialogue: 0,0:00:41.14,0:00:42.36,Default,,0,0,0,,Anh cầm tờ cuối cùng
+Dialogue: 0,0:00:42.53,0:00:43.02,Default,,0,0,0,,chưa đọc
+Dialogue: 0,0:00:43.22,0:00:45.37,Default,,0,0,0,,khi nghe tiếng động\Nkhẽ phía bên kia cửa
+Dialogue: 0,0:00:46.32,0:00:47.69,Default,,0,0,0,,Dòng cuối nói\Nrằng con gái
+Dialogue: 0,0:00:47.69,0:00:48.76,Default,,0,0,0,,đang đợi ngoài cửa
+Dialogue: 0,0:00:49.59,0:00:51.47,Default,,0,0,0,,Anh hiểu đã dùng\Nmáy để quên nỗi đau
+Dialogue: 0,0:00:51.63,0:00:53.03,Default,,0,0,0,,không muốn quên\Nngười mình yêu
+Dialogue: 0,0:00:53.87,0:00:55.83,Default,,0,0,0,,Anh tắt máy quay\Nvề phía cánh cửa

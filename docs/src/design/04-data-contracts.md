@@ -2,7 +2,7 @@
 id: IGN-DAT
 title: Igniterra — Contract và dữ liệu
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -13,6 +13,7 @@ rev:
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: ScenePlan có revision, assets.json với selected, costs.jsonl thay cost_events và ngân sách, bỏ SpeechScript, SceneVisual, profile"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: contract Brief theo mẫu Gate 0, ScenePlan gắn hình bắt buộc, wps của giọng, nguồn và quyền của ứng viên, render revision thay cho một file final, bảng reviews (phiếu duyệt C01–C09, phút công), quy tắc ghi assets.json, cấu hình MPT nạp lúc import"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.3", 2026-10-25, "Migration đầu tiên ở Gate 2: tasks.wait_detail và pause_requested, gate_decisions.subject, ScenePlan.cast khi chưa có series"]
 ---
 
 <!-- id:s1 -->
@@ -146,6 +147,7 @@ reviews.task_id -> tasks.id
 </picture>
 
 <!-- id:s2.b3 -->
+- Đã chốt ở Gate 2 (`studio/store.py`): thêm `tasks.wait_detail` (lý do chi tiết cho người), `tasks.pause_requested` (cờ của `task pause`), `gate_decisions.subject` (tập ảnh selected với gate `keyframes`, render revision với gate `final`, `request_id` với `unknown_call`, `bước:scene` với yêu cầu `rerun` kèm ghi chú).
 - Ràng buộc duy nhất `(task_id, step, scene, attempt)` trên `step_runs`.
 - Nhận task: `UPDATE tasks SET status='running' WHERE id=? AND status='pending'`, kiểm số dòng bị đổi; không cần khóa riêng khi chỉ có một worker.
 - `wait_reason` là `gate:keyframes`, `gate:final`, `unknown_call`, `retries_exhausted`, `duration_exceeded` hoặc `paused`; giao diện dùng nó để hiện đúng nút.
@@ -267,6 +269,8 @@ Table: Trường của một scene
 | `shows` | danh sách | Mục `must_show` của brief mà scene này thể hiện; dùng để kiểm "đủ hình" và "không lộ sớm" |
 | `target_s` | số giây | Ngân sách; `plan` giới hạn theo số từ chia cho `wps` của giọng (pilot đo 2,8–3,0 với NamMinh) |
 | `start_from` | `null` \| `"prev_last_frame"` | Nối frame, tùy chọn, Gate 4 |
+
+Trường cấp ScenePlan `cast` (Gate 2): khi task không thuộc series, LLM mô tả mỗi nhân vật một lần (`{key: mô tả}`), `prompt.py` ghép y nguyên vào mọi scene có key đó. Nhân vật đã có trong Series Bible thì không vào `cast`.
 
 <!-- id:s4.b4 -->
 <!-- report-kit:d2

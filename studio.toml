@@ -1,0 +1,39 @@
+# studio.toml — cấu hình chung, KHÔNG chứa khóa (khóa ở .env: OMNIROUTE_API_KEY).
+# Ghi đè theo task: `python -m studio task new --overrides '{...}'` (lưu trong tasks.overrides).
+
+data_dir  = "data"                    # không commit; sao lưu riêng
+mpt_home  = "~/.config/studio/mpt"    # MPT_HOME riêng, ngoài data/ (MPT có thể tự ghi lại config.toml)
+
+[adapters]
+llm       = "omniroute"         # providers/direct/omniroute.py (OmniRouteLLM)
+image     = "omniroute"         # providers/direct/omniroute.py (OmniRouteImage)
+tts       = "mpt"               # providers/mpt/tts.py, giọng lấy từ Series Bible
+subtitles = "mpt"               # providers/mpt/subtitle.py, chỉ khi TTS không trả mốc từ
+video     = "none"              # Gate 4
+renderer  = "video_project"     # studio/render + vendor/video_project.py
+
+[omniroute]                     # model đổi được, không sửa code
+base_url       = "http://localhost:20128/v1"
+llm_model      = "codex/gpt-5.6-luna"
+image_model    = "openrouter/google/gemini-3.1-flash-image-preview"
+image_max_refs = 1              # OpenRouter chỉ nhận 1 ảnh tham chiếu → character sheet
+timeout_s      = 180            # quá hạn sau khi gửi → unknown, không retry
+
+[concurrency]                   # số scene chạy song song trong một bước, theo adapter
+image   = 3
+tts     = 2
+animate = 2
+
+[retry]
+max_attempts = 3
+backoff_s    = 2.0
+
+[gates]
+keyframes = true                # gate keyframes tùy chọn; gate final luôn bật
+
+[render]
+width     = 1080
+height    = 1920
+fps       = 30
+font      = "Be Vietnam Pro"
+font_size = 66

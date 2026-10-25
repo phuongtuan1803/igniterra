@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "parent": null,
+  "series": null,
+  "title": "Tín hiệu từ ngày mai",
+  "cast": {
+    "nguoi_gac": "A slender adult orbital station keeper in a dark navy maintenance suit, worn utility boots, and a dim amber shoulder lamp; usually seen as a distant silhouette or from behind, with the face obscured."
+  },
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Người gác trạm nhận được một lời cảnh báo bằng chính giọng mình. Ca trực đêm trôi qua yên lặng giữa quỹ đạo tối đen. Chỉ có ánh đèn xanh nhấp nháy, tiếng máy lọc khí, và bóng anh lặng lẽ đi qua hành lang.",
+      "visual": "A dim orbital station corridor curves through darkness, with blue indicator lights and drifting dust. nguoi_gac appears as a small back-facing silhouette walking beneath the quiet machinery.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "static"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "trạm ngoài không gian"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Rồi thiết bị liên lạc bật sáng. Một giọng nói vang lên, khàn và thấp, giống hệt anh: Đừng mở cửa khoang. Dù nghe thấy ai gọi, tuyệt đối đừng mở. Anh đứng bất động, nhìn tín hiệu chớp tắt như một nhịp tim.",
+      "visual": "A compact communication console glows in the dark beside a distant silhouette of nguoi_gac. Cold blue light reflects across the empty corridor while the console pulses with an unseen transmission.",
+      "shot": {
+        "size": "medium",
+        "angle": "low",
+        "movement": "push_in"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "thiết bị liên lạc"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Ba tiếng gõ vang lên từ phía ngoài. Không phải trong hành lang, mà trên lớp cửa khoang đang đóng kín. Anh lùi lại, tay giữ bộ đàm, còn bóng đen bên kia vẫn gõ đều, kiên nhẫn như đã chờ rất lâu.",
+      "visual": "A sealed circular hatch fills the frame from inside the station, its metal surface trembling subtly. nguoi_gac stands several steps away, turned toward the hatch, while a soft shadow shifts beneath the outer rim.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "cửa khoang đóng"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Anh lần theo nguồn phát và tìm thấy thiết bị liên lạc phụ sau tấm chắn. Lịch phát ghi ngày mai. Rồi anh sững lại: lời cảnh báo ấy chưa từng được anh ghi âm.",
+      "visual": "Behind a loose maintenance panel, a secondary communication device glows with a small amber status light and a rotating temporal indicator. nguoi_gac leans toward it from behind, frozen in the narrow service alcove.",
+      "shot": {
+        "size": "medium",
+        "angle": "high",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "thiết bị liên lạc"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "plan: codex/gpt-5.6-luna"
+}

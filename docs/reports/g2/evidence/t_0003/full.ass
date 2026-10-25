@@ -1,0 +1,41 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Be Vietnam Pro,66,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,4,1,2,90,90,461,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.10,0:00:01.50,Default,,0,0,0,,Phi hành gia\Nthấy dấu chân của
+Dialogue: 0,0:00:01.50,0:00:02.98,Default,,0,0,0,,mình trên nơi\Nchưa ai từng đặt
+Dialogue: 0,0:00:02.98,0:00:04.30,Default,,0,0,0,,chân ngay sau\Nkhi hạ cánh
+Dialogue: 0,0:00:05.14,0:00:06.72,Default,,0,0,0,,Con tàu nằm im\Ngiữa đồng bằng
+Dialogue: 0,0:00:06.72,0:00:07.89,Default,,0,0,0,,đỏ dưới bầu trời đen
+Dialogue: 0,0:00:08.84,0:00:10.47,Default,,0,0,0,,Mỗi dấu in sâu trên bụi
+Dialogue: 0,0:00:10.66,0:00:12.39,Default,,0,0,0,,nhưng quanh đó\Nkhông có xáo trộn
+Dialogue: 0,0:00:13.22,0:00:14.42,Default,,0,0,0,,Anh chạm một vết chân
+Dialogue: 0,0:00:14.59,0:00:16.26,Default,,0,0,0,,rồi nhìn về\Ncon tàu im lặng
+Dialogue: 0,0:00:16.41,0:00:17.25,Default,,0,0,0,,không tín hiệu
+Dialogue: 0,0:00:18.20,0:00:19.74,Default,,0,0,0,,Vệt chân men qua đá nhọn
+Dialogue: 0,0:00:19.90,0:00:21.63,Default,,0,0,0,,theo khe nứt\Ntối tới miệng hố
+Dialogue: 0,0:00:22.46,0:00:23.14,Default,,0,0,0,,Bên dưới
+Dialogue: 0,0:00:23.28,0:00:24.53,Default,,0,0,0,,bụi bạc phủ lòng sâu
+Dialogue: 0,0:00:24.70,0:00:25.90,Default,,0,0,0,,còn một đường\Nchân khác khuất
+Dialogue: 0,0:00:25.90,0:00:26.95,Default,,0,0,0,,sau tường đá cong
+Dialogue: 0,0:00:27.90,0:00:29.65,Default,,0,0,0,,Anh lần theo đường\Nấy và chết lặng
+Dialogue: 0,0:00:29.86,0:00:31.11,Default,,0,0,0,,nó vòng qua miệng hố
+Dialogue: 0,0:00:31.28,0:00:32.24,Default,,0,0,0,,kéo thẳng về tàu
+Dialogue: 0,0:00:33.08,0:00:34.95,Default,,0,0,0,,Dấu cuối cùng dừng\Ndưới cửa khoang
+Dialogue: 0,0:00:35.10,0:00:36.30,Default,,0,0,0,,trùng với ủng của anh
+Dialogue: 0,0:00:37.24,0:00:38.00,Default,,0,0,0,,Trong khoang
+Dialogue: 0,0:00:38.15,0:00:39.26,Default,,0,0,0,,đồng hồ chạy lùi
+Dialogue: 0,0:00:40.10,0:00:41.14,Default,,0,0,0,,Anh nghe bản ghi
+Dialogue: 0,0:00:41.31,0:00:42.58,Default,,0,0,0,,đừng mở cửa lần nữa
+Dialogue: 0,0:00:43.41,0:00:44.04,Default,,0,0,0,,Anh hiểu
+Dialogue: 0,0:00:44.19,0:00:45.85,Default,,0,0,0,,mình chưa phải người\Nđầu tiên tới đây
+Dialogue: 0,0:00:46.01,0:00:47.41,Default,,0,0,0,,mà là người sẽ quay lại

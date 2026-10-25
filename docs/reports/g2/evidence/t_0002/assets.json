@@ -1,0 +1,50 @@
+{
+  "s02": {
+    "image": {
+      "selected": "img_s02_a1",
+      "candidates": [
+        {
+          "id": "img_s02_a1",
+          "kind": "image",
+          "path": "keyframes/s02_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "c64664450a24a26d4f14a6ecbe5b121d026a1f130fbdcd67a654becf070e24c2",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T08:20:33"
+        }
+      ]
+    }
+  },
+  "s01": {
+    "image": {
+      "selected": "img_s01_a1",
+      "candidates": [
+        {
+          "id": "img_s01_a1",
+          "kind": "image",
+          "path": "keyframes/s01_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "2b44db29cceaca0e215e2e5dc432b7efab1d4e9093c466a2a2af1bee90f97733",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T08:20:33"
+        }
+      ]
+    }
+  }
+}
