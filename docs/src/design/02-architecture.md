@@ -12,7 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 4 tầng, core tối thiểu, MPT sau adapter, bỏ registry, profile YAML, router, ngân sách"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: bước animate, vendor video_project tại 82bb4a7, phụ thuộc ghim theo gói mpt, quy tắc web chỉ ghi khi task không chạy, ranh giới đường dẫn cho /files"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->

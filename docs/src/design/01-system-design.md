@@ -13,7 +13,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: core tối thiểu + adapter, MPT làm thư viện provider, ScenePlan có revision, ứng viên selected, lộ trình theo decision gate"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: brief theo mẫu Gate 0, CON-08 sản phẩm pilot (D-02), FR-17 hậu điều kiện và trần thời lượng, FR-18 phiếu duyệt, bước animate trong luồng giá trị, ràng buộc ffprobe và pin phụ thuộc của gói mpt"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -86,7 +86,7 @@ mpt: "MoneyPrinterTurbo\n(gói pip mpt, ghim phiên bản)" {class: gate}
 cloud: Dịch vụ AI cloud {
   class: zone
   llm: "LLM qua OmniRoute\ncodex/gpt-5.6-luna" {class: plain}
-  img: "Ảnh có tham chiếu qua OmniRoute\ncinf/gemini-nano-banana-2.1" {class: plain}
+  img: "Ảnh có tham chiếu qua OmniRoute\nopenrouter/google/gemini-nano-banana-2.1" {class: plain}
   vid: "Image-to-video\nVeo 3.1 Fast (Gate 4)" {class: plain}
 }
 mptsvc: Dịch vụ sau MPT {

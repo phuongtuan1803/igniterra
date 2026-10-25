@@ -304,7 +304,7 @@ Chi tiết ở [08 · Gate 2](../../src/design/08-roadmap.md#s3).
 
 <!-- id:s6.b4 -->
 ```q
-Q4 · D-03: đặt giới hạn chi tiêu ở tài khoản upstream sau OmniRoute (cinf, codex), trước lượt gọi trả phí đầu tiên?
+Q4 · D-03: đặt giới hạn chi tiêu ở tài khoản upstream sau OmniRoute (openrouter, codex), trước lượt gọi trả phí đầu tiên?
 1. Đặt 5 USD như trần kế hoạch G0 (chặn cứng hoặc nạp trước)
 2. Đặt mức khác (ghi chú)
 rec: 1

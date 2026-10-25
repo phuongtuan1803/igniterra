@@ -12,7 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: MPT_HOME, quy trình nâng MPT, costs.jsonl, quyết định unknown; bỏ pricing.yaml, ngân sách, router"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: FFmpeg và ffprobe hệ thống, MPT_HOME riêng, vendor tại 82bb4a7, nâng MPT kéo theo test web, giới hạn chi tiêu trước lượt gọi trả phí đầu tiên, runbook duration_exceeded và lệch phụ đề"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
 ---
 
 <!-- id:s1 -->
@@ -34,7 +34,7 @@ main: Máy chính {
   ff: "FFmpeg\nfaster-whisper (qua MPT)" {class: hands}
 }
 gpu: "Máy GPU / pod\nComfyUI API (Gate 4)" {class: hands}
-cloud: "API cloud\nOmniRoute (codex, cinf),\nVeo, ElevenLabs" {class: plain}
+cloud: "API cloud\nOmniRoute (codex, openrouter),\nVeo, ElevenLabs" {class: plain}
 backup: "Nơi sao lưu\n(ổ khác / cloud)" {shape: cylinder; class: data}
 op -> net -> main.web
 main.worker -> main.venv
@@ -94,7 +94,7 @@ worker -> log: "không bao giờ ghi khóa" {class: bad}
 - Cấu hình MPT là toàn cục: một người vận hành, một cấu hình; không chạy hai cấu hình MPT song song.
 - Logger lọc mọi giá trị trùng với biến bí mật trước khi ghi (NFR-07).
 - `MPT_HOME` là thư mục riêng (ví dụ `~/.config/studio/mpt/`), quyền `600` cho `config.toml`, ngoài `data/` để sao lưu `data/` không mang theo khóa. MPT nạp file này một lần lúc import và có thể tự ghi lại nó.
-- Trước lượt gọi trả phí đầu tiên của mỗi adapter: đặt giới hạn chi tiêu ở tài khoản provider (D-03, pilot 5 USD). Với OmniRoute, giới hạn đặt ở tài khoản upstream (cinf, codex), vì gateway chỉ theo dõi hạn mức. Ở báo cáo G0/G1 giới hạn này chưa được đặt.
+- Trước lượt gọi trả phí đầu tiên của mỗi adapter: đặt giới hạn chi tiêu ở tài khoản provider (D-03, pilot 5 USD). Với OmniRoute, giới hạn đặt ở tài khoản upstream (openrouter, codex), vì gateway chỉ theo dõi hạn mức. Ở báo cáo G0/G1 giới hạn này chưa được đặt.
 - FFmpeg và ffprobe cài từ hệ thống (bản 6 trở lên). `imageio-ffmpeg` đi kèm MPT chỉ có `ffmpeg`, còn renderer gọi cả `ffprobe`.
 
 <!-- id:s3 -->

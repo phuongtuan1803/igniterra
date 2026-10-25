@@ -2,7 +2,7 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -12,7 +12,8 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu (Module và provider), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 5 provider interface, adapter MPT, chính sách dùng lại mã; bỏ module registry, ctx, router"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2 trên mã MPT 82bb4a7 (gói mpt 1.3.9): renderer không nhận ảnh tĩnh và không có chuyển động camera → bước animate; vendor tại 82bb4a7; ánh xạ lỗi sau khi gửi lượt gọi trả phí; lỗi unconfirmed theo từng provider; pin phụ thuộc của gói mpt; cấu hình MPT nạp lúc import"]
-  - ["2.2", 2026-10-24, "Gate 2b gọi LLM và ảnh qua OmniRoute (codex/gpt-5.6-luna, cinf/gemini-nano-banana-2.1, đổi được trong studio.toml): adapter, ánh xạ lỗi, chặn fallback, việc cần kiểm"]
+  - ["2.2", 2026-10-24, "Gate 2b gọi LLM và ảnh qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1, đổi được trong studio.toml): adapter, ánh xạ lỗi, chặn fallback, việc cần kiểm"]
+  - ["2.3", 2026-10-25, "Kiểm OmniRoute 3.8.52 trên máy Tuan (chỉ đọc): cinf không có nano-banana nên ảnh đi qua openrouter/google/gemini-nano-banana-2.1; codex qua OAuth; codex/gpt-5.6-luna nằm trong combo free-stack"]
 ---
 
 <!-- id:s1 -->
@@ -200,7 +201,7 @@ Table: Bảng adapter
 | `TTSProvider` | MPT `voice.tts(text, voice_name, voice_rate, voice_file)` | `SubMaker` → `AudioTrack` kèm mốc thời gian; trả `None` → `Retryable` | Gate 2 |
 | `SubtitleAligner` | MPT `subtitle.create(audio_file, subtitle_file)` rồi `subtitle.correct(subtitle_file, script)` | Dùng khi TTS không trả mốc từ | Gate 2 |
 | `LLMProvider` | `OmniRouteLLM` qua OmniRoute (mặc định); hoặc lớp kết nối trong `llm.py` của MPT | Prompt và schema do ta viết | Gate 2 |
-| `ImageProvider` (nhân vật) | `OmniRouteImage` qua OmniRoute (`cinf/gemini-nano-banana-2.1`, cần ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
+| `ImageProvider` (nhân vật) | `OmniRouteImage` qua OmniRoute (`openrouter/google/gemini-nano-banana-2.1`, cần ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
 | `ImageProvider` (phụ) | MPT stock footage trong `material.py` | Trả ứng viên cho scene không cần nhân vật | Khi cần |
 | `VideoProvider` | MPT `generate_videos()` của từng provider, hoặc SDK Veo | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4 |
 | Renderer | `vendor/video_project.py` (bản copy tại `82bb4a7`) | `render(plan, assets)` → manifest (mỗi scene: clip selected dạng MP4, giọng selected, narration) → `create_revision`, `plan`, `render` | Gate 2 |
@@ -259,7 +260,7 @@ step -> step: "ghi ứng viên vo_s03_aN, selected"
 ## Keyframe có nhân vật: adapter trực tiếp
 
 <!-- id:s5.b1 -->
-Keyframe có nhân vật dùng adapter gọi API ảnh hỗ trợ ảnh tham chiếu (mặc định `cinf/gemini-nano-banana-2.1` qua OmniRoute), vì MPT không có khái niệm nhân vật. Adapter nhận prompt đã ghép xác định và đường dẫn ảnh refs từ Series Bible ([04 · Ghép prompt](04-data-contracts.md#s7)), ghi `pending` trước lượt gọi và trả `AssetCandidate`.
+Keyframe có nhân vật dùng adapter gọi API ảnh hỗ trợ ảnh tham chiếu (mặc định `openrouter/google/gemini-nano-banana-2.1` qua OmniRoute), vì MPT không có khái niệm nhân vật. Adapter nhận prompt đã ghép xác định và đường dẫn ảnh refs từ Series Bible ([04 · Ghép prompt](04-data-contracts.md#s7)), ghi `pending` trước lượt gọi và trả `AssetCandidate`.
 
 <!-- id:s5.b2 -->
 <!-- report-kit:d2
@@ -288,7 +289,7 @@ nb -> cand: "AssetCandidate"
 ### Gate 2b qua OmniRoute
 
 <!-- id:s5.b4 -->
-Tuan chọn ngày 24/10/2026: Gate 2b gọi LLM và ảnh qua OmniRoute, một gateway tự host có API kiểu OpenAI (mặc định cổng 20128, model đặt tên dạng `provider/model`). Model ban đầu là `codex/gpt-5.6-luna` cho ScenePlan và `cinf/gemini-nano-banana-2.1` cho keyframe. Model có thể đổi, nên chúng là chuỗi trong `studio.toml` ([04 · Cấu hình](04-data-contracts.md#s9)); đổi model không sửa code. Một module `providers/direct/omniroute.py` có hai lớp `OmniRouteLLM` và `OmniRouteImage` dùng chung client HTTP.
+Tuan chọn ngày 24/10/2026: Gate 2b gọi LLM và ảnh qua OmniRoute, một gateway tự host có API kiểu OpenAI (mặc định cổng 20128, model đặt tên dạng `provider/model`). Model ban đầu là `codex/gpt-5.6-luna` cho ScenePlan và `openrouter/google/gemini-nano-banana-2.1` cho keyframe. Model có thể đổi, nên chúng là chuỗi trong `studio.toml` ([04 · Cấu hình](04-data-contracts.md#s9)); đổi model không sửa code. Một module `providers/direct/omniroute.py` có hai lớp `OmniRouteLLM` và `OmniRouteImage` dùng chung client HTTP.
 
 <!-- id:s5.b5 -->
 <!-- report-kit:d2
@@ -306,7 +307,7 @@ gw: "OmniRoute\n(tự host)" {class: plain}
 up: "Upstream" {
   class: zone
   codex: "codex/gpt-5.6-luna" {class: plain}
-  cinf: "cinf/gemini-nano-banana-2.1" {class: plain}
+  cinf: "openrouter/google/gemini-nano-banana-2.1" {class: plain}
 }
 lim: "Giới hạn chi tiêu\nở tài khoản upstream (D-03)" {class: data}
 cfg -> st
@@ -333,18 +334,22 @@ Table: Ánh xạ adapter OmniRoute
 > OmniRoute có combo và fallback: khi một provider hết hạn mức, request có thể được chuyển sang model khác. Với lượt gọi trả phí, điều đó vừa đổi model mà không báo, vừa có thể làm một lượt gọi bị tính tiền hai lần. Adapter chỉ gọi đúng tên model cụ thể (không dùng alias `auto/...` hay combo), tắt retry và fallback cho hai model này, và so `model` trong response với model đã cấu hình; khác thì báo `Fatal`.
 
 <!-- id:s5.b8 -->
-Việc cần kiểm trước việc 7 của Gate 2, bằng vài lượt gọi thử (dưới 0,5 USD). Các điểm này lấy từ tài liệu công khai của OmniRoute, chưa thử trên bản Tuan chạy.
+Việc cần kiểm trước việc 7 của Gate 2. Ngày 25/10/2026 đã kiểm chỉ đọc trên OmniRoute 3.8.52 ở máy Tuan, chưa gọi sinh nội dung và chưa dùng khóa API; các mục còn lại cần vài lượt gọi thử (dưới 0,5 USD).
 
 <!-- id:s5.b9 -->
 ```chk
-- [ ] `GET /v1/models` liệt kê `codex/gpt-5.6-luna` và `cinf/gemini-nano-banana-2.1`
-- [ ] Cách gửi 3 ảnh tham chiếu của nhân vật cho `cinf/gemini-nano-banana-2.1`: `/v1/images/generations` kiểu DALL-E không có tham số chuẩn cho ảnh tham chiếu; thử `/v1/images/edits` hoặc chat completions có ảnh đầu vào. Không gửi được ảnh tham chiếu thì nhân vật không giữ được nhất quán
+- [x] Model có trong catalog: `codex/gpt-5.6-luna` có (kết nối codex qua OAuth). Kết nối cinf (cheaperinference) không có model nano-banana nào, nên ảnh dùng `openrouter/google/gemini-nano-banana-2.1`; alias `gemini-nano-banana-2.1` cũng trỏ về đó nhưng adapter gọi tên đầy đủ
+- [ ] Gọi `GET /v1/models` có khóa để xác nhận danh sách trực tiếp (đã kiểm từ catalog trong cơ sở dữ liệu)
+- [x] Endpoint tồn tại: `/v1/images/generations`, `/v1/images/edits`, `/v1/responses` (OPTIONS trả 204, cần khóa API)
+- [ ] Gọi thẳng `codex/gpt-5.6-luna` không đi qua combo `free-stack` (round-robin, `maxRetries` 3) chứa model này; chưa có combo nào cho nano-banana
+- [ ] Cách gửi 3 ảnh tham chiếu của nhân vật cho `openrouter/google/gemini-nano-banana-2.1`: `/v1/images/generations` kiểu DALL-E không có tham số chuẩn cho ảnh tham chiếu; thử `/v1/images/edits` (có trên bản này) hoặc chat completions có ảnh đầu vào. Không gửi được ảnh tham chiếu thì nhân vật không giữ được nhất quán
 - [ ] Response ảnh trả `b64_json` hay `url`, kích thước có đạt 9:16 hoặc cắt được về 1080×1920
 - [ ] LLM có hỗ trợ JSON schema hoặc JSON mode qua gateway không; nếu không, dựa vào kiểm Pydantic và `QualityFail`
 - [ ] Response có khối `usage`; adapter ghi vào `costs.jsonl`. OmniRoute không báo số USD, nên `est_usd` để `null` và đối chiếu ở hóa đơn upstream
-- [ ] Giới hạn chi tiêu đặt ở tài khoản upstream (cinf, codex), vì OmniRoute theo dõi hạn mức chứ không chặn theo USD
-- [ ] Loại tài khoản sau `codex/`: trả theo lượt hay gói thuê bao có hạn mức; điều khoản có cho dùng qua gateway không
-- [ ] Dashboard OmniRoute có mật khẩu riêng (không để mặc định) và không mở ra Internet
+- [ ] Giới hạn chi tiêu đặt ở tài khoản upstream, vì OmniRoute theo dõi hạn mức chứ không chặn theo USD: đặt giới hạn credit cho khóa OpenRouter dùng cho ảnh; codex là gói thuê bao qua OAuth nên bị giới hạn bằng hạn mức, không tính theo lượt
+- [x] Loại tài khoản sau `codex/`: OAuth, tức gói thuê bao có hạn mức
+- [ ] Điều khoản của gói thuê bao codex có cho dùng qua gateway cho việc sản xuất video không
+- [x] Dashboard OmniRoute: mật khẩu không phải mặc định, bắt đăng nhập, `REQUIRE_API_KEY=true`, chỉ nghe ở 127.0.0.1
 ```
 
 <!-- id:s6 -->
@@ -358,7 +363,7 @@ Table: Model và adapter mặc định
 | Năng lực | Mặc định | Thay thế | Giá tham khảo (10/2026, cần kiểm tra lại) |
 | --- | --- | --- | --- |
 | LLM (ScenePlan) | `codex/gpt-5.6-luna` qua OmniRoute | Model khác qua OmniRoute (đổi `llm_model`); LLM qua adapter MPT | Theo tài khoản upstream; chưa có số |
-| Keyframe có nhân vật | `cinf/gemini-nano-banana-2.1` qua OmniRoute (ảnh tham chiếu) | Model khác qua OmniRoute (đổi `image_model`); FLUX.2 klein 4B qua ComfyUI (Apache 2.0) | Nano Banana 2 gọi thẳng khoảng $0,067/ảnh 1K; qua cinf chưa có số |
+| Keyframe có nhân vật | `openrouter/google/gemini-nano-banana-2.1` qua OmniRoute (ảnh tham chiếu) | Model khác qua OmniRoute (đổi `image_model`); FLUX.2 klein 4B qua ComfyUI (Apache 2.0) | Nano Banana 2 gọi thẳng khoảng $0,067/ảnh 1K; qua cinf chưa có số |
 | Giọng đọc | Edge TTS tiếng Việt qua `MptTTS` (miễn phí) | ElevenLabs, Gemini TTS qua `MptTTS` | ElevenLabs v4 khoảng $0,08/1.000 ký tự |
 | Căn phụ đề | Mốc thời gian Edge TTS; faster-whisper qua `MptSubtitleAligner` | — | Chạy local, không tốn phí API |
 | Image-to-video (Gate 4) | Veo 3.1 Fast qua SDK, hoặc provider video qua `MptVideo` | Wan 2.2 qua ComfyUI | Veo 3.1 Fast 720p khoảng $0,10/giây |
