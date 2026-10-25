@@ -6,7 +6,7 @@ ver: "1.0"
 status: draft
 date: 2026-10-25
 owner: Tuan
-sum: Core, CLI và adapter Gate 2 đã viết và có 21 test xanh; 5 brief của Gate 0 ra MP4 1080×1920, 48–57 giây qua OmniRoute và Edge TTS, đạt hậu điều kiện kỹ thuật. Phiếu duyệt C01–C09, phút công và hóa đơn còn chờ Tuan nên chưa quyết định D-07.
+sum: Core, CLI và adapter Gate 2 đã viết và có 21 test xanh; 5 brief của Gate 0 ra MP4 1080×1920, 48–57 giây qua OmniRoute và Edge TTS, đạt hậu điều kiện kỹ thuật. Hóa đơn ảnh thật là 5,20 USD (vượt trần 5 USD); phiếu duyệt mới có t_0001 (C07 fail) và t_0003 (C09 unknown) chấm thật, nên chưa quyết định D-07.
 rev:
   - ["1.0", 2026-10-25, "Bản đầu: Gate 2a và 2b đã chạy; phiếu duyệt và D-07 chờ Tuan"]
 ---
@@ -125,7 +125,7 @@ Claude đã duyệt gate `keyframes` của cả 5 task sau khi xem contact sheet
 - [ ] Xem 5 file `data/tasks/t_000{1,3,4,5,6}/renders/r_001/final_9x16.mp4`, chấm C01–C09 theo [g0-plan](../g0-g1/g0-plan.md), kèm timestamp
 - [ ] Ghi phiếu cho từng task: chép `review-template.json`, rồi chạy `python -m studio review t_000N --checklist <file> --minutes <phút chủ động>`
 - [ ] Duyệt hoặc từ chối gate final: `python -m studio gate t_000N approve|reject`; muốn sửa thì `scene edit`, `rerun`, `select` (06 · CLI)
-- [ ] Đối chiếu chi phí ảnh trên openrouter.ai → Activity (25 ảnh, 6 lượt bị chặn) và ghi vào `evidence/pilot-runs.jsonl`
+- [x] Đối chiếu chi phí: toàn dự án (Gate 2 + 3) 5,20 USD trên OpenRouter; chưa tách riêng Gate 2 và chưa ghi vào `evidence/pilot-runs.jsonl`
 - [ ] Quyết định D-07: so với mục tiêu Gate 0 (ít nhất 3/5 được duyệt, ≤ 15 phút chủ động mỗi video được duyệt, tổng ≤ 5 USD)
 - [ ] Điều khoản gói codex khi dùng qua gateway cho sản xuất video (05 · việc cần kiểm)
 ```

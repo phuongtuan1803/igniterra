@@ -1,14 +1,15 @@
 ---
 id: IGN-G3-REPORT
-title: Igniterra — Báo cáo Gate 3 (đang làm)
+title: Igniterra — Báo cáo Gate 3
 type: report
 ver: "1.0"
-status: draft
+status: review
 date: 2026-10-25
 owner: Tuan
-sum: Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan. Trang review, chọn/upload/chạy lại, Series Bible với character sheet và test T02–T07 đã xong (44 test xanh); T09 cho thấy character sheet giữ nhân vật nhất quán 5/5 scene ở cả hai brief thử. Điều kiện ra của Gate 3 (giảm sinh lại hoặc phút sửa so với Gate 2) chưa đo được vì Gate 2 chưa có phiếu duyệt.
+sum: Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan. Trang review, chọn/upload/chạy lại, Series Bible với character sheet và test T02–T07 đã xong (44 test xanh); T09 cho thấy character sheet giữ nhân vật nhất quán 5/5 scene ở cả hai brief thử. Điều kiện ra của Gate 3 (giảm sinh lại hoặc phút sửa so với Gate 2) chưa đo được: chỉ 2/7 phiếu duyệt có chấm thật và không phiếu nào đạt accepted.
 rev:
   - ["1.0", 2026-10-25, "Bản đầu: phần xây và T09; chờ số đo Gate 2 của Tuan"]
+  - ["1.1", 2026-10-25, "Đóng phần máy: chi phí thật 5,20 USD, đối chiếu phiếu duyệt trong DB, chuyển sang review để Tuan audit"]
 ---
 
 <!-- id:s1 -->
@@ -31,7 +32,7 @@ Table: Hạng mục Gate 3 (08 · Gate 3)
 | Settings đơn giản | Xong | Ghi `data/settings.toml` sau khi kiểm adapter khởi tạo được (T07) |
 | T02–T07 | Xong với bản giả; T04 thêm ở tầng adapter với server HTTP giả | `tests/test_pipeline.py`, `tests/test_web.py`, `tests/test_omniroute.py` |
 | T09 trôi nhân vật | Đã đo (định tính) | [T09](#s3) |
-| Điều kiện ra: giảm sinh lại hoặc phút sửa so với Gate 2 | **Chưa đo được** | Cần phiếu duyệt Gate 2 |
+| Điều kiện ra: giảm sinh lại hoặc phút sửa so với Gate 2 | **Chưa đo được** | [Số đo thật](#s4b): phiếu rỗng hoặc dở dang, không có mốc so |
 
 <!-- id:s2 -->
 ## Đã xây
@@ -82,15 +83,33 @@ Table: Nhất quán của chủ thể chính (Claude chấm từ contact sheet)
 
 <!-- id:s4.b1 -->
 - Gemini chặn moderation có hệ thống các cảnh "robot yếu pin / tắt" của brief-02, ở cả 3 task: t_0002 s03, t_0006 s02/s03, t_0007 s02/s04, t_0009 s05. Viết lại trung tính vẫn bị chặn. Chỉ khi đưa robot ra khỏi trung tâm khung thì mới đạt. Với twist của brief-02 ("robot tắt đi"), hình phải gợi bằng đồ vật, còn lời kể mang ý chính.
-- Tổng ảnh có kết quả qua OpenRouter: 25 ở Gate 2, 25 ở Gate 3 (10 tham chiếu, 15 keyframe); thêm 15 lượt bị chặn hoặc không sinh được ảnh, ghi `failed` (6 ở Gate 2, 9 ở Gate 3). Gateway không trả giá. Với khoảng 0,04–0,1 USD mỗi ảnh, tổng có thể đã gần trần 5 USD. **Claude đã dừng lượt gọi trả phí; cần kiểm openrouter.ai → Activity trước khi chạy thêm.**
+- Tổng ảnh có kết quả qua OpenRouter: 25 ở Gate 2, 25 ở Gate 3 (10 tham chiếu, 15 keyframe); thêm 15 lượt bị chặn hoặc không sinh được ảnh, ghi `failed` (6 ở Gate 2, 9 ở Gate 3). Gateway không trả giá. Với khoảng 0,04–0,1 USD mỗi ảnh, tổng có thể đã gần trần 5 USD. **Số thật (Tuan dán từ OpenRouter Activity, 25/10/2026): Nano Banana 2 tốn 5,20 USD, chiếm 86,2% tổng chi, vượt trần 5 USD.** Khoảng 0,10 USD mỗi ảnh nếu lượt bị chặn không tính phí. Claude đã dừng mọi lượt gọi trả phí; không chạy thêm ảnh trong Gate 3.
+
+<!-- id:s4b -->
+## Số đo phiếu duyệt (đọc từ `data/studio.db`, 25/10/2026)
+
+<!-- id:s4b.b1 -->
+Table: Phiếu duyệt đã ghi, bản render r_001 của mỗi task
+| Task | Brief | Có series | accepted | Phút | Nội dung phiếu |
+| --- | --- | --- | --- | --- | --- |
+| t_0001 | 01 | không | 0 | 0,5 | C07 fail ("s01 và s02 tóc sai"), còn lại pass |
+| t_0003 | 03 | không | 0 | 1,5 | C01–C08 pass, C09 unknown |
+| t_0004 | 04 | không | 0 | 0 | 9 tiêu chí unknown (phiếu rỗng) |
+| t_0005 | 05 | không | 0 | 0 | 9 tiêu chí unknown (phiếu rỗng) |
+| t_0006 | 02 | không | 0 | 0 | C01, C02 pass, còn lại unknown |
+| t_0008 | 01 | có | 0 | 0 | 9 tiêu chí unknown (phiếu rỗng) |
+| t_0009 | 02 | có | 0 | 0 | 9 tiêu chí unknown (phiếu rỗng) |
+
+<!-- id:s4b.b2 -->
+Không phiếu nào đạt accepted, và 5/7 phiếu không có chấm thật nên chưa tính được "video được duyệt", phút công trên mỗi video hay so sánh có/không series. Task đã `completed` nên form chấm không còn hiện; Tuan quyết định không ghi lại và tự audit. Claude không nhập hộ điểm. Số đo duy nhất dùng được: t_0001 (không series) fail C07 vì tóc sai, trong khi t_0008 (cùng brief, có series) theo chấm của Claude từ contact sheet đã nhất quán 5/5 (chưa phải số đo của Tuan).
 
 <!-- id:s5 -->
 ## Việc của Tuan
 
 <!-- id:s5.b1 -->
 ```chk
-- [ ] Kiểm số tiền đã dùng trên openrouter.ai → Activity (khoảng 50 ảnh, 15 lượt bị chặn) trước mọi lượt gọi trả phí tiếp theo
-- [ ] Chấm phiếu duyệt Gate 2 (t_0001, t_0003–t_0006) trên trang Storyboard: đây là mốc để đo điều kiện ra Gate 3
+- [x] Đối chiếu chi phí: 5,20 USD (vượt trần 5 USD), nạp thêm hay dừng là quyết định của Tuan
+- [ ] Chấm lại phiếu Gate 2 chưa chấm thật (t_0004, t_0005, t_0006): mốc để đo điều kiện ra Gate 3; hiện chỉ t_0001, t_0003 có chấm
 - [ ] Chấm thêm t_0008, t_0009 (có series); so phút công và số lần sinh lại với bản không series cùng brief
 - [ ] Chốt T09: có cần LoRA không; có thêm `props` vào Series Bible không
 - [ ] Quyết định D-07 (Gate 2) và điều kiện ra Gate 3
