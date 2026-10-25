@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.6"
+ver: "2.7"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -17,6 +17,7 @@ rev:
   - ["2.4", 2026-10-24, "P-02 chốt: LLM và ảnh qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1, đổi được); ADR-0005 được duyệt"]
   - ["2.5", 2026-10-25, "Ảnh đổi sang codex/gpt-image-2, dự phòng codex/gpt-5.6-luna-image"]
   - ["2.6", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview (1 character sheet)"]
+  - ["2.7", 2026-10-25, "Gate 2 đã code và chạy 5 brief (báo cáo g2): checklist cập nhật; phiếu duyệt và D-07 chờ Tuan"]
 ---
 
 <!-- id:s1 -->
@@ -141,15 +142,15 @@ b.w7 -> b.w8
 ```chk
 - [x] ADR-0004 và ADR-0006 được duyệt (Tuan, 24/10/2026)
 - [x] ADR-0005 được duyệt (Tuan, 24/10/2026)
-- [ ] Kiểm OmniRoute trước việc 7: hai model có trong `/v1/models`, cách gửi ảnh tham chiếu, tắt fallback ([05 · OmniRoute](05-modules-providers.md#s5))
+- [x] Kiểm OmniRoute trước việc 7: hai model có trong `/v1/models`, cách gửi ảnh tham chiếu, tắt fallback, JSON schema `strict` qua gateway (25/10/2026, [05 · OmniRoute](05-modules-providers.md#s5))
 - [x] P-01: ghim `mpt==1.3.9`, commit `82bb4a7` (Tuan, 24/10/2026)
-- [ ] Giới hạn chi tiêu đặt ở tài khoản của mọi provider trả phí sẽ bật, trước việc 7 (D-03): chặn cứng hoặc nạp trước đúng trần; nếu provider chỉ có cảnh báo thì ghi rõ là chưa có chốt chặn
+- [x] Giới hạn chi tiêu đặt ở tài khoản của mọi provider trả phí sẽ bật, trước việc 7 (D-03): OpenRouter 5 USD (Tuan, 25/10/2026); codex là gói thuê bao, giới hạn bằng hạn mức gói
 - [x] D-01 = build, Tuan chốt ngày 24/10/2026 (bỏ baseline MPT)
-- [ ] Test quét import xanh: chỉ `studio/providers/mpt/` import `app.*`
-- [ ] Test core với bản giả: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene
-- [ ] Cùng 5 brief của Gate 0 ra MP4 9:16 có phụ đề, đạt hậu điều kiện (1080×1920, có audio, ≤ 60 giây)
-- [ ] Phiếu duyệt C01–C09 và phút công cho 5 lần chạy studio; nhật ký pilot; so với mục tiêu Gate 0 (tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD)
-- [ ] Quyết định đi tiếp hoặc quay lại MPT (D-07)
+- [x] Test quét import xanh: chỉ `studio/providers/mpt/` import `app.*` (`tests/test_import_boundary.py`)
+- [x] Test core với bản giả: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene, T11, T12 (`tests/test_pipeline.py`, 21 test xanh)
+- [x] Cùng 5 brief của Gate 0 ra MP4 9:16 có phụ đề, đạt hậu điều kiện (1080×1920, có audio, 48–57 giây; [báo cáo g2](../../reports/g2/README.md))
+- [ ] (Chờ Tuan) Phiếu duyệt C01–C09 và phút công cho 5 lần chạy studio; nhật ký pilot; so với mục tiêu Gate 0 (tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD)
+- [ ] (Chờ Tuan, sau phiếu duyệt và hóa đơn) Quyết định đi tiếp hoặc quay lại MPT (D-07)
 ```
 
 <!-- id:s4 -->

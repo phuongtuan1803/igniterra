@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "brief-03",
+  "title": "Dấu chân đến trước",
+  "language": "vi-VN",
+  "target_s": [
+    45.0,
+    58.0
+  ],
+  "max_s": 60.0,
+  "scenes": [
+    4,
+    6
+  ],
+  "hook": "Phi hành gia thấy dấu chân của mình trên nơi chưa ai từng đặt chân.",
+  "characters": [
+    "một phi hành gia trong bộ đồ kín, không cần thấy mặt"
+  ],
+  "beats": [
+    "hạ cánh",
+    "phát hiện vệt chân",
+    "lần theo tới miệng hố",
+    "nhận ra đường chân quay về chính tàu mình"
+  ],
+  "twist": "Đồng hồ trên tàu đang chạy lùi; anh chưa phải người đầu tiên tới đây, mà là người sẽ quay lại.",
+  "must_show": [
+    {
+      "what": "bề mặt hành tinh khô cằn",
+      "not_before": null
+    },
+    {
+      "what": "dấu chân",
+      "not_before": null
+    },
+    {
+      "what": "tàu hoặc khoang tàu",
+      "not_before": null
+    }
+  ],
+  "must_not": [
+    "lẫn bối cảnh rừng hoặc biển",
+    "thêm nhóm phi hành gia"
+  ],
+  "notes": "Không yêu cầu render số đồng hồ, có thể kể bằng lời.",
+  "music": false
+}

@@ -1,0 +1,12 @@
+{"ts":"2026-10-25T08:23:04","request_id":"t_0005:_:plan:1","status":"pending","provider":"omniroute","model":"codex/gpt-5.6-luna"}
+{"ts":"2026-10-25T08:23:26","request_id":"t_0005:_:plan:1","status":"ok","model":"gpt-5.6-luna","units":{"prompt_tokens":956.0,"completion_tokens":3474.0}}
+{"ts":"2026-10-25T08:23:26","request_id":"t_0005:s03:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:23:26","request_id":"t_0005:s01:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:23:26","request_id":"t_0005:s02:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:23:43","request_id":"t_0005:s01:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:23:43","request_id":"t_0005:s04:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:23:43","request_id":"t_0005:s02:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:23:43","request_id":"t_0005:s05:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:23:44","request_id":"t_0005:s03:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:24:00","request_id":"t_0005:s04:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:24:01","request_id":"t_0005:s05:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "reviewer": "Tuan",
+  "active_minutes": null,
+  "note": "",
+  "checklist": {
+    "C01": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C02": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C03": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C04": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C05": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C06": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C07": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C08": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    },
+    "C09": {
+      "result": "unknown",
+      "timestamp": null,
+      "note": ""
+    }
+  }
+}

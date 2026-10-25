@@ -1,0 +1,57 @@
+[
+ {
+  "id": 1,
+  "task_id": "t_0001",
+  "gate": "keyframes",
+  "plan_rev": 1,
+  "subject": "img:9b4d41a1645d2165",
+  "render_rev": null,
+  "decision": "approve",
+  "note": "Claude (agent): kiểm kỹ thuật keyframe; s01 bóng người tóc dài (C07?), trạm chỉ thấy nội thất (C06?) — để Tuan chấm ở gate final",
+  "at": "2026-10-25T08:19:15"
+ },
+ {
+  "id": 2,
+  "task_id": "t_0003",
+  "gate": "keyframes",
+  "plan_rev": 1,
+  "subject": "img:986c93ec22b67110",
+  "render_rev": null,
+  "decision": "approve",
+  "note": "Claude (agent): kiểm kỹ thuật keyframe, không thấy chữ/lỗi hình; chất lượng nội dung để Tuan chấm ở gate final; s01 nền đỏ, s02–s05 nền xám (C07?)",
+  "at": "2026-10-25T08:26:47"
+ },
+ {
+  "id": 3,
+  "task_id": "t_0004",
+  "gate": "keyframes",
+  "plan_rev": 1,
+  "subject": "img:986c93ec22b67110",
+  "render_rev": null,
+  "decision": "approve",
+  "note": "Claude (agent): kiểm kỹ thuật keyframe, không thấy chữ/lỗi hình; chất lượng nội dung để Tuan chấm ở gate final",
+  "at": "2026-10-25T08:26:48"
+ },
+ {
+  "id": 4,
+  "task_id": "t_0005",
+  "gate": "keyframes",
+  "plan_rev": 1,
+  "subject": "img:986c93ec22b67110",
+  "render_rev": null,
+  "decision": "approve",
+  "note": "Claude (agent): kiểm kỹ thuật keyframe, không thấy chữ/lỗi hình; chất lượng nội dung để Tuan chấm ở gate final",
+  "at": "2026-10-25T08:26:48"
+ },
+ {
+  "id": 5,
+  "task_id": "t_0006",
+  "gate": "keyframes",
+  "plan_rev": 2,
+  "subject": "img:e5f6894f01d130b6",
+  "render_rev": null,
+  "decision": "approve",
+  "note": "Claude (agent): mầm chỉ ở s04 (C06 pilot đã sửa); robot s03 khác dáng, chậu đổi màu đen→đất nung (C07?) — để Tuan chấm",
+  "at": "2026-10-25T08:29:49"
+ }
+]

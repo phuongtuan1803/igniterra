@@ -2,7 +2,7 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.5"
+ver: "2.6"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -16,6 +16,7 @@ rev:
   - ["2.3", 2026-10-25, "Kiểm OmniRoute 3.8.52 trên máy Tuan (chỉ đọc): cinf không có nano-banana nên ảnh đi qua openrouter/google/gemini-nano-banana-2.1; codex qua OAuth; codex/gpt-5.6-luna nằm trong combo free-stack"]
   - ["2.4", 2026-10-25, "Ảnh đổi sang codex/gpt-image-2 (dự phòng codex/gpt-5.6-luna-image): OpenRouter chỉ nhận 1 ảnh tham chiếu và Google AI Studio trả 429 hết hạn mức"]
   - ["2.5", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview với 1 character sheet; model ảnh codex trả 401 No credentials"]
+  - ["2.6", 2026-10-25, "Code Gate 2: chữ ký LLMProvider.generate_json và SubtitleAligner.align, lỗi ContentRefused cho moderation, JSON schema qua gateway đã kiểm, adapter đọc media_type"]
 ---
 
 <!-- id:s1 -->
@@ -28,7 +29,7 @@ Core định nghĩa 5 interface năng lực bằng `typing.Protocol`. Bước ch
 ```python
 # studio/providers/base.py
 class LLMProvider(Protocol):
-    def plan(self, brief: Brief, bible: SeriesBible | None) -> ScenePlan: ...      # structured output, kiểm tra Pydantic
+    def generate_json(self, prompt: str, schema: dict, name: str) -> dict: ...    # structured output; bước plan dựng và kiểm ScenePlan
 
 class ImageProvider(Protocol):
     def generate(self, prompt: str, refs: list[Path], size: str, out: Path) -> AssetCandidate: ...
@@ -37,11 +38,11 @@ class TTSProvider(Protocol):
     def synthesize(self, seg_id: str, text: str, voice: VoiceSpec, out_dir: Path) -> AudioTrack: ...  # words có thể rỗng
 
 class SubtitleAligner(Protocol):
-    def align(self, audio: Path, script: str, out: Path) -> Path: ...
+    def align(self, audio: Path, script: str) -> list[dict]: ...                  # [{start, end, text}]
 
 class VideoProvider(Protocol):                       # tách submit/poll để resume không gửi lại job
     def submit(self, image: Path, prompt: str, seconds: int) -> str: ...
-    def poll(self, job_id: str) -> AssetCandidate | None: ...
+    def poll(self, job_id: str, out: Path) -> AssetCandidate | None: ...
 
 # Lỗi chung: Retryable (chắc chắn chưa gửi) · QualityFail(reason) · Unconfirmed (lượt gọi trả phí có thể đã tới provider) · Fatal
 ```
@@ -99,6 +100,7 @@ Table: Lỗi chung
 | --- | --- | --- |
 | `Retryable` | Lượt gọi không trả phí bị 429, 5xx, timeout; MPT TTS trả `None`. Lượt gọi trả phí: chỉ khi chắc chắn chưa gửi (không kết nối được, 429 bị từ chối trước khi xử lý) | Thử lại cùng đầu vào, backoff, tối đa 3 lần |
 | `QualityFail(reason)` | Kết quả có nhưng không đạt kiểm tra | Chạy lại riêng scene đó, lý do vào prompt |
+| `ContentRefused(reason)` (lớp con của `QualityFail`) | Provider chặn nội dung trước khi sinh (moderation), ví dụ Gemini trả 400 "blocked … content moderation" | Dòng chi phí `failed`; thử lại với gợi ý an toàn trong prompt; hết lượt thì `retries_exhausted`, người diễn đạt lại `visual`. Gate 2: ánh xạ cũ `Fatal` làm hỏng cả task t_0002 vì một scene |
 | `Unconfirmed` | Lượt gọi trả phí đã có thể tới provider nhưng không có kết quả chắc chắn: đọc timeout, mất kết nối giữa chừng, 5xx, response thiếu id; MPT ném lỗi unconfirmed của provider | Ghi `unknown`, task `waiting` |
 | `Fatal` | Cấu hình sai, khóa API sai, nội dung bị từ chối | Task `failed` |
 
@@ -345,12 +347,12 @@ Việc cần kiểm trước việc 7 của Gate 2. Ngày 25/10/2026 đã kiểm
 - [x] Ảnh tham chiếu: `/v1/images/edits` nhận multipart với nhiều trường `image[]`; `/v1/images/generations` nhận JSON với `reference_images`, `input_images`, `image_urls` (và các tên tương tự). OmniRoute chuyển chúng xuống provider dưới tên `referenceImages`. Adapter dùng `/v1/images/edits` khi scene có nhân vật
 - [x] Giới hạn số ảnh tham chiếu ở `/v1/images/edits` (lượt thử 25/10/2026, bị chặn tại OmniRoute nên không tốn tiền): OpenRouter và đa số provider chỉ nhận 1 ảnh; `codex/gpt-image-*` và `codex/gpt-5.6-*-image` không giới hạn; adobe-firefly tối đa 4. Vì vậy adapter có `max_refs` theo model; khi model chỉ nhận 1 ảnh, nó ghép các ảnh tham chiếu của Series Bible thành một character sheet (`refs/<nhân vật>_sheet.png`, các góc nhìn đặt cạnh nhau) và gửi ảnh đó
 - [x] Gọi thẳng model id có dấu `/` không đi qua combo, retry hay fallback; combo chỉ áp dụng khi `model` là tên combo. Adapter luôn gọi model id đầy đủ
-- [ ] LLM có hỗ trợ JSON schema hoặc JSON mode qua gateway không; nếu không, dựa vào kiểm Pydantic và `QualityFail`
+- [x] LLM có hỗ trợ JSON schema qua gateway (25/10/2026): `response_format: json_schema` với `strict: true` trả đúng JSON; response ghi `model = gpt-5.6-luna` (không tiền tố), adapter so phần đuôi của model id
 - [x] Response ảnh không có `usage` và OmniRoute không ghi chi phí (`usage_provenance=absent`): adapter ghi `units.images = 1`, `est_usd = null`; đối chiếu ở openrouter.ai mục Activity; giới hạn 5 USD trên khóa OpenRouter là chốt chặn duy nhất
 - [x] Giới hạn credit 5 USD đã đặt ở openrouter.ai (Tuan, 25/10/2026); kết nối openrouter trong OmniRoute không có giới hạn riêng. Với LLM và ảnh đều qua codex (gói thuê bao), chi phí bị giới hạn bằng hạn mức của gói, không tính theo lượt
 - [x] (Đã thay) Lượt gọi thử `codex/gpt-image-2` qua `/v1/images/edits` với 3 ảnh tham chiếu riêng: response, kích thước, có giữ được nhân vật không. Lần thử ngày 25/10/2026 (cả `codex/gpt-image-2` và `codex/gpt-5.6-luna-image`): OmniRoute trả 401 "No credentials for provider: codex" sau dưới 0,1 giây, log ghi "all 1 accounts unavailable", chưa sinh ảnh; kết nối Codex vẫn active và còn hạn mức. Cần kiểm trên dashboard nếu muốn quay lại model ảnh codex: khóa account theo model ảnh, hoặc gói Codex không có quyền tạo ảnh
 - [x] Lượt gọi thử `openrouter/google/gemini-3.1-flash-image-preview` qua `/v1/images/edits` với 1 character sheet (25/10/2026): HTTP 200 sau 21,5 giây. Response `{created, data: [{b64_json, media_type: "image/jpeg"}]}`, không có `model`, `usage` hay chi phí. Ảnh JPEG 1536×2752 (gần 9:16, model tự chọn kích thước, bỏ qua `size`), giữ được nhân vật của ảnh tham chiếu; một bàn tay vẫn lộ ở mép khung dù prompt yêu cầu không
-- [ ] Adapter đọc `media_type` thay vì giả định PNG, và bước `animate` cắt, thu về 1080×1920; vì response không có `model`, adapter ghi model đã gửi
+- [x] Adapter đọc `media_type` thay vì giả định PNG, và bước `animate` cắt, thu về 1080×1920; vì response không có `model`, adapter ghi model đã gửi (Gate 2: 25 ảnh JPEG 1536×2752)
 - [ ] Điều khoản của gói thuê bao codex có cho dùng qua gateway cho việc sản xuất video không
 - [x] Dashboard OmniRoute: mật khẩu không phải mặc định, bắt đăng nhập, `REQUIRE_API_KEY=true`, chỉ nghe ở 127.0.0.1
 ```

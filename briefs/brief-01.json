@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "brief-01",
+  "title": "Tín hiệu từ ngày mai",
+  "language": "vi-VN",
+  "target_s": [
+    45,
+    58
+  ],
+  "max_s": 60,
+  "scenes": [
+    4,
+    6
+  ],
+  "hook": "Người gác trạm nhận được một lời cảnh báo bằng chính giọng mình.",
+  "characters": [
+    "một người gác trạm quỹ đạo, có thể chỉ xuất hiện dạng bóng người"
+  ],
+  "beats": [
+    "ca trực yên lặng",
+    "tín hiệu bảo không mở cửa khoang",
+    "cửa bị gõ từ phía ngoài",
+    "anh thấy thiết bị gửi tín hiệu có lịch phát vào ngày mai"
+  ],
+  "twist": "Lời cảnh báo chưa được anh ghi âm.",
+  "must_show": [
+    {
+      "what": "trạm ngoài không gian"
+    },
+    {
+      "what": "thiết bị liên lạc"
+    },
+    {
+      "what": "cửa khoang đóng"
+    }
+  ],
+  "must_not": [
+    "mở cửa rồi cho nhân vật chết",
+    "thêm quái vật không có trong brief"
+  ],
+  "notes": "Không cần chữ AI trên màn hình; thông tin do lời kể truyền đạt.",
+  "music": false
+}

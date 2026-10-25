@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "brief-04",
+  "title": "Một phút ký ức",
+  "language": "vi-VN",
+  "target_s": [
+    45.0,
+    58.0
+  ],
+  "max_s": 60.0,
+  "scenes": [
+    4,
+    6
+  ],
+  "hook": "Mỗi lần chiếc máy sáng lên, người đàn ông quên một điều về mình.",
+  "characters": [
+    "một người đàn ông vô danh, quay sau lưng hoặc dùng bóng người"
+  ],
+  "beats": [
+    "máy đếm ngược",
+    "anh ghi những điều cần nhớ lên giấy",
+    "quên tên mình",
+    "đọc tờ giấy cuối cùng và chọn tắt máy"
+  ],
+  "twist": "Dòng nhắn cuối là “Con gái đang đợi ngoài cửa”; anh đã dùng máy để quên nỗi đau nhưng không muốn quên người mình yêu.",
+  "must_show": [
+    {
+      "what": "phòng tối",
+      "not_before": null
+    },
+    {
+      "what": "thiết bị phát sáng",
+      "not_before": null
+    },
+    {
+      "what": "giấy ghi chú",
+      "not_before": null
+    },
+    {
+      "what": "cửa phòng",
+      "not_before": 4
+    }
+  ],
+  "must_not": [
+    "khẳng định máy là công nghệ có thật",
+    "dùng tự hại làm kết thúc"
+  ],
+  "notes": "Không phụ thuộc chữ sinh trong ảnh; lời kể truyền đạt nội dung giấy. Cửa phòng ở kết thúc.",
+  "music": false
+}

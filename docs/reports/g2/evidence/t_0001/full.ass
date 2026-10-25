@@ -1,0 +1,41 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Be Vietnam Pro,66,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,4,1,2,90,90,461,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.10,0:00:01.65,Default,,0,0,0,,Người gác trạm\Nnhận được một lời
+Dialogue: 0,0:00:01.65,0:00:03.10,Default,,0,0,0,,cảnh báo bằng\Nchính giọng mình
+Dialogue: 0,0:00:03.94,0:00:05.54,Default,,0,0,0,,Ca trực đêm trôi\Nqua yên lặng
+Dialogue: 0,0:00:05.54,0:00:06.76,Default,,0,0,0,,giữa quỹ đạo tối đen
+Dialogue: 0,0:00:07.60,0:00:09.11,Default,,0,0,0,,Chỉ có ánh đèn\Nxanh nhấp nháy
+Dialogue: 0,0:00:09.29,0:00:10.24,Default,,0,0,0,,tiếng máy lọc khí
+Dialogue: 0,0:00:10.44,0:00:12.39,Default,,0,0,0,,và bóng anh lặng\Nlẽ đi qua hành lang
+Dialogue: 0,0:00:13.33,0:00:15.13,Default,,0,0,0,,Rồi thiết bị\Nliên lạc bật sáng
+Dialogue: 0,0:00:15.97,0:00:17.31,Default,,0,0,0,,Một giọng nói vang lên
+Dialogue: 0,0:00:17.45,0:00:18.17,Default,,0,0,0,,khàn và thấp
+Dialogue: 0,0:00:18.46,0:00:19.26,Default,,0,0,0,,giống hệt anh
+Dialogue: 0,0:00:19.42,0:00:20.51,Default,,0,0,0,,Đừng mở cửa khoang
+Dialogue: 0,0:00:21.35,0:00:22.63,Default,,0,0,0,,Dù nghe thấy ai gọi
+Dialogue: 0,0:00:22.81,0:00:23.90,Default,,0,0,0,,tuyệt đối đừng mở
+Dialogue: 0,0:00:24.73,0:00:25.71,Default,,0,0,0,,Anh đứng bất động
+Dialogue: 0,0:00:25.88,0:00:27.95,Default,,0,0,0,,nhìn tín hiệu chớp\Ntắt như một nhịp tim
+Dialogue: 0,0:00:28.90,0:00:30.96,Default,,0,0,0,,Ba tiếng gõ vang\Nlên từ phía ngoài
+Dialogue: 0,0:00:31.80,0:00:32.99,Default,,0,0,0,,Không phải\Ntrong hành lang
+Dialogue: 0,0:00:33.14,0:00:35.17,Default,,0,0,0,,mà trên lớp cửa\Nkhoang đang đóng kín
+Dialogue: 0,0:00:36.01,0:00:36.77,Default,,0,0,0,,Anh lùi lại
+Dialogue: 0,0:00:36.92,0:00:37.80,Default,,0,0,0,,tay giữ bộ đàm
+Dialogue: 0,0:00:37.97,0:00:39.80,Default,,0,0,0,,còn bóng đen bên\Nkia vẫn gõ đều
+Dialogue: 0,0:00:39.97,0:00:41.50,Default,,0,0,0,,kiên nhẫn như\Nđã chờ rất lâu
+Dialogue: 0,0:00:42.44,0:00:44.10,Default,,0,0,0,,Anh lần theo nguồn\Nphát và tìm thấy
+Dialogue: 0,0:00:44.10,0:00:45.95,Default,,0,0,0,,thiết bị liên lạc\Nphụ sau tấm chắn
+Dialogue: 0,0:00:46.79,0:00:48.22,Default,,0,0,0,,Lịch phát ghi ngày mai
+Dialogue: 0,0:00:49.06,0:00:50.15,Default,,0,0,0,,Rồi anh sững lại
+Dialogue: 0,0:00:50.32,0:00:52.46,Default,,0,0,0,,lời cảnh báo ấy chưa\Ntừng được anh ghi âm

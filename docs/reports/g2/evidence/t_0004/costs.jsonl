@@ -1,0 +1,14 @@
+{"ts":"2026-10-25T08:21:33","request_id":"t_0004:_:plan:1","status":"pending","provider":"omniroute","model":"codex/gpt-5.6-luna"}
+{"ts":"2026-10-25T08:22:00","request_id":"t_0004:_:plan:1","status":"ok","model":"gpt-5.6-luna","units":{"prompt_tokens":985.0,"completion_tokens":4154.0}}
+{"ts":"2026-10-25T08:22:00","request_id":"t_0004:_:plan:2","status":"pending","provider":"omniroute","model":"codex/gpt-5.6-luna"}
+{"ts":"2026-10-25T08:22:28","request_id":"t_0004:_:plan:2","status":"ok","model":"gpt-5.6-luna","units":{"prompt_tokens":1026.0,"completion_tokens":4348.0}}
+{"ts":"2026-10-25T08:22:28","request_id":"t_0004:s02:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:22:28","request_id":"t_0004:s01:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:22:28","request_id":"t_0004:s03:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:22:46","request_id":"t_0004:s01:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:22:46","request_id":"t_0004:s04:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:22:47","request_id":"t_0004:s03:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:22:47","request_id":"t_0004:s05:keyframes:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:22:49","request_id":"t_0004:s02:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:23:02","request_id":"t_0004:s04:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:23:04","request_id":"t_0004:s05:keyframes:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}

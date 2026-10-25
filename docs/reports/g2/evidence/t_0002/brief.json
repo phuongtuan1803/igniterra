@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "brief-02",
+  "title": "Người làm vườn cuối cùng",
+  "language": "vi-VN",
+  "target_s": [
+    45.0,
+    58.0
+  ],
+  "max_s": 60.0,
+  "scenes": [
+    4,
+    6
+  ],
+  "hook": "Robot vẫn tưới một chậu đất suốt nhiều năm sau khi con người biến mất.",
+  "characters": [
+    "một robot bảo trì, ưu tiên góc xa hoặc cận tay máy"
+  ],
+  "beats": [
+    "thành phố bỏ hoang",
+    "robot mang nước về",
+    "pin xuống thấp, nó vẫn dành năng lượng giữ ấm chậu",
+    "một mầm xanh xuất hiện"
+  ],
+  "twist": "Robot tắt đi đúng lúc sự sống đầu tiên trở lại.",
+  "must_show": [
+    {
+      "what": "đô thị bỏ hoang",
+      "not_before": null
+    },
+    {
+      "what": "tưới chậu đất",
+      "not_before": null
+    },
+    {
+      "what": "mầm cây",
+      "not_before": 4
+    }
+  ],
+  "must_not": [
+    "biến câu chuyện thành thuyết minh về AI",
+    "robot hồi sinh ở cuối"
+  ],
+  "notes": "Mầm cây chỉ xuất hiện ở kết thúc; trước đó chậu đất phải trống.",
+  "music": false
+}

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "parent": null,
+  "series": null,
+  "title": "Dấu chân đến trước",
+  "cast": {
+    "astronaut": "A lone astronaut in a fully sealed white exploration suit with a reflective dark visor, bulky life-support pack, white gloves and boots, face never visible."
+  },
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Phi hành gia thấy dấu chân của mình trên nơi chưa ai từng đặt chân ngay sau khi hạ cánh. Con tàu nằm im giữa đồng bằng đỏ dưới bầu trời đen.",
+      "visual": "The astronaut stands beside a landed spacecraft on a barren red plain, with a short line of footprints beginning near the open hatch. Harsh white sunlight casts long shadows across the dusty ground.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "push_in"
+      },
+      "characters": [
+        "astronaut"
+      ],
+      "shows": [
+        "bề mặt hành tinh khô cằn",
+        "dấu chân",
+        "tàu hoặc khoang tàu"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Mỗi dấu in sâu trên bụi, nhưng quanh đó không có xáo trộn. Anh chạm một vết chân, rồi nhìn về con tàu im lặng, không tín hiệu.",
+      "visual": "The astronaut kneels over a single deep footprint in undisturbed powder, one gloved hand hovering above it. The spacecraft sits distant in the background beneath a silent black sky.",
+      "shot": {
+        "size": "medium",
+        "angle": "high",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "astronaut"
+      ],
+      "shows": [
+        "bề mặt hành tinh khô cằn",
+        "dấu chân",
+        "tàu hoặc khoang tàu"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Vệt chân men qua đá nhọn, theo khe nứt tối tới miệng hố. Bên dưới, bụi bạc phủ lòng sâu, còn một đường chân khác khuất sau tường đá cong.",
+      "visual": "The astronaut follows a line of footprints between jagged rocks toward the rim of a colossal crater. Pale dust fills the depths, while a curved rock wall hides the continuation of the trail.",
+      "shot": {
+        "size": "wide",
+        "angle": "high",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "astronaut"
+      ],
+      "shows": [
+        "bề mặt hành tinh khô cằn",
+        "dấu chân"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Anh lần theo đường ấy và chết lặng: nó vòng qua miệng hố, kéo thẳng về tàu. Dấu cuối cùng dừng dưới cửa khoang, trùng với ủng của anh.",
+      "visual": "From the crater rim, the astronaut looks across the barren plain as the footprint trail curves back toward the spacecraft. The final prints end directly beneath the open hatch.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "pan_left"
+      },
+      "characters": [
+        "astronaut"
+      ],
+      "shows": [
+        "bề mặt hành tinh khô cằn",
+        "dấu chân",
+        "tàu hoặc khoang tàu"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s05",
+      "narration": "Trong khoang, đồng hồ chạy lùi. Anh nghe bản ghi: đừng mở cửa lần nữa. Anh hiểu, mình chưa phải người đầu tiên tới đây, mà là người sẽ quay lại.",
+      "visual": "The astronaut stands alone inside the dim spacecraft cabin, seen from behind, facing silent control panels and the open hatch beyond. Dusty red terrain is visible outside, with no other figure anywhere.",
+      "shot": {
+        "size": "medium",
+        "angle": "eye_level",
+        "movement": "static"
+      },
+      "characters": [
+        "astronaut"
+      ],
+      "shows": [
+        "bề mặt hành tinh khô cằn",
+        "tàu hoặc khoang tàu"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "plan: codex/gpt-5.6-luna"
+}

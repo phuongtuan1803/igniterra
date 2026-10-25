@@ -2,7 +2,7 @@
 id: IGN-RUN
 title: Igniterra — Worker và luồng thực thi
 type: design
-ver: "2.1"
+ver: "2.2"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -12,6 +12,7 @@ rev:
   - ["1.0", 2026-10-19, "Bản đầu (Pipeline Runner tổng quát), tách từ ADD-AIVIDEO-001 v1.1"]
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: danh sách bước cố định, giọng đọc là đồng hồ chủ, pending trước lượt gọi trả phí, bỏ fan-out tổng quát, parallel, ngân sách"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: thêm bước animate (renderer không nhận ảnh tĩnh), kiểm tra hậu điều kiện, trần thời lượng sau voice, input_hash gồm cấu hình, commit artifact, quy tắc ghi khi task đang chạy, lỗi sau khi gửi lượt gọi trả phí là unknown"]
+  - ["2.2", 2026-10-25, "Code Gate 2: gate final gắn với render của selected hiện tại, dùng lại clip thì chọn lại clip, ContentRefused, phạm vi lý do trong prompt ảnh"]
 ---
 
 <!-- id:s1 -->
@@ -429,6 +430,9 @@ Table: Hành động và phạm vi chạy lại
 | Sửa sau khi duyệt `final` | Revision mới; task về `pending` | Như các dòng trên, rồi dừng lại ở gate `final` |
 
 <!-- id:s7.b4 -->
+> [!NOTE]
+> Đã chốt khi code (Gate 2): gate `keyframes` gắn với tập ảnh selected của mọi scene (cột `subject` trong `gate_decisions`), nên sửa narration không mở lại gate còn sửa visual hay chọn ảnh khác thì có. Gate `final` gắn với render revision ứng với input_hash của selected hiện tại, không phải thư mục `r_NNN` mới nhất: chọn lại ứng viên cũ thì render cũ được dùng lại và đó là bản được duyệt. Khi `animate` bỏ qua vì đã có clip cùng đầu vào, luồng chính chọn lại clip đó. Với ảnh, lý do kỹ thuật của `QualityFail` không đưa vào prompt (không giúp model ảnh); chỉ ghi chú của người và gợi ý an toàn khi `ContentRefused`.
+
 > [!NOTE]
 > Gate duyệt gắn với revision: duyệt gate `keyframes` ở rev 2 rồi sửa visual tạo rev 3 thì gate cần duyệt lại. Sửa narration không đổi ảnh nên không mở lại gate `keyframes` (đề xuất; chốt ở Gate 3).
 

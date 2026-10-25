@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "brief-05",
+  "title": "Bức thư gửi ngôi sao đã tắt",
+  "language": "vi-VN",
+  "target_s": [
+    45.0,
+    58.0
+  ],
+  "max_s": 60.0,
+  "scenes": [
+    4,
+    6
+  ],
+  "hook": "Cô gái vẫn gửi thư tới một ngôi sao mà ai cũng nói đã chết.",
+  "characters": [
+    "một cô gái trưởng thành, không dùng nhân vật trẻ em"
+  ],
+  "beats": [
+    "cô gửi tín hiệu mỗi đêm",
+    "mọi người bảo không có ai trả lời",
+    "một đêm máy thu phát tiếng người cha",
+    "thông điệp được gửi từ nhiều năm trước"
+  ],
+  "twist": "Cha đã trả lời trước khi cô bắt đầu gửi; ánh sáng chỉ vừa tới nơi.",
+  "must_show": [
+    {
+      "what": "bầu trời sao",
+      "not_before": null
+    },
+    {
+      "what": "ăng-ten hoặc đài quan sát",
+      "not_before": null
+    },
+    {
+      "what": "máy thu tín hiệu",
+      "not_before": null
+    }
+  ],
+  "must_not": [
+    "biến thành tin tức liên lạc ngoài hành tinh",
+    "thêm cảnh đoàn tụ trực tiếp"
+  ],
+  "notes": "Đây là hư cấu, không trình bày như bài giải thích vật lý chính xác.",
+  "music": false
+}
