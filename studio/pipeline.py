@@ -62,6 +62,13 @@ class Stop(Exception):
         self.status, self.reason, self.detail = status, reason, detail
 
 
+def tasklog(ctx: Ctx, message: str) -> None:
+    """Một dòng vào data/tasks/<id>/worker.log (Task detail hiện 50 dòng cuối); đã lọc khóa."""
+    log.info("%s %s", ctx.task_id, message)
+    with (ctx.td.root / "worker.log").open("a", encoding="utf-8") as handle:
+        handle.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {studio_config.redact(message)}\n")
+
+
 def input_hash(value: dict) -> str:
     return hashlib.sha256(prompt.canonical(value).encode()).hexdigest()
 
@@ -72,18 +79,17 @@ def input_hash(value: dict) -> str:
 def load_bible(config: dict, series: str | None) -> tuple[SeriesBible, Path | None]:
     if not series:
         return SeriesBible(), None
-    import yaml   # pyyaml do gói mpt ghim
+    from studio.series import SeriesDir
 
-    folder = Path(config["data_dir"]) / "series" / series
-    path = folder / "bible.yaml"
-    if not path.is_file():
-        raise Fatal(f"series {series!r} không có {path}")
-    bible = SeriesBible.model_validate({"name": series, **(yaml.safe_load(path.read_text(encoding="utf-8")) or {})})
+    sd = SeriesDir(Path(config["data_dir"]), series)
+    if not sd.exists():
+        raise Fatal(f"series {series!r} không có {sd.bible_path}")
+    bible = sd.bible()
     for key, character in bible.characters.items():
         for ref in [*character.refs, *([character.sheet] if character.sheet else [])]:
-            if not (folder / ref).is_file():
+            if not (sd.root / ref).is_file():
                 raise Fatal(f"series {series}: thiếu ảnh tham chiếu {ref} của {key}")
-    return bible, folder
+    return bible, sd.root
 
 
 def make_ctx(store: Store, base_config: dict, task_id: str) -> Ctx:
@@ -200,18 +206,19 @@ def run_item(ctx: Ctx, step: Step, scene: str, sleep: Callable[[float], None] = 
             job_id = None
         try:
             result = _invoke(ctx, step, item, job_id)
+            tasklog(ctx, f"{step.name} {scene} lượt {item.attempt}: xong")
             return "done", item, result
         except Retryable as exc:
             ctx.store.finish_run(item.run_id, "failed", error=f"retryable: {studio_config.redact(str(exc))}"[:2000])
-            log.warning("%s %s %s lượt %s: Retryable %s", ctx.task_id, step.name, scene, item.attempt, exc)
+            tasklog(ctx, f"{step.name} {scene} lượt {item.attempt}: Retryable {exc}")
             sleep(float(retry["backoff_s"]) * (2 ** attempt_index))
         except QualityFail as exc:
             ctx.store.finish_run(item.run_id, "failed", error=f"quality: {studio_config.redact(exc.reason)}"[:2000])
-            log.warning("%s %s %s lượt %s: QualityFail %s", ctx.task_id, step.name, scene, item.attempt, exc.reason)
+            tasklog(ctx, f"{step.name} {scene} lượt {item.attempt}: QualityFail {exc.reason}")
             feedback.append(("refused: " if isinstance(exc, ContentRefused) else "") + exc.reason[:600])
         except Unconfirmed as exc:
             ctx.store.finish_run(item.run_id, "unknown", error=f"unconfirmed: {studio_config.redact(str(exc))}"[:2000])
-            log.error("%s %s %s lượt %s: Unconfirmed %s", ctx.task_id, step.name, scene, item.attempt, exc)
+            tasklog(ctx, f"{step.name} {scene} lượt {item.attempt}: Unconfirmed {exc}")
             return "unknown", item, None
         except WaitFor as exc:
             ctx.store.finish_run(item.run_id, "failed", error=f"wait: {exc.reason}: {exc.detail}")
@@ -346,7 +353,7 @@ def run_task(store: Store, base_config: dict, task_id: str, sleep: Callable[[flo
         return "completed"
     except Stop as stop:
         store.set_status(task_id, stop.status, stop.reason, stop.detail)
-        log.info("%s → %s %s: %s", task_id, stop.status, stop.reason or "", stop.detail)
+        tasklog(ctx, f"→ {stop.status} {stop.reason or ''}: {stop.detail}")
         return stop.status
     except Fatal as exc:
         store.set_status(task_id, "failed", None, studio_config.redact(str(exc)))
@@ -371,9 +378,17 @@ def preflight(config: dict) -> list[str]:
 
 
 def worker(store: Store, config: dict, once: bool = False, task_id: str | None = None) -> None:
+    from studio import series
+
     for requeued in store.requeue_running():
         log.info("%s: running → pending (worker khởi động lại)", requeued)
+    series.recover_series_jobs(store, config)
     while True:
+        job = None if task_id else store.claim_series_job()
+        if job:
+            log.info("series %s: ảnh tham chiếu %s/%s → %s", job["series"], job["character"], job["view"],
+                     series.run_series_job(store, config, job))
+            continue
         claimed = (task_id if store.claim_one(task_id) else None) if task_id else store.claim()
         if claimed:
             status = run_task(store, config, claimed)

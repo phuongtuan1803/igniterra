@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block body %}
+<h1>Settings</h1>
+<p class="muted small">Adapter mặc định cho task mới. Lưu vào <code>{{ path }}</code> (phủ lên studio.toml, không sửa file đã commit) sau khi kiểm adapter khởi tạo được. Worker đọc cấu hình lúc khởi động; khóa API không hiện ở đây.</p>
+<form class="card" method="post" action="/settings">
+  <div class="cols3">
+    {% for cap, names in registry.items() %}
+    <div><label>{{ cap }}</label><select name="adapter_{{ cap }}">
+      {% for n in names %}<option {{ "selected" if adapters.get(cap, "none") == n }}>{{ n }}</option>{% endfor %}</select></div>
+    {% endfor %}
+  </div>
+  <div class="cols3">
+    <div><label>model LLM (OmniRoute)</label><input type="text" name="llm_model" value="{{ omniroute.llm_model }}"></div>
+    <div><label>model ảnh (OmniRoute)</label><input type="text" name="image_model" value="{{ omniroute.image_model }}"></div>
+  </div>
+  <h3>Song song theo adapter</h3>
+  <div class="cols3">
+    {% for k in ("image", "tts", "video", "animate") %}
+    <div><label>{{ k }}</label><input type="number" min="1" max="16" name="conc_{{ k }}" value="{{ concurrency.get(k, 1) }}"></div>
+    {% endfor %}
+  </div>
+  <label><input type="checkbox" name="gate_keyframes" {{ "checked" if gates.keyframes }}> bật gate keyframes</label>
+  <p><button class="primary">Kiểm và lưu</button></p>
+</form>
+{% endblock %}

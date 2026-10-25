@@ -19,6 +19,7 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 - [Gate 0–1: quyết định, kết quả thực thi và bằng chứng](reports/g0-g1/README.md) — G0 đã chốt; G1 có preview kỹ thuật, chưa hoàn tất baseline hoặc quyết định build/reuse.
 - [Bài học kiến trúc từ MPT](reports/g0-g1/mpt-architecture-review.md) — nhận xét từ mã nguồn ghim commit, không phải benchmark.
 - [Gate 2: core, CLI và 5 brief ra MP4](reports/g2/README.md) — 21 test xanh, 5 MP4 đạt hậu điều kiện; phiếu duyệt C01–C09 và D-07 chờ Tuan.
+- [Gate 3 (đang làm): trang review, Series Bible, T09](reports/g3/README.md) — bắt đầu trước D-07; character sheet giữ nhân vật 5/5 scene; điều kiện ra chờ số đo Gate 2.
 - [Soát thiết kế trước Gate 2](reports/design-review-2026-10-24/README.md) — 5 phát hiện chặn, 11 phát hiện cần làm, đã sửa vào tài liệu 2.1; 4 quyết định chờ Tuan.
 
 ## Cách viết và build

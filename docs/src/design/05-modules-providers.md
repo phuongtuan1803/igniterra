@@ -2,7 +2,7 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.6"
+ver: "2.7"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -17,6 +17,7 @@ rev:
   - ["2.4", 2026-10-25, "Ảnh đổi sang codex/gpt-image-2 (dự phòng codex/gpt-5.6-luna-image): OpenRouter chỉ nhận 1 ảnh tham chiếu và Google AI Studio trả 429 hết hạn mức"]
   - ["2.5", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview với 1 character sheet; model ảnh codex trả 401 No credentials"]
   - ["2.6", 2026-10-25, "Code Gate 2: chữ ký LLMProvider.generate_json và SubtitleAligner.align, lỗi ContentRefused cho moderation, JSON schema qua gateway đã kiểm, adapter đọc media_type"]
+  - ["2.7", 2026-10-25, "Gate 3: 400 'could not generate an image' cũng là ContentRefused; FakeAltTTS cho T07; test adapter OmniRoute với server giả"]
 ---
 
 <!-- id:s1 -->
@@ -100,7 +101,7 @@ Table: Lỗi chung
 | --- | --- | --- |
 | `Retryable` | Lượt gọi không trả phí bị 429, 5xx, timeout; MPT TTS trả `None`. Lượt gọi trả phí: chỉ khi chắc chắn chưa gửi (không kết nối được, 429 bị từ chối trước khi xử lý) | Thử lại cùng đầu vào, backoff, tối đa 3 lần |
 | `QualityFail(reason)` | Kết quả có nhưng không đạt kiểm tra | Chạy lại riêng scene đó, lý do vào prompt |
-| `ContentRefused(reason)` (lớp con của `QualityFail`) | Provider chặn nội dung trước khi sinh (moderation), ví dụ Gemini trả 400 "blocked … content moderation" | Dòng chi phí `failed`; thử lại với gợi ý an toàn trong prompt; hết lượt thì `retries_exhausted`, người diễn đạt lại `visual`. Gate 2: ánh xạ cũ `Fatal` làm hỏng cả task t_0002 vì một scene |
+| `ContentRefused(reason)` (lớp con của `QualityFail`) | Provider chặn nội dung trước khi sinh (moderation), ví dụ Gemini trả 400 "blocked … content moderation" | Dòng chi phí `failed`; thử lại với gợi ý an toàn trong prompt; hết lượt thì `retries_exhausted`, người diễn đạt lại `visual`. Gate 2: ánh xạ cũ `Fatal` làm hỏng cả task t_0002 vì một scene. Gate 3: Gemini 400 "could not generate an image (STOP)" xử lý như trên (t_0007) |
 | `Unconfirmed` | Lượt gọi trả phí đã có thể tới provider nhưng không có kết quả chắc chắn: đọc timeout, mất kết nối giữa chừng, 5xx, response thiếu id; MPT ném lỗi unconfirmed của provider | Ghi `unknown`, task `waiting` |
 | `Fatal` | Cấu hình sai, khóa API sai, nội dung bị từ chối | Task `failed` |
 

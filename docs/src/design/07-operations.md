@@ -2,7 +2,7 @@
 id: IGN-OPS
 title: Igniterra — Triển khai và vận hành
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -13,6 +13,7 @@ rev:
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: MPT_HOME, quy trình nâng MPT, costs.jsonl, quyết định unknown; bỏ pricing.yaml, ngân sách, router"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: FFmpeg và ffprobe hệ thống, MPT_HOME riêng, vendor tại 82bb4a7, nâng MPT kéo theo test web, giới hạn chi tiêu trước lượt gọi trả phí đầu tiên, runbook duration_exceeded và lệch phụ đề"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.3", 2026-10-25, "Gate 3: lệnh web, STUDIO_BASIC_AUTH, data/settings.toml, runbook moderation"]
 ---
 
 <!-- id:s1 -->
@@ -292,6 +293,7 @@ Table: Triệu chứng, nguyên nhân và cách xử lý
 | Task `waiting` lý do `duration_exceeded` | Tổng giọng vượt `max_s` của brief | Rút gọn narration scene dài nhất (revision mới) hoặc tăng nhẹ tốc độ đọc trong Series Bible |
 | Render báo "Format not on whitelist" | Footage của scene là ảnh, chưa qua `animate` | Kiểm bước `animate` đã chạy và clip là selected |
 | `ffprobe` không tìm thấy | Chỉ có `ffmpeg` từ `imageio-ffmpeg` | Cài FFmpeg hệ thống |
+| Task `retries_exhausted`, log "provider chặn nội dung" hoặc "could not generate" | Moderation của Gemini (brief-02: cảnh robot yếu/tắt bị chặn có hệ thống) | Sửa `visual` trên Storyboard: tả trung tính, đưa chủ thể khỏi trung tâm khung, để lời kể mang ý; lượt bị chặn ghi `failed` |
 | Phát âm sai tên riêng | Thiếu mục `lexicon` | Thêm vào Series Bible; chạy lại `voice` của scene đó |
 | Ổ đĩa gần đầy | Ứng viên tích lũy | Chạy dọn ứng viên không được chọn; sao lưu trước |
 

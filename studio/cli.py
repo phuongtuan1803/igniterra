@@ -12,6 +12,7 @@ from studio import config as studio_config
 from studio import costs, pipeline
 from studio.contracts import Brief, Review
 from studio.gates import ActionError, Actions
+from studio.series import SeriesError
 from studio.store import Store
 from studio.taskdir import TaskDir
 
@@ -136,6 +137,38 @@ def cmd_run_step(args, config, store):
         print(pipeline.run_step(ctx, step))
 
 
+def cmd_web(args, config, store):
+    import uvicorn
+
+    from studio.web import create_app
+
+    uvicorn.run(create_app(config), host=args.host, port=args.port, log_level="info")
+
+
+def cmd_series(args, config, store):
+    from studio.series import SeriesActions, SeriesDir, list_series
+
+    sa = SeriesActions(store, config)
+    if args.series_command == "list":
+        print("\n".join(list_series(Path(config["data_dir"]))))
+    elif args.series_command == "new":
+        sd = sa.create_from_task(args.name, args.from_task) if args.from_task else sa.create(args.name)
+        print(sd.bible_path)
+    elif args.series_command == "show":
+        sd = SeriesDir(Path(config["data_dir"]), args.name)
+        print(sd.bible_path.read_text(encoding="utf-8"))
+        for key in sd.bible().characters:
+            print(f"# {key}: ứng viên " + ", ".join(sd.rel(p) for p in sd.candidates(key)))
+        for job in store.series_jobs(args.name):
+            print(f"# job {job['id']} {job['character']}/{job['view']} {job['status']} {job['output_path'] or ''} {job['error'] or ''}")
+    elif args.series_command == "character":
+        sa.set_character(args.name, args.key, args.description)
+    elif args.series_command == "ref":
+        print(f"job #{sa.request_ref(args.name, args.key, args.view, args.note)} (worker sẽ chạy)")
+    elif args.series_command == "approve":
+        print(sa.approve_refs(args.name, args.key, args.candidates).sheet)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m studio")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -218,6 +251,34 @@ def build_parser() -> argparse.ArgumentParser:
     upload.add_argument("--ai-generated", action="store_true")
     upload.set_defaults(func=cmd_upload)
 
+    web = sub.add_parser("web", help="trang review (Gate 3)")
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=8600)
+    web.set_defaults(func=cmd_web)
+
+    series = sub.add_parser("series").add_subparsers(dest="series_command", required=True)
+    series.add_parser("list")
+    s_new = series.add_parser("new")
+    s_new.add_argument("name")
+    s_new.add_argument("--from-task")
+    s_show = series.add_parser("show")
+    s_show.add_argument("name")
+    s_char = series.add_parser("character")
+    s_char.add_argument("name")
+    s_char.add_argument("key")
+    s_char.add_argument("description")
+    s_ref = series.add_parser("ref", help="xếp job sinh ảnh tham chiếu (worker chạy, trả phí)")
+    s_ref.add_argument("name")
+    s_ref.add_argument("key")
+    s_ref.add_argument("view", choices=["front", "side", "three_quarter"])
+    s_ref.add_argument("--note")
+    s_approve = series.add_parser("approve", help="duyệt ảnh ứng viên → refs + character sheet")
+    s_approve.add_argument("name")
+    s_approve.add_argument("key")
+    s_approve.add_argument("candidates", nargs="+")
+    for p in series.choices.values():
+        p.set_defaults(func=cmd_series)
+
     run_step = sub.add_parser("run-step", help="chạy một bước khi debug")
     run_step.add_argument("step", choices=sorted(pipeline.STEPS))
     run_step.add_argument("--task", required=True)
@@ -234,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
     store = _store(config)
     try:
         args.func(args, config, store)
-    except (ActionError, KeyError) as exc:
+    except (ActionError, KeyError, SeriesError) as exc:
         print(f"lỗi: {exc}", file=sys.stderr)
         return 1
     return 0

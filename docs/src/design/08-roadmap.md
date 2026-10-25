@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.7"
+ver: "2.8"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -18,6 +18,7 @@ rev:
   - ["2.5", 2026-10-25, "Ảnh đổi sang codex/gpt-image-2, dự phòng codex/gpt-5.6-luna-image"]
   - ["2.6", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview (1 character sheet)"]
   - ["2.7", 2026-10-25, "Gate 2 đã code và chạy 5 brief (báo cáo g2): checklist cập nhật; phiếu duyệt và D-07 chờ Tuan"]
+  - ["2.8", 2026-10-25, "Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan; phần xây xong, T09 đã đo (báo cáo g3)"]
 ---
 
 <!-- id:s1 -->
@@ -190,6 +191,10 @@ Table: Kết quả dựng lại của video_project khi chỉ đổi footage s02
 
 <!-- id:s5 -->
 ## Gate 3 và Gate 4
+
+<!-- id:s5.b1-2 -->
+> [!WARNING]
+> Ngày 25/10/2026 Tuan cho bắt đầu Gate 3 khi Gate 2 chưa có phiếu duyệt (D-07 chưa quyết). Phần xây và T02–T07, T09 đã xong ([báo cáo g3](../../reports/g3/README.md)); điều kiện ra Gate 3 cần số đo phút công và số lần sinh lại của Gate 2 làm mốc.
 
 <!-- id:s5.b1 -->
 Gate 3 thêm phần người dùng chạm vào; Gate 4 thêm năng lực, mỗi lần một adapter và chỉ khi có nhu cầu định lượng.

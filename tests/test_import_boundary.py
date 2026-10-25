@@ -8,7 +8,7 @@ from pathlib import Path
 STUDIO = Path(__file__).resolve().parent.parent / "studio"
 ADAPTERS = ("studio.providers.mpt", "studio.providers.direct", "studio.providers.fake", "studio.render")
 CORE = ("pipeline.py", "gates.py", "store.py", "taskdir.py", "costs.py", "contracts.py", "prompt.py", "config.py",
-        "media.py", "cli.py", "steps")
+        "media.py", "cli.py", "series.py", "steps", "web")
 
 
 def imports(path: Path) -> set[str]:

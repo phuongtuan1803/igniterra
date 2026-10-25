@@ -1,0 +1,10 @@
+{"ts":"2026-10-25T08:55:20","request_id":"series:station:nguoi_gac:front:2.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:55:37","request_id":"series:station:nguoi_gac:front:2.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:55:54","request_id":"series:station:nguoi_gac:side:4.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:56:11","request_id":"series:station:nguoi_gac:side:4.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:56:29","request_id":"series:station:nguoi_gac:three_quarter:6.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:56:50","request_id":"series:station:nguoi_gac:three_quarter:6.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:58:42","request_id":"series:station:nguoi_gac:front:9.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:59:09","request_id":"series:station:nguoi_gac:front:9.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:59:09","request_id":"series:station:nguoi_gac:three_quarter:10.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:59:38","request_id":"series:station:nguoi_gac:three_quarter:10.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
