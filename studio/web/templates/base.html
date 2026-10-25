@@ -3,21 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}studio{% endblock %} · Igniterra</title>
+<meta name="color-scheme" content="light">
+<title>{% block title %}Studio{% endblock %} · Igniterra</title>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
-<header>
-  <span class="brand">Igniterra studio</span>
-  <a href="/">Tasks</a>
-  <a href="/series">Series</a>
-  <a href="/settings">Settings</a>
-</header>
-<main>
-  {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
-  {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
-  {% block body %}{% endblock %}
-</main>
+{% set here = request.url.path %}
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="/" aria-label="Igniterra studio — Tasks">
+      <span class="brand-symbol" aria-hidden="true"><span></span></span>
+      <span class="brand-wordmark">igniterra</span>
+    </a>
+    <div class="brand-caption">THE CREATIVE WORKSPACE</div>
+    <div class="sidebar-divider"></div>
+    <div class="nav-caption">WORKSPACE</div>
+    <nav class="nav-menu">
+      <a href="/" class="nav-item {{ 'active' if not here.startswith('/series') and not here.startswith('/settings') else '' }}" {% if not here.startswith('/series') and not here.startswith('/settings') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▦</span><span>Tasks</span></a>
+      <a href="/series" class="nav-item {{ 'active' if here.startswith('/series') else '' }}" {% if here.startswith('/series') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◇</span><span>Series</span></a>
+      <a href="/settings" class="nav-item {{ 'active' if here.startswith('/settings') else '' }}" {% if here.startswith('/settings') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span></a>
+    </nav>
+    <div class="nav-caption nav-tools">PRODUCTION</div>
+    <div class="nav-hints" aria-label="Studio capabilities">
+      <span>Storyboard</span><span>Activity &amp; costs</span><span>Model providers</span>
+    </div>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><strong>Local workspace</strong><small>No cloud sync required</small></div>
+  </aside>
+  <div class="app-content">
+    <div class="utility-bar">
+      <span>Studio <span class="utility-slash">/</span> {% if here.startswith('/series') %}Series{% elif here.startswith('/settings') %}Settings{% else %}Tasks{% endif %}</span>
+      <span class="utility-mode">Editorial Light <span aria-hidden="true">·</span> Local studio</span>
+    </div>
+    <main id="main" class="page-container">
+      {% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
+      {% if error %}<div class="flash err" role="alert">{{ error }}</div>{% endif %}
+      {% block body %}{% endblock %}
+    </main>
+  </div>
+</div>
 </body>
 </html>
