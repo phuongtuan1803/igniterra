@@ -204,7 +204,7 @@ Task detail là nơi vận hành và debug: dòng thời gian các bước, mỗ
 <!-- id:s6.b2 -->
 ```text
 ┌─ t_0042 · Tín hiệu từ năm 2126 ──── waiting (unknown_call) ── đã ghi ~$0,40 ─┐
-│ ⚠ Lượt gọi t_0042:s06:keyframes:1 (omniroute·gpt-image-2)  gửi lúc 10:14:07, │
+│ ⚠ Lượt gọi t_0042:s06:keyframes:1 (omniroute·gemini-flash) gửi lúc 10:14:07, │
 │   không có kết quả. Có thể đã bị tính phí.                                    │
 │   [Sinh lại s06]  [Bỏ qua, giữ ứng viên hiện có]                              │
 ├────────────────────────────────────────────────────────────────────────────────┤

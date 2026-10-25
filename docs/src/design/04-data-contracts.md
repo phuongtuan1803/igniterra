@@ -297,8 +297,8 @@ Mỗi lần sinh ảnh, audio hay clip là một ứng viên; render chỉ dùng
 ```json
 // data/tasks/t_0042/assets.json — render chỉ đọc "selected"
 {"s03": {"image": {"selected": "img_s03_a2", "candidates": [
-   {"id": "img_s03_a1", "path": "keyframes/s03_a1.png", "provider": "omniroute", "model": "codex/gpt-image-2", "plan_rev": 2},
-   {"id": "img_s03_a2", "path": "keyframes/s03_a2.png", "provider": "omniroute", "model": "codex/gpt-image-2", "plan_rev": 3},
+   {"id": "img_s03_a1", "path": "keyframes/s03_a1.png", "provider": "omniroute", "model": "openrouter/google/gemini-3.1-flash-image-preview", "plan_rev": 2},
+   {"id": "img_s03_a2", "path": "keyframes/s03_a2.png", "provider": "omniroute", "model": "openrouter/google/gemini-3.1-flash-image-preview", "plan_rev": 3},
    {"id": "up_s03_1", "path": "uploads/s03.png", "provider": "user", "source": "ảnh tự chụp", "rights": "owned", "ai_generated": false}]},
   "voice": {"selected": "vo_s03_a1", "candidates": [{"id": "vo_s03_a1", "path": "voice/vo_s03_a1.mp3", "provider": "mpt:vi-VN-NamMinhNeural", "plan_rev": 3}]}}}
 ```
@@ -349,7 +349,7 @@ Mỗi adapter ghi lượng dùng (số ảnh, ký tự, giây video, token) vào
 <!-- id:s6.b2 -->
 ```json
 // data/tasks/t_0042/costs.jsonl — dòng pending ghi TRƯỚC lượt gọi, dòng kết quả ghi SAU
-{"ts": "2026-10-19T10:12:01", "request_id": "t_0042:s03:keyframes:2", "provider": "omniroute", "model": "codex/gpt-image-2", "status": "pending"}
+{"ts": "2026-10-19T10:12:01", "request_id": "t_0042:s03:keyframes:2", "provider": "omniroute", "model": "openrouter/google/gemini-3.1-flash-image-preview", "status": "pending"}
 {"ts": "2026-10-19T10:12:03", "request_id": "t_0042:s03:keyframes:2", "status": "ok", "units": {"images": 1}, "est_usd": 0.067}
 ```
 
@@ -516,7 +516,7 @@ video     = "none"              # Gate 4: "mpt" hoặc "veo"
 [omniroute]                     # model đổi được, không sửa code; khóa nằm ở OMNIROUTE_API_KEY
 base_url    = "http://localhost:20128/v1"
 llm_model   = "codex/gpt-5.6-luna"
-image_model = "codex/gpt-image-2"
+image_model = "openrouter/google/gemini-3.1-flash-image-preview"
 timeout_s   = 120               # quá hạn sau khi gửi → unknown, không retry
 
 [concurrency]                   # số scene chạy song song trong một bước, theo adapter

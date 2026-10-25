@@ -86,7 +86,7 @@ mpt: "MoneyPrinterTurbo\n(gói pip mpt, ghim phiên bản)" {class: gate}
 cloud: Dịch vụ AI cloud {
   class: zone
   llm: "LLM qua OmniRoute\ncodex/gpt-5.6-luna" {class: plain}
-  img: "Ảnh có tham chiếu qua OmniRoute\ncodex/gpt-image-2" {class: plain}
+  img: "Ảnh có tham chiếu qua OmniRoute\nopenrouter/google/gemini-3.1-flash-image-preview" {class: plain}
   vid: "Image-to-video\nVeo 3.1 Fast (Gate 4)" {class: plain}
 }
 mptsvc: Dịch vụ sau MPT {

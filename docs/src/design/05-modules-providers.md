@@ -2,7 +2,7 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.4"
+ver: "2.5"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -15,6 +15,7 @@ rev:
   - ["2.2", 2026-10-24, "Gate 2b gọi LLM và ảnh qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1, đổi được trong studio.toml): adapter, ánh xạ lỗi, chặn fallback, việc cần kiểm"]
   - ["2.3", 2026-10-25, "Kiểm OmniRoute 3.8.52 trên máy Tuan (chỉ đọc): cinf không có nano-banana nên ảnh đi qua openrouter/google/gemini-nano-banana-2.1; codex qua OAuth; codex/gpt-5.6-luna nằm trong combo free-stack"]
   - ["2.4", 2026-10-25, "Ảnh đổi sang codex/gpt-image-2 (dự phòng codex/gpt-5.6-luna-image): OpenRouter chỉ nhận 1 ảnh tham chiếu và Google AI Studio trả 429 hết hạn mức"]
+  - ["2.5", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview với 1 character sheet; model ảnh codex trả 401 No credentials"]
 ---
 
 <!-- id:s1 -->
@@ -202,7 +203,7 @@ Table: Bảng adapter
 | `TTSProvider` | MPT `voice.tts(text, voice_name, voice_rate, voice_file)` | `SubMaker` → `AudioTrack` kèm mốc thời gian; trả `None` → `Retryable` | Gate 2 |
 | `SubtitleAligner` | MPT `subtitle.create(audio_file, subtitle_file)` rồi `subtitle.correct(subtitle_file, script)` | Dùng khi TTS không trả mốc từ | Gate 2 |
 | `LLMProvider` | `OmniRouteLLM` qua OmniRoute (mặc định); hoặc lớp kết nối trong `llm.py` của MPT | Prompt và schema do ta viết | Gate 2 |
-| `ImageProvider` (nhân vật) | `OmniRouteImage` qua OmniRoute (`codex/gpt-image-2`, cần ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
+| `ImageProvider` (nhân vật) | `OmniRouteImage` qua OmniRoute (`openrouter/google/gemini-3.1-flash-image-preview`, cần ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
 | `ImageProvider` (phụ) | MPT stock footage trong `material.py` | Trả ứng viên cho scene không cần nhân vật | Khi cần |
 | `VideoProvider` | MPT `generate_videos()` của từng provider, hoặc SDK Veo | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4 |
 | Renderer | `vendor/video_project.py` (bản copy tại `82bb4a7`) | `render(plan, assets)` → manifest (mỗi scene: clip selected dạng MP4, giọng selected, narration) → `create_revision`, `plan`, `render` | Gate 2 |
@@ -261,7 +262,7 @@ step -> step: "ghi ứng viên vo_s03_aN, selected"
 ## Keyframe có nhân vật: adapter trực tiếp
 
 <!-- id:s5.b1 -->
-Keyframe có nhân vật dùng adapter gọi API ảnh hỗ trợ ảnh tham chiếu (mặc định `codex/gpt-image-2` qua OmniRoute), vì MPT không có khái niệm nhân vật. Adapter nhận prompt đã ghép xác định và đường dẫn ảnh refs từ Series Bible ([04 · Ghép prompt](04-data-contracts.md#s7)), ghi `pending` trước lượt gọi và trả `AssetCandidate`.
+Keyframe có nhân vật dùng adapter gọi API ảnh hỗ trợ ảnh tham chiếu (mặc định `openrouter/google/gemini-3.1-flash-image-preview` qua OmniRoute), vì MPT không có khái niệm nhân vật. Adapter nhận prompt đã ghép xác định và đường dẫn ảnh refs từ Series Bible ([04 · Ghép prompt](04-data-contracts.md#s7)), ghi `pending` trước lượt gọi và trả `AssetCandidate`.
 
 <!-- id:s5.b2 -->
 <!-- report-kit:d2
@@ -290,7 +291,7 @@ nb -> cand: "AssetCandidate"
 ### Gate 2b qua OmniRoute
 
 <!-- id:s5.b4 -->
-Tuan chọn ngày 24/10/2026: Gate 2b gọi LLM và ảnh qua OmniRoute, một gateway tự host có API kiểu OpenAI (mặc định cổng 20128, model đặt tên dạng `provider/model`). Model hiện tại là `codex/gpt-5.6-luna` cho ScenePlan và `codex/gpt-image-2` cho keyframe (dự phòng `codex/gpt-5.6-luna-image`), cả hai qua gói thuê bao Codex. Ngày 25/10/2026 Tuan đổi ảnh từ nano-banana-2.1 sang codex vì OpenRouter chỉ nhận 1 ảnh tham chiếu và Google AI Studio đang hết hạn mức. Model có thể đổi, nên chúng là chuỗi trong `studio.toml` ([04 · Cấu hình](04-data-contracts.md#s9)); đổi model không sửa code. Một module `providers/direct/omniroute.py` có hai lớp `OmniRouteLLM` và `OmniRouteImage` dùng chung client HTTP.
+Tuan chọn ngày 24/10/2026: Gate 2b gọi LLM và ảnh qua OmniRoute, một gateway tự host có API kiểu OpenAI (mặc định cổng 20128, model đặt tên dạng `provider/model`). Model hiện tại là `codex/gpt-5.6-luna` cho ScenePlan (gói thuê bao Codex) và `openrouter/google/gemini-3.1-flash-image-preview` cho keyframe (OpenRouter, trả theo lượt, khóa đã có giới hạn 5 USD). Ngày 25/10/2026 ảnh đổi hai lần: nano-banana-2.1 bị Google AI Studio trả 429 hết hạn mức; `codex/gpt-image-2` và `codex/gpt-5.6-luna-image` bị OmniRoute trả 401 "No credentials for provider: codex". Qua OpenRouter chỉ gửi được 1 ảnh tham chiếu, nên adapter gửi character sheet. Model có thể đổi, nên chúng là chuỗi trong `studio.toml` ([04 · Cấu hình](04-data-contracts.md#s9)); đổi model không sửa code. Một module `providers/direct/omniroute.py` có hai lớp `OmniRouteLLM` và `OmniRouteImage` dùng chung client HTTP.
 
 <!-- id:s5.b5 -->
 <!-- report-kit:d2
@@ -308,7 +309,7 @@ gw: "OmniRoute\n(tự host)" {class: plain}
 up: "Upstream" {
   class: zone
   codex: "codex/gpt-5.6-luna" {class: plain}
-  cinf: "codex/gpt-image-2\n(dự phòng codex/gpt-5.6-luna-image)" {class: plain}
+  cinf: "openrouter/google/\ngemini-3.1-flash-image-preview" {class: plain}
 }
 lim: "Giới hạn chi tiêu\nở tài khoản upstream (D-03)" {class: data}
 cfg -> st
@@ -348,7 +349,8 @@ Việc cần kiểm trước việc 7 của Gate 2. Ngày 25/10/2026 đã kiểm
 - [ ] LLM có hỗ trợ JSON schema hoặc JSON mode qua gateway không; nếu không, dựa vào kiểm Pydantic và `QualityFail`
 - [ ] Response có khối `usage`; adapter ghi vào `costs.jsonl`. OmniRoute không báo số USD, nên `est_usd` để `null` và đối chiếu ở hóa đơn upstream
 - [x] Giới hạn credit 5 USD đã đặt ở openrouter.ai (Tuan, 25/10/2026); kết nối openrouter trong OmniRoute không có giới hạn riêng. Với LLM và ảnh đều qua codex (gói thuê bao), chi phí bị giới hạn bằng hạn mức của gói, không tính theo lượt
-- [ ] Lượt gọi thử `codex/gpt-image-2` qua `/v1/images/edits` với 3 ảnh tham chiếu riêng: response, kích thước, có giữ được nhân vật không. Lần thử ngày 25/10/2026 (cả `codex/gpt-image-2` và `codex/gpt-5.6-luna-image`): OmniRoute trả 401 "No credentials for provider: codex" sau dưới 0,1 giây, log ghi "all 1 accounts unavailable", chưa sinh ảnh; kết nối Codex vẫn active và còn hạn mức. Cần kiểm trên dashboard: khóa account theo model ảnh, hoặc gói Codex không có quyền tạo ảnh
+- [x] (Đã thay) Lượt gọi thử `codex/gpt-image-2` qua `/v1/images/edits` với 3 ảnh tham chiếu riêng: response, kích thước, có giữ được nhân vật không. Lần thử ngày 25/10/2026 (cả `codex/gpt-image-2` và `codex/gpt-5.6-luna-image`): OmniRoute trả 401 "No credentials for provider: codex" sau dưới 0,1 giây, log ghi "all 1 accounts unavailable", chưa sinh ảnh; kết nối Codex vẫn active và còn hạn mức. Cần kiểm trên dashboard nếu muốn quay lại model ảnh codex: khóa account theo model ảnh, hoặc gói Codex không có quyền tạo ảnh
+- [ ] Lượt gọi thử `openrouter/google/gemini-3.1-flash-image-preview` qua `/v1/images/edits` với 1 character sheet: response, kích thước, có giữ được nhân vật không
 - [ ] Điều khoản của gói thuê bao codex có cho dùng qua gateway cho việc sản xuất video không
 - [x] Dashboard OmniRoute: mật khẩu không phải mặc định, bắt đăng nhập, `REQUIRE_API_KEY=true`, chỉ nghe ở 127.0.0.1
 ```
@@ -364,7 +366,7 @@ Table: Model và adapter mặc định
 | Năng lực | Mặc định | Thay thế | Giá tham khảo (10/2026, cần kiểm tra lại) |
 | --- | --- | --- | --- |
 | LLM (ScenePlan) | `codex/gpt-5.6-luna` qua OmniRoute | Model khác qua OmniRoute (đổi `llm_model`); LLM qua adapter MPT | Theo tài khoản upstream; chưa có số |
-| Keyframe có nhân vật | `codex/gpt-image-2` qua OmniRoute (nhiều ảnh tham chiếu) | `codex/gpt-5.6-luna-image`; model khác qua OmniRoute (đổi `image_model`, chú ý `max_refs`); FLUX.2 klein 4B qua ComfyUI (Apache 2.0) | Gói thuê bao Codex: không tính theo lượt, giới hạn bằng hạn mức |
+| Keyframe có nhân vật | `openrouter/google/gemini-3.1-flash-image-preview` qua OmniRoute (1 ảnh tham chiếu: character sheet) | `codex/gpt-image-2`, `codex/gpt-5.6-luna-image` khi OmniRoute cấp được credential codex; model khác qua OmniRoute (đổi `image_model`, chú ý `max_refs`); FLUX.2 klein 4B qua ComfyUI (Apache 2.0) | Trả theo lượt qua OpenRouter, chưa có số; khóa giới hạn 5 USD |
 | Giọng đọc | Edge TTS tiếng Việt qua `MptTTS` (miễn phí) | ElevenLabs, Gemini TTS qua `MptTTS` | ElevenLabs v4 khoảng $0,08/1.000 ký tự |
 | Căn phụ đề | Mốc thời gian Edge TTS; faster-whisper qua `MptSubtitleAligner` | — | Chạy local, không tốn phí API |
 | Image-to-video (Gate 4) | Veo 3.1 Fast qua SDK, hoặc provider video qua `MptVideo` | Wan 2.2 qua ComfyUI | Veo 3.1 Fast 720p khoảng $0,10/giây |
