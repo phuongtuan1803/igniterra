@@ -327,27 +327,25 @@ Table: Ánh xạ adapter OmniRoute
 | Interface | Endpoint | Đầu ra | Ánh xạ lỗi |
 | --- | --- | --- | --- |
 | `LLMProvider` | `POST /v1/chat/completions`, `model = llm_model` | JSON ScenePlan, kiểm bằng Pydantic | Sai schema → `QualityFail`; 401, 403, model không tồn tại → `Fatal`; 429 hoặc lỗi kết nối trước khi gửi → `Retryable`; timeout, 5xx sau khi gửi → `Unconfirmed` |
-| `ImageProvider` (nhân vật) | `POST /v1/images/generations` hoặc endpoint nhận ảnh tham chiếu (cần kiểm, xem dưới) | `AssetCandidate` ghi `provider = "omniroute"` và `model` trả về | Như trên; thiếu ảnh trong response → `Unconfirmed` vì có thể đã bị tính tiền |
+| `ImageProvider` (nhân vật) | `POST /v1/images/edits` (multipart, `image[]` là ảnh tham chiếu); `POST /v1/images/generations` cho scene không có nhân vật | `AssetCandidate` ghi `provider = "omniroute"` và `model` trả về | Như trên; thiếu ảnh trong response → `Unconfirmed` vì có thể đã bị tính tiền |
 
 <!-- id:s5.b7 -->
 > [!IMPORTANT]
 > OmniRoute có combo và fallback: khi một provider hết hạn mức, request có thể được chuyển sang model khác. Với lượt gọi trả phí, điều đó vừa đổi model mà không báo, vừa có thể làm một lượt gọi bị tính tiền hai lần. Adapter chỉ gọi đúng tên model cụ thể (không dùng alias `auto/...` hay combo), tắt retry và fallback cho hai model này, và so `model` trong response với model đã cấu hình; khác thì báo `Fatal`.
 
 <!-- id:s5.b8 -->
-Việc cần kiểm trước việc 7 của Gate 2. Ngày 25/10/2026 đã kiểm chỉ đọc trên OmniRoute 3.8.52 ở máy Tuan, chưa gọi sinh nội dung và chưa dùng khóa API; các mục còn lại cần vài lượt gọi thử (dưới 0,5 USD).
+Việc cần kiểm trước việc 7 của Gate 2. Ngày 25/10/2026 đã kiểm trên OmniRoute 3.8.52 ở máy Tuan, có khóa API nhưng chưa gọi sinh nội dung (chỉ đọc `/v1/models`, gửi body thiếu prompt và đọc mã nguồn trong container); các mục còn lại cần vài lượt gọi thử (dưới 0,5 USD).
 
 <!-- id:s5.b9 -->
 ```chk
-- [x] Model có trong catalog: `codex/gpt-5.6-luna` có (kết nối codex qua OAuth). Kết nối cinf (cheaperinference) không có model nano-banana nào, nên ảnh dùng `openrouter/google/gemini-nano-banana-2.1`; alias `gemini-nano-banana-2.1` cũng trỏ về đó nhưng adapter gọi tên đầy đủ
-- [ ] Gọi `GET /v1/models` có khóa để xác nhận danh sách trực tiếp (đã kiểm từ catalog trong cơ sở dữ liệu)
-- [x] Endpoint tồn tại: `/v1/images/generations`, `/v1/images/edits`, `/v1/responses` (OPTIONS trả 204, cần khóa API)
-- [ ] Gọi thẳng `codex/gpt-5.6-luna` không đi qua combo `free-stack` (round-robin, `maxRetries` 3) chứa model này; chưa có combo nào cho nano-banana
-- [ ] Cách gửi 3 ảnh tham chiếu của nhân vật cho `openrouter/google/gemini-nano-banana-2.1`: `/v1/images/generations` kiểu DALL-E không có tham số chuẩn cho ảnh tham chiếu; thử `/v1/images/edits` (có trên bản này) hoặc chat completions có ảnh đầu vào. Không gửi được ảnh tham chiếu thì nhân vật không giữ được nhất quán
-- [ ] Response ảnh trả `b64_json` hay `url`, kích thước có đạt 9:16 hoặc cắt được về 1080×1920
+- [x] `GET /v1/models` có khóa (25/10/2026): 343 model. `codex/gpt-5.6-luna` có, nhận text và ảnh, context 872k, có JSON tool calling; kết nối codex qua OAuth (gói thuê bao có hạn mức)
+- [ ] `openrouter/google/gemini-nano-banana-2.1` không có trong `/v1/models`, dù endpoint ảnh nhận nó là model ảnh. Cần một lượt gọi thử (khoảng 0,07 USD) sau khi đặt giới hạn credit để biết nó chạy thật không. Dự phòng có trong danh sách: `openrouter/google/gemini-3.1-flash-image-preview`. Prefix `cinf/` không tồn tại; `cheaperinference/nano-banana-2` chỉ nhận text nên không dùng được ảnh tham chiếu
+- [x] Ảnh tham chiếu: `/v1/images/edits` nhận multipart với nhiều trường `image[]`; `/v1/images/generations` nhận JSON với `reference_images`, `input_images`, `image_urls` (và các tên tương tự). OmniRoute chuyển chúng xuống provider dưới tên `referenceImages`. Adapter dùng `/v1/images/edits` khi scene có nhân vật
+- [x] Gọi thẳng model id có dấu `/` không đi qua combo, retry hay fallback; combo chỉ áp dụng khi `model` là tên combo. Adapter luôn gọi model id đầy đủ
+- [ ] Response ảnh trả `b64_json` hay `url`, kích thước có đạt 9:16 hoặc cắt được về 1080×1920 (lượt gọi thử)
 - [ ] LLM có hỗ trợ JSON schema hoặc JSON mode qua gateway không; nếu không, dựa vào kiểm Pydantic và `QualityFail`
 - [ ] Response có khối `usage`; adapter ghi vào `costs.jsonl`. OmniRoute không báo số USD, nên `est_usd` để `null` và đối chiếu ở hóa đơn upstream
-- [ ] Giới hạn chi tiêu đặt ở tài khoản upstream, vì OmniRoute theo dõi hạn mức chứ không chặn theo USD: đặt giới hạn credit cho khóa OpenRouter dùng cho ảnh; codex là gói thuê bao qua OAuth nên bị giới hạn bằng hạn mức, không tính theo lượt
-- [x] Loại tài khoản sau `codex/`: OAuth, tức gói thuê bao có hạn mức
+- [ ] Giới hạn credit 5 USD đặt ở openrouter.ai (Keys) cho khóa OpenRouter mà OmniRoute dùng: kết nối openrouter trong OmniRoute không có giới hạn credit hay hạn mức nào. Codex là gói thuê bao nên bị giới hạn bằng hạn mức, không tính theo lượt
 - [ ] Điều khoản của gói thuê bao codex có cho dùng qua gateway cho việc sản xuất video không
 - [x] Dashboard OmniRoute: mật khẩu không phải mặc định, bắt đăng nhập, `REQUIRE_API_KEY=true`, chỉ nghe ở 127.0.0.1
 ```
