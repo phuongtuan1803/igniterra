@@ -1,26 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
 {% block body %}
-<h1>Settings</h1>
-<p class="muted small">Adapter mặc định cho task mới. Lưu vào <code>{{ path }}</code> (phủ lên studio.toml, không sửa file đã commit) sau khi kiểm adapter khởi tạo được. Worker đọc cấu hình lúc khởi động; khóa API không hiện ở đây.</p>
-<form class="card" method="post" action="/settings">
+<div class="page-heading">
+ <div><p class="eyebrow">06 / STUDIO SETTINGS</p><h1>Your tools. Your process.</h1><p class="page-subtitle">Manage adapters, model selections, concurrency and review gates.</p></div>
+ <span class="chip">Local configuration</span>
+</div>
+<p class="section-note">Defaults for new tasks. Validated changes are saved to <code>{{ path }}</code>, not the committed studio.toml. The worker reads settings at startup. API keys are not displayed here.</p>
+<form method="post" action="/settings" class="settings-form">
+ <section class="card">
+  <div class="section-heading"><div><p class="eyebrow">PRODUCTION ADAPTERS</p><h2>Production adapters</h2></div><p class="small muted">One adapter per capability</p></div>
   <div class="cols3">
     {% for cap, names in registry.items() %}
-    <div><label>{{ cap }}</label><select name="adapter_{{ cap }}">
-      {% for n in names %}<option {{ "selected" if adapters.get(cap, "none") == n }}>{{ n }}</option>{% endfor %}</select></div>
+    <div><label for="adapter_{{ cap }}">{{ cap }}</label>
+      <select name="adapter_{{ cap }}" id="adapter_{{ cap }}">
+        {% for n in names %}<option value="{{ n }}" {{ "selected" if adapters.get(cap, "none") == n }}>{{ n }}</option>{% endfor %}
+      </select>
+    </div>
     {% endfor %}
   </div>
-  <div class="cols3">
-    <div><label>model LLM (OmniRoute)</label><input type="text" name="llm_model" value="{{ omniroute.llm_model }}"></div>
-    <div><label>model ảnh (OmniRoute)</label><input type="text" name="image_model" value="{{ omniroute.image_model }}"></div>
-  </div>
-  <h3>Song song theo adapter</h3>
-  <div class="cols3">
-    {% for k in ("image", "tts", "video", "animate") %}
-    <div><label>{{ k }}</label><input type="number" min="1" max="16" name="conc_{{ k }}" value="{{ concurrency.get(k, 1) }}"></div>
-    {% endfor %}
-  </div>
-  <label><input type="checkbox" name="gate_keyframes" {{ "checked" if gates.keyframes }}> bật gate keyframes</label>
-  <p><button class="primary">Kiểm và lưu</button></p>
+ </section>
+ <div class="panel-grid">
+   <section class="card">
+     <p class="eyebrow">PROVIDER ROUTING</p><h2>Model routing</h2>
+     <p class="muted small">Choose model defaults without exposing credentials.</p>
+     <label for="llm_model">LLM model (OmniRoute)</label>
+     <input id="llm_model" type="text" name="llm_model" value="{{ omniroute.llm_model }}">
+     <label for="image_model">Image model (OmniRoute)</label>
+     <input id="image_model" type="text" name="image_model" value="{{ omniroute.image_model }}">
+     <p class="small muted">Provider secrets remain outside the web interface.</p>
+   </section>
+   <section class="card">
+     <p class="eyebrow">PARALLELISM & REVIEW</p><h2>Concurrency &amp; gates</h2>
+     <div class="concurrency-grid">
+       {% for k in ("image", "tts", "video", "animate") %}
+       <div><label for="conc_{{ k }}">{{ k }}</label><input id="conc_{{ k }}" type="number" min="1" max="16" name="conc_{{ k }}" value="{{ concurrency.get(k, 1) }}"></div>
+       {% endfor %}
+     </div>
+     <label class="checkbox-row" for="gate_keyframes">
+       <input id="gate_keyframes" type="checkbox" name="gate_keyframes" {{ "checked" if gates.keyframes }}>
+       Require keyframe approval before continuing
+     </label>
+   </section>
+ </div>
+ <div class="settings-actions"><p class="small muted">Changes take effect when the worker is restarted.</p><button class="primary button" type="submit">Validate &amp; save →</button></div>
 </form>
 {% endblock %}

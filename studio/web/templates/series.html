@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ name }} · Series{% endblock %}
 {% block body %}
-<h1>Series {{ name }}</h1>
-<p class="muted small">Sửa Series Bible làm các task của series sinh lại đúng phần phụ thuộc (prompt keyframe, ảnh tham chiếu, giọng) ở lần chạy sau.</p>
+<div class="page-header"><div><p class="eyebrow">05 / SERIES BIBLE</p><h1>Series {{ name }}</h1>
+<p class="muted small">Sửa Series Bible làm các task của series sinh lại đúng phần phụ thuộc (prompt keyframe, ảnh tham chiếu, giọng) ở lần chạy sau.</p></div></div>
 
+<div class="panel-grid series-workspace">
 <form class="card" method="post" action="/series/{{ name }}/update">
   <label>style</label><textarea name="style" rows="2">{{ bible.style }}</textarea>
   <label>negative</label><input type="text" name="negative" value="{{ bible.negative }}">
@@ -18,7 +19,7 @@
   <p><button class="primary">Lưu Series Bible</button></p>
 </form>
 
-<h2>Nhân vật</h2>
+<div class="stack cast-workspace"><h2>Nhân vật</h2>
 {% for key, ch in bible.characters.items() %}
 <div class="card" style="margin-bottom: 14px">
   <form method="post" action="/series/{{ name }}/characters">
@@ -65,7 +66,8 @@
   <p><button>Thêm</button></p>
 </form>
 
-<h2>Job ảnh tham chiếu</h2>
+</div></div>
+<section class="card"><p class="eyebrow">REFERENCE JOBS</p><h2>Job ảnh tham chiếu</h2>
 <table class="small">
   <tr><th>#</th><th>nhân vật</th><th>góc</th><th>trạng thái</th><th>kết quả</th></tr>
   {% for j in jobs|reverse %}
@@ -75,4 +77,5 @@
   {% else %}<tr><td colspan="5" class="muted">Chưa có job.</td></tr>{% endfor %}
 </table>
 <p class="small muted">Chi phí series: {{ costs|selectattr("status", "equalto", "ok")|list|length }} ảnh có kết quả ({{ name }}/costs.jsonl).</p>
+</section>
 {% endblock %}

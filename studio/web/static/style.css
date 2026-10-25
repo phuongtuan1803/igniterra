@@ -162,3 +162,42 @@ main>.card{margin-bottom:20px}
 @media(max-width:850px){.app-shell{display:block}.app-sidebar{position:static;height:auto;min-height:0;padding:16px 18px}.brand-caption,.sidebar-divider,.nav-caption,.nav-hints,.sidebar-foot{display:none}.nav-menu{display:flex;gap:8px;margin-top:15px}.nav-item{min-height:41px;padding:0 14px}.nav-item.active:before{left:0;top:8px;bottom:8px}.page-container{padding:26px 18px 55px}.utility-bar{height:48px;padding:0 18px}.metrics,.series-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.cols3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){h1{font-size:31px}.page-heading,.page-header{flex-direction:column;align-items:stretch}.page-heading>.button{align-self:flex-start}.metrics,.series-gallery,.series-form,.cols3{grid-template-columns:1fr}.card{padding:16px}.utility-mode{display:none}.story-cell{min-width:175px}.status{padding:12px}.strip .cand{flex-basis:100px}.checklist{min-width:650px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Editorial treatment for preserved workflow-heavy views */
+.storyboard-layout{margin-top:15px}
+.scene-grid{padding:0;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.scene-grid .scene{border:1px solid var(--line);background:var(--panel)}
+.scene-grid .scene.active{border-color:var(--accent)}
+.scene-inspector{position:sticky;top:24px;min-width:0}
+.scene-inspector .eyebrow{margin-bottom:9px}
+.scene-inspector>h2{font-size:26px}
+.scene-inspector .strip{margin-top:8px}
+.scene-inspector .strip .cand{flex-basis:110px}
+.inspector-section-title{border-top:1px solid var(--line);padding-top:16px}
+.review-notice{background:#f6e9ce;border-color:#e9d6b0}
+.final-review-panel{margin-bottom:20px}
+.final-review-panel>.row{align-items:flex-start}
+.final-review-panel video{flex-shrink:0}
+.final-review-panel .checklist{width:100%;min-width:635px}
+.audit-section{margin-top:20px}
+.audit-section h2{margin-bottom:0}
+.audit-section table{width:100%}
+.audit-section pre{margin-bottom:14px}
+.audit-section>p:last-child{margin-bottom:0}
+.series-workspace{align-items:start;margin-top:18px}
+.series-workspace>form.card{position:sticky;top:24px}
+.cast-workspace>.card{margin:0}
+.cast-workspace h2{margin-bottom:0}
+.cast-workspace .strip{padding-top:12px}
+.settings-form{display:grid;gap:18px}
+.settings-form .card{margin:0}
+.settings-form label{margin:16px 0 7px}
+.settings-form .cols3 label{margin:0 0 7px}
+.settings-form .concurrency-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+.settings-form .concurrency-grid label{margin-top:4px}
+.settings-form .checkbox-row{display:flex;align-items:center;gap:12px;margin:22px 0 0;color:var(--ink)}
+.settings-form .checkbox-row input{flex:none}
+.settings-actions{display:flex;justify-content:flex-end;align-items:center;gap:22px}
+.settings-actions p{margin:0}
+@media(max-width:1100px){.series-workspace>form.card{position:static}.scene-inspector{position:static}}
+@media(max-width:600px){.settings-actions{align-items:stretch;flex-direction:column}.settings-form .concurrency-grid{grid-template-columns:1fr 1fr}}

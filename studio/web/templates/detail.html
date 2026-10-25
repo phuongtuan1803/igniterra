@@ -2,8 +2,8 @@
 {% from "_macros.html" import usd %}
 {% block title %}{{ task.id }} · chi tiết{% endblock %}
 {% block body %}
-<div class="row" style="justify-content: space-between">
-  <div><h1>{{ task.brief.title }}</h1><div class="muted small">{{ task.id }} · đã ghi {{ usd(total_usd, unpriced) }} · ScenePlan {{ plans|length }} revision · render {{ renders|join(", ") or "—" }}</div></div>
+<div class="page-header">
+  <div><p class="eyebrow">03 / EXECUTION & COSTS</p><h1>{{ task.brief.title }}</h1><div class="muted small">{{ task.id }} · đã ghi {{ usd(total_usd, unpriced) }} · ScenePlan {{ plans|length }} revision · render {{ renders|join(", ") or "—" }}</div></div>
   <a href="/tasks/{{ task.id }}">← Storyboard</a>
 </div>
 {% include "_status.html" %}
@@ -21,8 +21,8 @@
 </div>
 {% endfor %}
 
-<h2>Các bước</h2>
-<table>
+<section class="card audit-section"><div class="section-heading"><div><p class="eyebrow">PIPELINE</p><h2>Các bước</h2></div></div>
+<div class="wide-table"><table>
   <tr><th>Bước</th><th>Lượt</th><th>Chi tiết</th></tr>
   {% for s in steps %}
   <tr>
@@ -40,21 +40,22 @@
     {% endif %}
   </tr>
   {% endfor %}
-</table>
+</table></div></section>
 
-<h2>costs.jsonl ({{ events|length }} dòng)</h2>
-<table class="small">
+<section class="card audit-section"><p class="eyebrow">PROVIDER LEDGER</p><h2>costs.jsonl ({{ events|length }} dòng)</h2>
+<div class="wide-table"><table class="small">
   <tr><th>ts</th><th>request_id</th><th>status</th><th>model</th><th>units</th><th>est_usd</th><th>ghi chú</th></tr>
   {% for e in events %}
   <tr><td>{{ e.ts }}</td><td>{{ e.request_id }}</td>
     <td><span class="chip {{ {'ok':'ok','failed':'bad','unknown':'bad','pending':('warn' if e.request_id in orphans else '')}[e.status] }}">{{ e.status }}{% if e.status == "pending" and e.request_id in orphans %} · mồ côi{% endif %}</span></td>
     <td>{{ e.model or "" }}</td><td>{{ e.units or "" }}</td><td>{{ e.est_usd if e.est_usd is not none else "" }}</td><td class="muted">{{ (e.note or "")[:120] }}</td></tr>
   {% endfor %}
-</table>
+</table></div></section>
 
-<h2>Log worker (50 dòng cuối)</h2>
+<section class="card audit-section"><p class="eyebrow">WORKER DIAGNOSTICS</p><h2>Log worker (50 dòng cuối)</h2>
 <pre>{% for line in log %}{{ line }}
 {% else %}(trống){% endfor %}</pre>
 <p class="small"><a href="/files/tasks/{{ task.id }}/assets.json">assets.json</a> · <a href="/files/tasks/{{ task.id }}/costs.jsonl">costs.jsonl</a> · <a href="/files/tasks/{{ task.id }}/brief.json">brief.json</a>
 {% for r in plans %} · <a href="/files/tasks/{{ task.id }}/plan/rev_{{ "%03d"|format(r) }}.json">rev {{ r }}</a>{% endfor %}</p>
+</section>
 {% endblock %}
