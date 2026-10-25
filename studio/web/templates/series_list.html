@@ -1,14 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Series{% endblock %}
 {% block body %}
-<h1>Series</h1>
-<ul>{% for s in series %}<li><a href="/series/{{ s }}">{{ s }}</a></li>{% else %}<li class="muted">Chưa có series.</li>{% endfor %}</ul>
-<h2>Tạo series</h2>
-<form class="card" method="post" action="/series">
-  <div class="cols3">
-    <div><label>Tên (chữ thường, số, gạch nối)</label><input type="text" name="name" required pattern="[a-z0-9][a-z0-9_-]{0,40}"></div>
-    <div><label>Lấy nhân vật từ cast của task</label><select name="from_task"><option value="">(trống)</option>{% for t in tasks %}<option>{{ t.id }}</option>{% endfor %}</select></div>
+<div class="page-heading"><div><p class="eyebrow">04 / SERIES LIBRARY</p><h1>The worlds you return to.</h1><p class="page-subtitle">Keep characters, visual identity and narrative voices consistent.</p></div><a class="button primary" href="#create-series">+ New series</a></div>
+<section class="card">
+  <div class="section-heading"><div><p class="eyebrow">STORY COLLECTIONS</p><h2>Your series</h2></div><span class="muted small">{{ series|length }} collections</span></div>
+  <div class="series-gallery">
+  {% for s in series %}
+  <a href="/series/{{ s }}" class="series-tile">
+    <div class="series-cover cover-{{ loop.index0 % 3 }}" aria-hidden="true"><span class="cover-orb"></span><span class="cover-landscape"></span><small>IGNITERRA ORIGINAL</small></div>
+    <div class="series-tile-body"><span class="eyebrow">SERIES / {{ "%02d"|format(loop.index) }}</span><h3>{{ s }}</h3><span class="muted small">Open series bible →</span></div>
+  </a>
+  {% else %}
+  <div class="empty-state"><strong>No series yet</strong><p>Create a collection to keep your stories visually consistent.</p></div>
+  {% endfor %}
   </div>
-  <p><button class="primary">Tạo</button></p>
-</form>
+</section>
+<section class="card create-series" id="create-series">
+  <div class="section-heading"><div><p class="eyebrow">NEW COLLECTION</p><h2>Create a series</h2></div></div>
+  <form method="post" action="/series" class="series-form">
+    <div><label for="series_new_name">Series name (lowercase, numbers, hyphens)</label><input id="series_new_name" type="text" name="name" required pattern="[a-z0-9][a-z0-9_-]{0,40}" placeholder="cosmic-microfiction"></div>
+    <div><label for="series_from_task">Start from a task's cast</label><select id="series_from_task" name="from_task"><option value="">No source task</option>{% for t in tasks %}<option value="{{ t.id }}">{{ t.id }}</option>{% endfor %}</select></div>
+    <button class="primary button" type="submit">Create series →</button>
+  </form>
+</section>
 {% endblock %}

@@ -4,8 +4,9 @@
 {% set locked = task.status == "running" %}
 {% set dis = "disabled" if locked else "" %}
 {% block body %}
-<div class="row" style="justify-content: space-between">
+<div class="page-header">
   <div>
+    <p class="eyebrow">02 / STORYBOARD EDITOR</p>
     <h1>{{ plan.title if plan else task.brief.title }}</h1>
     <div class="muted small">{{ task.id }} · {{ task.brief.id }} · ScenePlan rev {{ task.plan_rev }}{% if task.series %} · series <a href="/series/{{ task.series }}">{{ task.series }}</a>{% endif %}</div>
   </div>
@@ -14,8 +15,8 @@
 {% include "_status.html" %}
 
 {% if task.status == "waiting" and task.wait_reason == "gate:keyframes" %}
-<div class="card" style="margin-bottom: 16px">
-  <b>Gate keyframes</b> <span class="muted small">— duyệt ảnh selected của mọi scene trước khi dựng giọng và video</span>
+<div class="card review-notice">
+  <p class="eyebrow">APPROVAL CHECKPOINT</p><b>Gate keyframes</b> <span class="muted small">— duyệt ảnh selected của mọi scene trước khi dựng giọng và video</span>
   <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate" style="margin-top: 8px">
     <input type="text" name="note" placeholder="ghi chú (tùy chọn)" style="max-width: 420px">
     <button class="primary" name="decision" value="approve" {{ dis }}>Duyệt</button>
@@ -25,7 +26,8 @@
 {% endif %}
 
 {% if current_render %}
-<div class="card" style="margin-bottom: 16px">
+<div class="card final-review-panel">
+  <p class="eyebrow">08 / FINAL VIDEO REVIEW</p>
   <div class="row" style="align-items: flex-start">
     <video controls preload="metadata" src="/files/tasks/{{ task.id }}/renders/{{ current_render }}/final_9x16.mp4"></video>
     <div style="flex: 1; min-width: 320px">
@@ -69,8 +71,8 @@
 </div>
 {% endif %}
 
-<div class="split">
-  <div class="grid">
+<div class="split storyboard-layout">
+  <div class="grid scene-grid">
     {% for s in scenes %}
     <a class="scene {{ 'active' if s.scene.id == active }}" href="/tasks/{{ task.id }}?scene={{ s.scene.id }}">
       {% if s.image %}<img loading="lazy" src="/files/tasks/{{ task.id }}/{{ s.image.path }}" alt="{{ s.scene.id }}">{% else %}<div class="thumb"></div>{% endif %}
@@ -89,7 +91,8 @@
 
   {% for s in scenes if s.scene.id == active %}
   {% set sc = s.scene %}
-  <div class="card">
+  <div class="card scene-inspector">
+    <p class="eyebrow">SCENE INSPECTOR</p>
     <h2 style="margin-top: 0">Sửa {{ sc.id }}</h2>
     <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/edit" class="edit">
       <label>narration</label><textarea name="narration" rows="4">{{ sc.narration }}</textarea>
@@ -130,7 +133,7 @@
     {% endif %}
     {% endfor %}
 
-    <h3>Chạy lại kèm ghi chú</h3>
+    <h3 class="inspector-section-title">Chạy lại kèm ghi chú</h3>
     <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/rerun" class="row edit">
       <select name="step" style="width: auto"><option>keyframes</option><option>voice</option></select>
       <input type="text" name="note" required placeholder="vd: hands out of frame" style="flex: 1">
