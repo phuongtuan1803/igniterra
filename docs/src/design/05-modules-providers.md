@@ -348,7 +348,7 @@ Việc cần kiểm trước việc 7 của Gate 2. Ngày 25/10/2026 đã kiểm
 - [ ] LLM có hỗ trợ JSON schema hoặc JSON mode qua gateway không; nếu không, dựa vào kiểm Pydantic và `QualityFail`
 - [ ] Response có khối `usage`; adapter ghi vào `costs.jsonl`. OmniRoute không báo số USD, nên `est_usd` để `null` và đối chiếu ở hóa đơn upstream
 - [x] Giới hạn credit 5 USD đã đặt ở openrouter.ai (Tuan, 25/10/2026); kết nối openrouter trong OmniRoute không có giới hạn riêng. Với LLM và ảnh đều qua codex (gói thuê bao), chi phí bị giới hạn bằng hạn mức của gói, không tính theo lượt
-- [ ] Lượt gọi thử `codex/gpt-image-2` qua `/v1/images/edits` với 3 ảnh tham chiếu riêng: response, kích thước, có giữ được nhân vật không; nếu lỗi, thử `codex/gpt-5.6-luna-image`
+- [ ] Lượt gọi thử `codex/gpt-image-2` qua `/v1/images/edits` với 3 ảnh tham chiếu riêng: response, kích thước, có giữ được nhân vật không. Lần thử ngày 25/10/2026 (cả `codex/gpt-image-2` và `codex/gpt-5.6-luna-image`): OmniRoute trả 401 "No credentials for provider: codex" sau dưới 0,1 giây, log ghi "all 1 accounts unavailable", chưa sinh ảnh; kết nối Codex vẫn active và còn hạn mức. Cần kiểm trên dashboard: khóa account theo model ảnh, hoặc gói Codex không có quyền tạo ảnh
 - [ ] Điều khoản của gói thuê bao codex có cho dùng qua gateway cho việc sản xuất video không
 - [x] Dashboard OmniRoute: mật khẩu không phải mặc định, bắt đăng nhập, `REQUIRE_API_KEY=true`, chỉ nghe ở 127.0.0.1
 ```
