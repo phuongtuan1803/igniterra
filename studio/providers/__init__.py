@@ -17,6 +17,7 @@ REGISTRY: dict[str, dict[str, str]] = {
     "tts": {
         "mpt": "studio.providers.mpt.tts:MptTTS",
         "fake": "studio.providers.fake:FakeTTS",
+        "fake_alt": "studio.providers.fake:FakeAltTTS",
     },
     "subtitles": {
         "mpt": "studio.providers.mpt.subtitle:MptSubtitleAligner",

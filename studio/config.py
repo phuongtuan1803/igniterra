@@ -36,7 +36,8 @@ DEFAULTS: dict = {
     "worker": {"poll_s": 2.0},
 }
 
-SECRET_ENV = ("OMNIROUTE_API_KEY",)
+SECRET_ENV = ("OMNIROUTE_API_KEY", "STUDIO_BASIC_AUTH")
+SETTINGS_FILE = "settings.toml"
 
 
 def deep_merge(base: dict, extra: dict | None) -> dict:
@@ -61,16 +62,38 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
-def load(root: Path | None = None, path: Path | None = None) -> dict:
+def load(root: Path | None = None, path: Path | None = None, data_dir: str | None = None) -> dict:
+    """mặc định < studio.toml < data/settings.toml (trang Settings ghi) < tasks.overrides (lúc chạy task)."""
     root = Path(root or os.environ.get("STUDIO_ROOT") or Path.cwd())
     load_dotenv(root / ".env")
-    path = path or Path(os.environ.get("STUDIO_CONFIG", root / "studio.toml"))
+    path = Path(path or os.environ.get("STUDIO_CONFIG") or root / "studio.toml")
     file_config = tomllib.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
     config = deep_merge(DEFAULTS, file_config)
-    data_dir = Path(config["data_dir"]).expanduser()
-    config["data_dir"] = str(data_dir if data_dir.is_absolute() else (root / data_dir).resolve())
+    folder = Path(data_dir or config["data_dir"]).expanduser()
+    folder = folder if folder.is_absolute() else (root / folder).resolve()
+    settings = folder / SETTINGS_FILE
+    if settings.is_file():
+        config = deep_merge(config, tomllib.loads(settings.read_text(encoding="utf-8")))
+    config["data_dir"] = str(folder)
     config["root"] = str(root.resolve())
+    config["config_path"] = str(path)
     return config
+
+
+def write_settings(path: Path, overlay: dict) -> None:
+    """Trang Settings ghi lớp phủ riêng, không sửa studio.toml đã commit."""
+    import tempfile
+
+    import toml   # do gói mpt ghim
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=".settings-", dir=path.parent)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write("# Ghi bởi trang Settings; phủ lên studio.toml. Xóa file để về mặc định.\n")
+        handle.write(toml.dumps(overlay))
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(name, path)
 
 
 def effective(config: dict, overrides: dict | None) -> dict:

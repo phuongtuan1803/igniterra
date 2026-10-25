@@ -1,0 +1,8 @@
+{% macro status_chip(task) -%}
+{%- set cls = {"completed": "ok", "waiting": "warn", "failed": "bad", "running": "", "pending": ""}[task.status] -%}
+<span class="chip {{ cls }}">{{ task.status }}{% if task.wait_reason %} · {{ task.wait_reason }}{% endif %}</span>
+{%- endmacro %}
+
+{% macro usd(value, missing) -%}
+{%- if value %}${{ "%.3f"|format(value) }}{% endif %}{% if missing %}{% if value %} + {% endif %}{{ missing }} lượt chưa có giá{% endif %}{% if not value and not missing %}$0{% endif -%}
+{%- endmacro %}

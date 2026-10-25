@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_chip, usd %}
+{% block title %}Tasks{% endblock %}
+{% block body %}
+<h1>Tasks</h1>
+<table>
+  <tr><th>Task</th><th>Tiêu đề</th><th>Trạng thái</th><th>Bước</th><th>Render</th><th>Chi phí đã ghi</th><th></th></tr>
+  {% for t in tasks %}
+  <tr>
+    <td><a href="/tasks/{{ t.id }}">{{ t.id }}</a></td>
+    <td>{{ t.title }} <span class="muted small">{{ t.brief_id }}</span></td>
+    <td>{{ status_chip(t) }}</td>
+    <td class="small">{{ t.current_step or "" }}</td>
+    <td class="small">{{ t.renders|join(", ") }}</td>
+    <td class="small">{{ usd(t.usd, t.unpriced) }}</td>
+    <td class="small"><a href="/tasks/{{ t.id }}/detail">chi tiết</a></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="muted">Chưa có task.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Tạo task</h2>
+<form class="card" method="post" action="/tasks">
+  <div class="cols3">
+    <div><label>Brief có sẵn (briefs/)</label>
+      <select name="brief_file"><option value="">—</option>{% for b in briefs %}<option>{{ b }}</option>{% endfor %}</select></div>
+    <div><label>Series</label>
+      <select name="series"><option value="">(không series)</option>{% for s in series %}<option>{{ s }}</option>{% endfor %}</select></div>
+    <div></div>
+  </div>
+  <label>Hoặc dán brief JSON (theo contract Brief)</label>
+  <textarea name="brief_json" placeholder='{"id": "...", "title": "...", "hook": "...", "beats": [...], "twist": "..."}'></textarea>
+  <details><summary>Nâng cao: ghi đè adapter/model cho task này</summary>
+    <label>JSON ghi đè, ví dụ {"omniroute": {"image_model": "..."}}</label>
+    <textarea name="overrides"></textarea>
+  </details>
+  <p><button class="primary">Tạo task</button></p>
+</form>
+{% endblock %}

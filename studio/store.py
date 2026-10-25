@@ -56,6 +56,19 @@ CREATE TABLE IF NOT EXISTS gate_decisions (
     note TEXT,
     at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS series_jobs (
+    id INTEGER PRIMARY KEY,
+    series TEXT NOT NULL,
+    character TEXT NOT NULL,
+    view TEXT NOT NULL,
+    status TEXT NOT NULL,
+    attempt INTEGER NOT NULL DEFAULT 0,
+    output_path TEXT,
+    error TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT
+);
 CREATE TABLE IF NOT EXISTS reviews (
     id INTEGER PRIMARY KEY,
     task_id TEXT NOT NULL REFERENCES tasks(id),
@@ -257,6 +270,37 @@ class Store:
         with self.connect() as db:
             db.execute("UPDATE step_runs SET status=?, error=COALESCE(?, error), finished_at=? WHERE id=?",
                        (status, error, now(), run_id))
+
+    # ------------------------------------------------------------ series_jobs (ảnh tham chiếu, worker chạy)
+
+    def add_series_job(self, series: str, character: str, view: str, note: str | None = None) -> int:
+        with self.connect() as db:
+            return db.execute(
+                "INSERT INTO series_jobs (series, character, view, status, note, created_at) VALUES (?,?,?,?,?,?)",
+                (series, character, view, "pending", note, now()),
+            ).lastrowid
+
+    def series_jobs(self, series: str | None = None, status: str | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM series_jobs WHERE 1=1", []
+        if series:
+            sql, args = sql + " AND series=?", args + [series]
+        if status:
+            sql, args = sql + " AND status=?", args + [status]
+        with self.connect() as db:
+            return [dict(row) for row in db.execute(sql + " ORDER BY id", args).fetchall()]
+
+    def claim_series_job(self) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM series_jobs WHERE status='pending' ORDER BY id LIMIT 1").fetchone()
+            if row and db.execute("UPDATE series_jobs SET status='running', attempt=attempt+1 WHERE id=? AND status='pending'",
+                                  (row["id"],)).rowcount:
+                return {**dict(row), "status": "running", "attempt": row["attempt"] + 1}
+        return None
+
+    def finish_series_job(self, job_id: int, status: str, output_path: str | None = None, error: str | None = None) -> None:
+        with self.connect() as db:
+            db.execute("UPDATE series_jobs SET status=?, output_path=?, error=?, finished_at=? WHERE id=?",
+                       (status, output_path, error, now(), job_id))
 
     # ------------------------------------------------------------ gate_decisions, reviews
 

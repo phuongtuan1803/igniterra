@@ -48,8 +48,12 @@ class _Client:
         body = response.text[:600]
         if response.status_code == 429:
             raise Retryable(f"429 từ chối trước khi xử lý: {body}")
-        if response.status_code == 400 and ("moderation" in body.lower() or "safety" in body.lower()):
+        lowered = body.lower()
+        if response.status_code == 400 and ("moderation" in lowered or "safety" in lowered):
             raise ContentRefused(f"provider chặn nội dung (moderation), cần diễn đạt lại visual: {body[:200]}")
+        if response.status_code == 400 and "could not generate" in lowered:
+            # Gemini trả 400 "could not generate an image (STOP)": không sinh gì, không phải lỗi cấu hình.
+            raise ContentRefused(f"provider không sinh được ảnh, cần diễn đạt lại visual: {body[:200]}")
         if response.status_code in (400, 401, 403, 404, 422):
             raise Fatal(f"HTTP {response.status_code}: {body}")
         if response.status_code >= 500:

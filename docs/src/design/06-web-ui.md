@@ -2,7 +2,7 @@
 id: IGN-UI
 title: Igniterra — Giao diện review và CLI
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -13,6 +13,7 @@ rev:
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: CLI trước, 4 trang review, chọn ứng viên selected, sửa tạo revision, quyết định lượt gọi unknown; bỏ ngân sách và Settings ghi profile"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: phiếu duyệt C01–C09 và phút công ở gate final, lệnh review và task pause, không sửa khi task đang chạy, khai báo nguồn khi upload, trạng thái duration_exceeded"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.3", 2026-10-25, "Gate 3 đã xây: route, phiếu duyệt trên Storyboard, job ảnh tham chiếu, Settings ghi lớp phủ, lệnh web và series"]
 ---
 
 <!-- id:s1 -->
@@ -238,6 +239,22 @@ Table: Lệnh CLI đề xuất
 | `python -m studio run-step keyframes --task t_0042 --scene s03` | Chạy một bước cho một scene khi debug |
 
 <!-- id:s8 -->
+## Đã xây ở Gate 3
+
+Table: Route của trang review (`studio/web/`)
+| Route | Trang / hành động |
+| --- | --- |
+| `GET /`, `POST /tasks` | Tasks; tạo task từ `briefs/*.json` hoặc JSON dán vào, series, ghi đè |
+| `GET /tasks/{id}?scene=sNN` | Storyboard: lưới scene, khung sửa, dải ứng viên, video của render hiện tại, phiếu C01–C09 |
+| `POST /tasks/{id}/scenes/{s}/edit\|select\|rerun\|upload` | Sửa → revision mới; chọn; chạy lại kèm ghi chú; upload kèm nguồn, quyền, cờ AI |
+| `POST /tasks/{id}/gate\|review\|pause\|resume\|cancel` | Gate, phiếu duyệt (phút chủ động tự điền theo thời gian mở trang), điều khiển task |
+| `GET /tasks/{id}/detail`, `POST /tasks/{id}/unknown/{s}` | Task detail: bước, lượt chạy, `costs.jsonl`, `worker.log`; quyết định `unknown` |
+| `GET /series/{tên}`, `POST /series...` | Series Bible: style, giọng, lexicon, nhân vật, job ảnh tham chiếu, duyệt → character sheet |
+| `GET/POST /settings` | Adapter mặc định, model, song song, gate keyframes → `data/settings.toml` |
+| `GET /files/{path}` | File trong `data/`, `realpath` + `commonpath`; symlink ra ngoài bị chặn |
+
+Lệnh thêm: `python -m studio web [--host --port]`, `python -m studio series list|new|show|character|ref|approve`. Basic auth bật bằng biến `STUDIO_BASIC_AUTH=user:pass`.
+
 ## Truy cập và bảo mật
 
 <!-- id:s8.b1 -->

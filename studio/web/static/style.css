@@ -1,0 +1,52 @@
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6860; --line: #e2dfd8;
+  --accent: #2f5d8a; --ok: #2e7d4f; --warn: #a8641a; --bad: #b3372e; --chip: #efede8;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161615; --panel: #201f1d; --ink: #ecebe7; --muted: #a29f97; --line: #34322e;
+          --accent: #7fb0e0; --ok: #6cc391; --warn: #e0a560; --bad: #ef8379; --chip: #2a2926; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+header { display: flex; gap: 20px; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header .brand { font-weight: 650; }
+main { padding: 18px 20px 60px; max-width: 1500px; margin: 0 auto; }
+h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 22px 0 8px; } h3 { font-size: 14px; margin: 14px 0 6px; }
+.muted { color: var(--muted); } .small { font-size: 13px; }
+.flash { padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; background: var(--chip); }
+.flash.err { color: var(--bad); border: 1px solid var(--bad); background: transparent; }
+table { border-collapse: collapse; width: 100%; background: var(--panel); }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 13px; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; white-space: nowrap; }
+.chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 18px; align-items: start; }
+@media (max-width: 1000px) { .split { grid-template-columns: 1fr; } }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.scene { display: block; color: inherit; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; overflow: hidden; }
+.scene:hover { text-decoration: none; border-color: var(--muted); }
+.scene.active { border-color: var(--accent); }
+.scene img, .thumb { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; display: block; background: var(--chip); }
+.scene .meta { padding: 8px 10px; font-size: 12.5px; }
+.strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.strip .cand { width: 92px; flex: 0 0 auto; text-align: center; font-size: 11.5px; }
+.strip .cand img { width: 92px; aspect-ratio: 9 / 16; object-fit: cover; border: 2px solid transparent; border-radius: 4px; }
+.strip .cand.sel img { border-color: var(--ok); }
+label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 3px; }
+input[type=text], input[type=number], textarea, select { width: 100%; font: inherit; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--bg); color: var(--ink); }
+textarea { min-height: 70px; resize: vertical; }
+button { font: inherit; padding: 6px 14px; border-radius: 5px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.danger { color: var(--bad); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.status { padding: 10px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); margin: 10px 0 16px; }
+.cols3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+pre { background: var(--chip); padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+video { width: 100%; max-width: 360px; border-radius: 6px; background: #000; }
+.checklist td { font-size: 13px; } .checklist select { width: auto; } .checklist input { padding: 3px 6px; }
+details summary { cursor: pointer; color: var(--muted); }

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}studio{% endblock %} · Igniterra</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<header>
+  <span class="brand">Igniterra studio</span>
+  <a href="/">Tasks</a>
+  <a href="/series">Series</a>
+  <a href="/settings">Settings</a>
+</header>
+<main>
+  {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+  {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+  {% block body %}{% endblock %}
+</main>
+</body>
+</html>

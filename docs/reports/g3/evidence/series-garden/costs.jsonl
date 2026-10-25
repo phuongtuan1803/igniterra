@@ -1,0 +1,10 @@
+{"ts":"2026-10-25T08:55:03","request_id":"series:garden:robot_bao_tri:front:1.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:55:20","request_id":"series:garden:robot_bao_tri:front:1.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:55:37","request_id":"series:garden:robot_bao_tri:side:3.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:55:54","request_id":"series:garden:robot_bao_tri:side:3.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:56:11","request_id":"series:garden:robot_bao_tri:three_quarter:5.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:56:28","request_id":"series:garden:robot_bao_tri:three_quarter:5.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:57:47","request_id":"series:garden:robot_bao_tri:side:7.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:58:15","request_id":"series:garden:robot_bao_tri:side:7.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}
+{"ts":"2026-10-25T08:58:15","request_id":"series:garden:robot_bao_tri:three_quarter:8.1:1","status":"pending","provider":"omniroute","model":"openrouter/google/gemini-3.1-flash-image-preview"}
+{"ts":"2026-10-25T08:58:41","request_id":"series:garden:robot_bao_tri:three_quarter:8.1:1","status":"ok","model":"openrouter/google/gemini-3.1-flash-image-preview","units":{"images":1.0}}

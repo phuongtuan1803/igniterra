@@ -96,7 +96,13 @@ class FakeTTS:
         timings = [{"start": round(i * per_word, 3), "end": round((i + 1) * per_word, 3), "text": w.strip(".,!?;:")}
                    for i, w in enumerate(words)]
         return AudioTrack(path=str(out), words=[] if SCRIPT.get("no_words") else timings,
-                          provider=f"fake:{voice.name}", model=self.model)
+                          provider=f"{self.name}:{voice.name}", model=self.model)
+
+
+class FakeAltTTS(FakeTTS):
+    """TTS giả thứ hai để kiểm đổi adapter chỉ bằng cấu hình (T07)."""
+
+    name, model = "fake_alt", "fake-alt-tts"
 
 
 class FakeAligner:

@@ -1,0 +1,1184 @@
+{
+  "s03": {
+    "image": {
+      "selected": "img_s03_a1",
+      "candidates": [
+        {
+          "id": "img_s03_a1",
+          "kind": "image",
+          "path": "keyframes/s03_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "a6c29a557ace96cf1c256112edb15229a5a45f4d1ad6b1c58741b99e71988c45",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T09:02:37"
+        }
+      ]
+    },
+    "voice": {
+      "selected": "vo_s03_a1",
+      "candidates": [
+        {
+          "id": "vo_s03_a1",
+          "kind": "voice",
+          "path": "voice/vo_s03_a1.mp3",
+          "provider": "mpt:vi-VN-NamMinhNeural",
+          "model": "edge-tts:vi-VN-NamMinhNeural",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "sha256": "3a1a567094e0af9ad171d7c0d0131f533e8c891e38779923a7f258d8f1569e4f",
+          "duration_s": 12.624,
+          "from_ids": [],
+          "words": [
+            {
+              "start": 0.1,
+              "end": 0.35,
+              "text": "Ba"
+            },
+            {
+              "start": 0.35,
+              "end": 0.625,
+              "text": "tiếng"
+            },
+            {
+              "start": 0.625,
+              "end": 0.8875,
+              "text": "gõ"
+            },
+            {
+              "start": 0.8875,
+              "end": 1.1375,
+              "text": "vang"
+            },
+            {
+              "start": 1.1375,
+              "end": 1.375,
+              "text": "lên"
+            },
+            {
+              "start": 1.375,
+              "end": 1.5625,
+              "text": "từ"
+            },
+            {
+              "start": 1.5625,
+              "end": 1.75,
+              "text": "phía"
+            },
+            {
+              "start": 1.75,
+              "end": 2.1625,
+              "text": "ngoài"
+            },
+            {
+              "start": 3.0,
+              "end": 3.25,
+              "text": "Anh"
+            },
+            {
+              "start": 3.25,
+              "end": 3.425,
+              "text": "đứng"
+            },
+            {
+              "start": 3.425,
+              "end": 3.85,
+              "text": "sững"
+            },
+            {
+              "start": 4.0,
+              "end": 4.25,
+              "text": "tay"
+            },
+            {
+              "start": 4.25,
+              "end": 4.4375,
+              "text": "lơ"
+            },
+            {
+              "start": 4.4375,
+              "end": 4.725,
+              "text": "lửng"
+            },
+            {
+              "start": 4.725,
+              "end": 4.9125,
+              "text": "gần"
+            },
+            {
+              "start": 4.9125,
+              "end": 5.125,
+              "text": "bảng"
+            },
+            {
+              "start": 5.125,
+              "end": 5.5,
+              "text": "khóa"
+            },
+            {
+              "start": 5.7125,
+              "end": 5.975,
+              "text": "nghe"
+            },
+            {
+              "start": 5.975,
+              "end": 6.2875,
+              "text": "thêm"
+            },
+            {
+              "start": 6.2875,
+              "end": 6.4625,
+              "text": "hai"
+            },
+            {
+              "start": 6.4625,
+              "end": 6.7125,
+              "text": "tiếng"
+            },
+            {
+              "start": 6.7125,
+              "end": 7.075,
+              "text": "nữa"
+            },
+            {
+              "start": 7.9125,
+              "end": 8.175,
+              "text": "Cánh"
+            },
+            {
+              "start": 8.175,
+              "end": 8.3875,
+              "text": "cửa"
+            },
+            {
+              "start": 8.3875,
+              "end": 8.6125,
+              "text": "rung"
+            },
+            {
+              "start": 8.6125,
+              "end": 8.7875,
+              "text": "rất"
+            },
+            {
+              "start": 8.7875,
+              "end": 9.125,
+              "text": "nhẹ"
+            },
+            {
+              "start": 9.3,
+              "end": 9.5875,
+              "text": "dù"
+            },
+            {
+              "start": 9.5875,
+              "end": 9.8125,
+              "text": "không"
+            },
+            {
+              "start": 9.8125,
+              "end": 9.9375,
+              "text": "có"
+            },
+            {
+              "start": 9.9375,
+              "end": 10.1,
+              "text": "ai"
+            },
+            {
+              "start": 10.1,
+              "end": 10.325,
+              "text": "đáng"
+            },
+            {
+              "start": 10.325,
+              "end": 10.55,
+              "text": "lẽ"
+            },
+            {
+              "start": 10.55,
+              "end": 10.6625,
+              "text": "có"
+            },
+            {
+              "start": 10.6625,
+              "end": 10.825,
+              "text": "thể"
+            },
+            {
+              "start": 10.825,
+              "end": 11.075,
+              "text": "đứng"
+            },
+            {
+              "start": 11.075,
+              "end": 11.275,
+              "text": "trong"
+            },
+            {
+              "start": 11.275,
+              "end": 11.475,
+              "text": "chân"
+            },
+            {
+              "start": 11.475,
+              "end": 11.7875,
+              "text": "không"
+            }
+          ],
+          "created_at": "2026-10-25T09:09:26"
+        }
+      ]
+    },
+    "clip": {
+      "selected": "clip_s03_a1",
+      "candidates": [
+        {
+          "id": "clip_s03_a1",
+          "kind": "clip",
+          "path": "clips/clip_s03_a1.mp4",
+          "provider": "local:kenburns",
+          "model": "ffmpeg zoompan pan_right",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "b7826a6084a7335edc07f451a1bda86ceecc3df5216fba39fb62ed3f21872a29",
+          "duration_s": 13.133,
+          "width": 1080,
+          "height": 1920,
+          "from_ids": [
+            "img_s03_a1",
+            "vo_s03_a1"
+          ],
+          "words": [],
+          "created_at": "2026-10-25T09:09:35"
+        }
+      ]
+    }
+  },
+  "s02": {
+    "image": {
+      "selected": "img_s02_a1",
+      "candidates": [
+        {
+          "id": "img_s02_a1",
+          "kind": "image",
+          "path": "keyframes/s02_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "ed626dcd834ac674b94e5a2fcf4e2b3e0d916c032d1a48cc5d57f6d17c65b10d",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T09:02:39"
+        }
+      ]
+    },
+    "voice": {
+      "selected": "vo_s02_a1",
+      "candidates": [
+        {
+          "id": "vo_s02_a1",
+          "kind": "voice",
+          "path": "voice/vo_s02_a1.mp3",
+          "provider": "mpt:vi-VN-NamMinhNeural",
+          "model": "edge-tts:vi-VN-NamMinhNeural",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "sha256": "202acf5f6d5800128f4eccb5cb02c61f9dc8b222372abc5dc42fec801e8270dc",
+          "duration_s": 11.16,
+          "from_ids": [],
+          "words": [
+            {
+              "start": 0.1,
+              "end": 0.325,
+              "text": "Thiết"
+            },
+            {
+              "start": 0.325,
+              "end": 0.475,
+              "text": "bị"
+            },
+            {
+              "start": 0.475,
+              "end": 0.7125,
+              "text": "liên"
+            },
+            {
+              "start": 0.7125,
+              "end": 0.9125,
+              "text": "lạc"
+            },
+            {
+              "start": 0.9125,
+              "end": 1.125,
+              "text": "bỗng"
+            },
+            {
+              "start": 1.125,
+              "end": 1.325,
+              "text": "phát"
+            },
+            {
+              "start": 1.325,
+              "end": 1.5875,
+              "text": "giọng"
+            },
+            {
+              "start": 1.5875,
+              "end": 1.875,
+              "text": "anh"
+            },
+            {
+              "start": 2.0625,
+              "end": 2.2875,
+              "text": "tuyệt"
+            },
+            {
+              "start": 2.2875,
+              "end": 2.4875,
+              "text": "đối"
+            },
+            {
+              "start": 2.4875,
+              "end": 2.7125,
+              "text": "không"
+            },
+            {
+              "start": 2.7125,
+              "end": 2.9,
+              "text": "mở"
+            },
+            {
+              "start": 2.9,
+              "end": 3.125,
+              "text": "cửa"
+            },
+            {
+              "start": 3.125,
+              "end": 3.525,
+              "text": "khoang"
+            },
+            {
+              "start": 4.3625,
+              "end": 4.575,
+              "text": "Anh"
+            },
+            {
+              "start": 4.575,
+              "end": 4.825,
+              "text": "nhìn"
+            },
+            {
+              "start": 4.825,
+              "end": 5.0,
+              "text": "đèn"
+            },
+            {
+              "start": 5.0,
+              "end": 5.2,
+              "text": "báo"
+            },
+            {
+              "start": 5.2,
+              "end": 5.4,
+              "text": "chớp"
+            },
+            {
+              "start": 5.4,
+              "end": 5.825,
+              "text": "đỏ"
+            },
+            {
+              "start": 5.9875,
+              "end": 6.2625,
+              "text": "rồi"
+            },
+            {
+              "start": 6.2625,
+              "end": 6.5,
+              "text": "quay"
+            },
+            {
+              "start": 6.5,
+              "end": 6.625,
+              "text": "về"
+            },
+            {
+              "start": 6.625,
+              "end": 6.8625,
+              "text": "cánh"
+            },
+            {
+              "start": 6.8625,
+              "end": 7.1125,
+              "text": "cửa"
+            },
+            {
+              "start": 7.1125,
+              "end": 7.375,
+              "text": "đang"
+            },
+            {
+              "start": 7.375,
+              "end": 7.575,
+              "text": "đóng"
+            },
+            {
+              "start": 7.575,
+              "end": 7.925,
+              "text": "kín"
+            },
+            {
+              "start": 8.7625,
+              "end": 9.075,
+              "text": "Ngoài"
+            },
+            {
+              "start": 9.075,
+              "end": 9.325,
+              "text": "kia"
+            },
+            {
+              "start": 9.325,
+              "end": 9.5375,
+              "text": "chỉ"
+            },
+            {
+              "start": 9.5375,
+              "end": 9.675,
+              "text": "là"
+            },
+            {
+              "start": 9.675,
+              "end": 9.9125,
+              "text": "bóng"
+            },
+            {
+              "start": 9.9125,
+              "end": 10.3125,
+              "text": "tối"
+            }
+          ],
+          "created_at": "2026-10-25T09:09:19"
+        }
+      ]
+    },
+    "clip": {
+      "selected": "clip_s02_a1",
+      "candidates": [
+        {
+          "id": "clip_s02_a1",
+          "kind": "clip",
+          "path": "clips/clip_s02_a1.mp4",
+          "provider": "local:kenburns",
+          "model": "ffmpeg zoompan push_in",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "95a5d185868d7b6675234f84f7812a8614d2197164e0b03b6d4274b4a2241c42",
+          "duration_s": 11.667,
+          "width": 1080,
+          "height": 1920,
+          "from_ids": [
+            "img_s02_a1",
+            "vo_s02_a1"
+          ],
+          "words": [],
+          "created_at": "2026-10-25T09:09:33"
+        }
+      ]
+    }
+  },
+  "s01": {
+    "image": {
+      "selected": "img_s01_a1",
+      "candidates": [
+        {
+          "id": "img_s01_a1",
+          "kind": "image",
+          "path": "keyframes/s01_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "0288982e0d7f5e42fc566d620d8dd6acd3ba6d71e39a06186dd8097ce1fce887",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T09:02:39"
+        }
+      ]
+    },
+    "voice": {
+      "selected": "vo_s01_a1",
+      "candidates": [
+        {
+          "id": "vo_s01_a1",
+          "kind": "voice",
+          "path": "voice/vo_s01_a1.mp3",
+          "provider": "mpt:vi-VN-NamMinhNeural",
+          "model": "edge-tts:vi-VN-NamMinhNeural",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "sha256": "e6776c1bd260bdff85624cf826782143ef0ff7f74017aa6bec03957d40aa8b0b",
+          "duration_s": 11.208,
+          "from_ids": [],
+          "words": [
+            {
+              "start": 0.1,
+              "end": 0.375,
+              "text": "Người"
+            },
+            {
+              "start": 0.375,
+              "end": 0.6,
+              "text": "gác"
+            },
+            {
+              "start": 0.6,
+              "end": 0.85,
+              "text": "trạm"
+            },
+            {
+              "start": 0.85,
+              "end": 1.125,
+              "text": "nhận"
+            },
+            {
+              "start": 1.125,
+              "end": 1.2625,
+              "text": "được"
+            },
+            {
+              "start": 1.2625,
+              "end": 1.4375,
+              "text": "một"
+            },
+            {
+              "start": 1.4375,
+              "end": 1.65,
+              "text": "lời"
+            },
+            {
+              "start": 1.65,
+              "end": 1.9,
+              "text": "cảnh"
+            },
+            {
+              "start": 1.9,
+              "end": 2.15,
+              "text": "báo"
+            },
+            {
+              "start": 2.15,
+              "end": 2.4125,
+              "text": "bằng"
+            },
+            {
+              "start": 2.4125,
+              "end": 2.65,
+              "text": "chính"
+            },
+            {
+              "start": 2.65,
+              "end": 2.8375,
+              "text": "giọng"
+            },
+            {
+              "start": 2.8375,
+              "end": 3.1,
+              "text": "mình"
+            },
+            {
+              "start": 3.9375,
+              "end": 4.15,
+              "text": "Ca"
+            },
+            {
+              "start": 4.15,
+              "end": 4.4375,
+              "text": "trực"
+            },
+            {
+              "start": 4.4375,
+              "end": 4.6,
+              "text": "yên"
+            },
+            {
+              "start": 4.6,
+              "end": 4.925,
+              "text": "lặng"
+            },
+            {
+              "start": 5.075,
+              "end": 5.2625,
+              "text": "chỉ"
+            },
+            {
+              "start": 5.2625,
+              "end": 5.5,
+              "text": "còn"
+            },
+            {
+              "start": 5.5,
+              "end": 5.75,
+              "text": "tiếng"
+            },
+            {
+              "start": 5.75,
+              "end": 5.9125,
+              "text": "lọc"
+            },
+            {
+              "start": 5.9125,
+              "end": 6.2125,
+              "text": "khí"
+            },
+            {
+              "start": 6.2125,
+              "end": 6.425,
+              "text": "và"
+            },
+            {
+              "start": 6.425,
+              "end": 6.6,
+              "text": "ánh"
+            },
+            {
+              "start": 6.6,
+              "end": 6.85,
+              "text": "sao"
+            },
+            {
+              "start": 6.85,
+              "end": 7.0875,
+              "text": "trượt"
+            },
+            {
+              "start": 7.0875,
+              "end": 7.3,
+              "text": "qua"
+            },
+            {
+              "start": 7.3,
+              "end": 7.4625,
+              "text": "ô"
+            },
+            {
+              "start": 7.4625,
+              "end": 7.8875,
+              "text": "cửa"
+            },
+            {
+              "start": 8.725,
+              "end": 8.9875,
+              "text": "Anh"
+            },
+            {
+              "start": 8.9875,
+              "end": 9.225,
+              "text": "tuần"
+            },
+            {
+              "start": 9.225,
+              "end": 9.425,
+              "text": "tra"
+            },
+            {
+              "start": 9.425,
+              "end": 9.6375,
+              "text": "hành"
+            },
+            {
+              "start": 9.6375,
+              "end": 9.8875,
+              "text": "lang"
+            },
+            {
+              "start": 9.8875,
+              "end": 10.0625,
+              "text": "một"
+            },
+            {
+              "start": 10.0625,
+              "end": 10.35,
+              "text": "mình"
+            }
+          ],
+          "created_at": "2026-10-25T09:09:18"
+        }
+      ]
+    },
+    "clip": {
+      "selected": "clip_s01_a1",
+      "candidates": [
+        {
+          "id": "clip_s01_a1",
+          "kind": "clip",
+          "path": "clips/clip_s01_a1.mp4",
+          "provider": "local:kenburns",
+          "model": "ffmpeg zoompan pan_left",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "8dc9b1ab72e18c1fe481ac8a825da03068fb06c3b9d5badfb4729805a2a0abfb",
+          "duration_s": 11.733,
+          "width": 1080,
+          "height": 1920,
+          "from_ids": [
+            "img_s01_a1",
+            "vo_s01_a1"
+          ],
+          "words": [],
+          "created_at": "2026-10-25T09:09:32"
+        }
+      ]
+    }
+  },
+  "s04": {
+    "image": {
+      "selected": "img_s04_a2",
+      "candidates": [
+        {
+          "id": "img_s04_a1",
+          "kind": "image",
+          "path": "keyframes/s04_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "43709eaf06a959b360631ae8427366d6dba0f24b7fb6cbc8dec65f30e97d78df",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T09:03:06"
+        },
+        {
+          "id": "img_s04_a2",
+          "kind": "image",
+          "path": "keyframes/s04_a2.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "16d387a23122e8ec0dd4766cfd6316e40393bbca1c24fee70560aca7cb4dc6bf",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T09:09:07"
+        }
+      ]
+    },
+    "voice": {
+      "selected": "vo_s04_a1",
+      "candidates": [
+        {
+          "id": "vo_s04_a1",
+          "kind": "voice",
+          "path": "voice/vo_s04_a1.mp3",
+          "provider": "mpt:vi-VN-NamMinhNeural",
+          "model": "edge-tts:vi-VN-NamMinhNeural",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "sha256": "0b33d3c394e75f84ae02710cc49c8c142f945e22728c8b2296dc1a6b02b1142f",
+          "duration_s": 11.448,
+          "from_ids": [],
+          "words": [
+            {
+              "start": 0.1,
+              "end": 0.3875,
+              "text": "Anh"
+            },
+            {
+              "start": 0.3875,
+              "end": 0.6375,
+              "text": "không"
+            },
+            {
+              "start": 0.6375,
+              "end": 0.8375,
+              "text": "mở"
+            },
+            {
+              "start": 0.8375,
+              "end": 1.275,
+              "text": "cửa"
+            },
+            {
+              "start": 2.1125,
+              "end": 2.4,
+              "text": "Từ"
+            },
+            {
+              "start": 2.4,
+              "end": 2.625,
+              "text": "khe"
+            },
+            {
+              "start": 2.625,
+              "end": 2.8375,
+              "text": "quan"
+            },
+            {
+              "start": 2.8375,
+              "end": 3.1125,
+              "text": "sát"
+            },
+            {
+              "start": 3.3,
+              "end": 3.525,
+              "text": "anh"
+            },
+            {
+              "start": 3.525,
+              "end": 3.6875,
+              "text": "chỉ"
+            },
+            {
+              "start": 3.6875,
+              "end": 3.875,
+              "text": "thấy"
+            },
+            {
+              "start": 3.875,
+              "end": 4.15,
+              "text": "trạm"
+            },
+            {
+              "start": 4.15,
+              "end": 4.35,
+              "text": "nối"
+            },
+            {
+              "start": 4.35,
+              "end": 4.6,
+              "text": "dài"
+            },
+            {
+              "start": 4.6,
+              "end": 4.7375,
+              "text": "vào"
+            },
+            {
+              "start": 4.7375,
+              "end": 4.9625,
+              "text": "màu"
+            },
+            {
+              "start": 4.9625,
+              "end": 5.275,
+              "text": "đen"
+            },
+            {
+              "start": 6.1125,
+              "end": 6.35,
+              "text": "Khi"
+            },
+            {
+              "start": 6.35,
+              "end": 6.5375,
+              "text": "quay"
+            },
+            {
+              "start": 6.5375,
+              "end": 6.6875,
+              "text": "lại"
+            },
+            {
+              "start": 6.6875,
+              "end": 6.8875,
+              "text": "phòng"
+            },
+            {
+              "start": 6.8875,
+              "end": 7.0125,
+              "text": "điều"
+            },
+            {
+              "start": 7.0125,
+              "end": 7.4125,
+              "text": "khiển"
+            },
+            {
+              "start": 7.575,
+              "end": 7.7625,
+              "text": "anh"
+            },
+            {
+              "start": 7.7625,
+              "end": 7.95,
+              "text": "phát"
+            },
+            {
+              "start": 7.95,
+              "end": 8.15,
+              "text": "hiện"
+            },
+            {
+              "start": 8.15,
+              "end": 8.325,
+              "text": "thiết"
+            },
+            {
+              "start": 8.325,
+              "end": 8.475,
+              "text": "bị"
+            },
+            {
+              "start": 8.475,
+              "end": 8.675,
+              "text": "gửi"
+            },
+            {
+              "start": 8.675,
+              "end": 8.9125,
+              "text": "tín"
+            },
+            {
+              "start": 8.9125,
+              "end": 9.125,
+              "text": "hiệu"
+            },
+            {
+              "start": 9.125,
+              "end": 9.3,
+              "text": "đang"
+            },
+            {
+              "start": 9.3,
+              "end": 9.5,
+              "text": "hẹn"
+            },
+            {
+              "start": 9.5,
+              "end": 9.6625,
+              "text": "lịch"
+            },
+            {
+              "start": 9.6625,
+              "end": 9.9375,
+              "text": "phát"
+            },
+            {
+              "start": 9.9375,
+              "end": 10.1,
+              "text": "vào"
+            },
+            {
+              "start": 10.1,
+              "end": 10.275,
+              "text": "ngày"
+            },
+            {
+              "start": 10.275,
+              "end": 10.6125,
+              "text": "mai"
+            }
+          ],
+          "created_at": "2026-10-25T09:09:22"
+        }
+      ]
+    },
+    "clip": {
+      "selected": "clip_s04_a1",
+      "candidates": [
+        {
+          "id": "clip_s04_a1",
+          "kind": "clip",
+          "path": "clips/clip_s04_a1.mp4",
+          "provider": "local:kenburns",
+          "model": "ffmpeg zoompan pull_out",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "67a127e60f1ba3c58591f06b689ec29018e3b0da10dd39a26de3836c3e3635db",
+          "duration_s": 11.967,
+          "width": 1080,
+          "height": 1920,
+          "from_ids": [
+            "img_s04_a2",
+            "vo_s04_a1"
+          ],
+          "words": [],
+          "created_at": "2026-10-25T09:09:36"
+        }
+      ]
+    }
+  },
+  "s05": {
+    "image": {
+      "selected": "img_s05_a1",
+      "candidates": [
+        {
+          "id": "img_s05_a1",
+          "kind": "image",
+          "path": "keyframes/s05_a1.jpg",
+          "provider": "omniroute",
+          "model": "openrouter/google/gemini-3.1-flash-image-preview",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "adf092701df7031f3d3cf954afbfe2d0af31ca75f8496f55c353705243b4a06a",
+          "width": 1536,
+          "height": 2752,
+          "from_ids": [],
+          "words": [],
+          "created_at": "2026-10-25T09:03:07"
+        }
+      ]
+    },
+    "voice": {
+      "selected": "vo_s05_a1",
+      "candidates": [
+        {
+          "id": "vo_s05_a1",
+          "kind": "voice",
+          "path": "voice/vo_s05_a1.mp3",
+          "provider": "mpt:vi-VN-NamMinhNeural",
+          "model": "edge-tts:vi-VN-NamMinhNeural",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "sha256": "745287360c2479dfb3f7e4a389a8b0863eb1976e19c9b0e4484c587629fef5e9",
+          "duration_s": 5.928,
+          "from_ids": [],
+          "words": [
+            {
+              "start": 0.1,
+              "end": 0.3375,
+              "text": "Anh"
+            },
+            {
+              "start": 0.3375,
+              "end": 0.5375,
+              "text": "mở"
+            },
+            {
+              "start": 0.5375,
+              "end": 0.6875,
+              "text": "lịch"
+            },
+            {
+              "start": 0.6875,
+              "end": 0.95,
+              "text": "sử"
+            },
+            {
+              "start": 0.95,
+              "end": 1.1875,
+              "text": "ghi"
+            },
+            {
+              "start": 1.1875,
+              "end": 1.5,
+              "text": "âm"
+            },
+            {
+              "start": 1.6875,
+              "end": 1.95,
+              "text": "trống"
+            },
+            {
+              "start": 1.95,
+              "end": 2.35,
+              "text": "rỗng"
+            },
+            {
+              "start": 3.1875,
+              "end": 3.525,
+              "text": "Lời"
+            },
+            {
+              "start": 3.525,
+              "end": 3.775,
+              "text": "cảnh"
+            },
+            {
+              "start": 3.775,
+              "end": 4.0125,
+              "text": "báo"
+            },
+            {
+              "start": 4.0125,
+              "end": 4.2375,
+              "text": "chưa"
+            },
+            {
+              "start": 4.2375,
+              "end": 4.4625,
+              "text": "được"
+            },
+            {
+              "start": 4.4625,
+              "end": 4.6375,
+              "text": "anh"
+            },
+            {
+              "start": 4.6375,
+              "end": 4.8375,
+              "text": "ghi"
+            },
+            {
+              "start": 4.8375,
+              "end": 5.0875,
+              "text": "âm"
+            }
+          ],
+          "created_at": "2026-10-25T09:09:30"
+        }
+      ]
+    },
+    "clip": {
+      "selected": "clip_s05_a1",
+      "candidates": [
+        {
+          "id": "clip_s05_a1",
+          "kind": "clip",
+          "path": "clips/clip_s05_a1.mp4",
+          "provider": "local:kenburns",
+          "model": "ffmpeg zoompan static",
+          "plan_rev": 1,
+          "ai_generated": true,
+          "source": "omniroute:openrouter/google/gemini-3.1-flash-image-preview",
+          "rights": "AI-generated (điều khoản provider)",
+          "sha256": "29638d1b6c35fde05d64aa5c8ccf035bf42bc9e31c810d3b5da86898dc36aad3",
+          "duration_s": 6.433,
+          "width": 1080,
+          "height": 1920,
+          "from_ids": [
+            "img_s05_a1",
+            "vo_s05_a1"
+          ],
+          "words": [],
+          "created_at": "2026-10-25T09:09:37"
+        }
+      ]
+    }
+  }
+}

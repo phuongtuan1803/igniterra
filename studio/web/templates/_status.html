@@ -1,0 +1,16 @@
+{% from "_macros.html" import status_chip %}
+<div class="status row" id="status" {% if task.status in ("running", "pending") %}hx-get="/tasks/{{ task.id }}/status" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  {{ status_chip(task) }}
+  {% if task.status == "running" %}
+    <span>đang chạy bước <b>{{ task.current_step }}</b>{% if task.pause_requested %} · đã yêu cầu dừng{% endif %}</span>
+    <form method="post" action="/tasks/{{ task.id }}/pause"><button>Tạm dừng</button></form>
+  {% elif task.status == "pending" %}
+    <span>chờ worker</span>
+  {% elif task.wait_detail %}
+    <span class="small">{{ task.wait_detail }}</span>
+  {% endif %}
+  {% if task.status == "waiting" and task.wait_reason in ("paused", "retries_exhausted", "duration_exceeded") %}
+    <form method="post" action="/tasks/{{ task.id }}/resume"><button>Chạy tiếp</button></form>
+  {% endif %}
+  {% if task.status == "running" %}<script>document.querySelectorAll("form.edit button").forEach(b => b.disabled = true)</script>{% endif %}
+</div>

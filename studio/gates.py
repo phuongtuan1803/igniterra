@@ -55,7 +55,11 @@ def rerun_request(ctx, step: str, scene: str) -> dict | None:
 
 
 def unknown_decision(ctx, request_id: str) -> str | None:
-    decisions = ctx.store.decisions(ctx.task_id, "unknown_call", request_id)
+    return unknown_decision_raw(ctx.store, ctx.task_id, request_id)
+
+
+def unknown_decision_raw(store: Store, task_id: str, request_id: str) -> str | None:
+    decisions = store.decisions(task_id, "unknown_call", request_id)
     return decisions[-1]["decision"] if decisions else None
 
 
