@@ -34,7 +34,7 @@ main: Máy chính {
   ff: "FFmpeg\nfaster-whisper (qua MPT)" {class: hands}
 }
 gpu: "Máy GPU / pod\nComfyUI API (Gate 4)" {class: hands}
-cloud: "API cloud\nOmniRoute (codex, openrouter),\nVeo, ElevenLabs" {class: plain}
+cloud: "API cloud\nOmniRoute (codex),\nVeo, ElevenLabs" {class: plain}
 backup: "Nơi sao lưu\n(ổ khác / cloud)" {shape: cylinder; class: data}
 op -> net -> main.web
 main.worker -> main.venv
