@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from "_macros.html" import usd %}
+{% block title %}{{ task.id }} · Storyboard{% endblock %}
+{% set locked = task.status == "running" %}
+{% set dis = "disabled" if locked else "" %}
+{% block body %}
+<div class="row" style="justify-content: space-between">
+  <div>
+    <h1>{{ plan.title if plan else task.brief.title }}</h1>
+    <div class="muted small">{{ task.id }} · {{ task.brief.id }} · ScenePlan rev {{ task.plan_rev }}{% if task.series %} · series <a href="/series/{{ task.series }}">{{ task.series }}</a>{% endif %}</div>
+  </div>
+  <a href="/tasks/{{ task.id }}/detail">Task detail →</a>
+</div>
+{% include "_status.html" %}
+
+{% if task.status == "waiting" and task.wait_reason == "gate:keyframes" %}
+<div class="card" style="margin-bottom: 16px">
+  <b>Gate keyframes</b> <span class="muted small">— duyệt ảnh selected của mọi scene trước khi dựng giọng và video</span>
+  <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate" style="margin-top: 8px">
+    <input type="text" name="note" placeholder="ghi chú (tùy chọn)" style="max-width: 420px">
+    <button class="primary" name="decision" value="approve" {{ dis }}>Duyệt</button>
+    <button name="decision" value="reject" {{ dis }}>Từ chối</button>
+  </form>
+</div>
+{% endif %}
+
+{% if current_render %}
+<div class="card" style="margin-bottom: 16px">
+  <div class="row" style="align-items: flex-start">
+    <video controls preload="metadata" src="/files/tasks/{{ task.id }}/renders/{{ current_render }}/final_9x16.mp4"></video>
+    <div style="flex: 1; min-width: 320px">
+      <b>Bản render {{ current_render }}</b>
+      <span class="muted small">(ứng với lựa chọn hiện tại{% if renders|length > 1 %}; mọi bản: {{ renders|join(", ") }}{% endif %})</span>
+      {% if manifest %}<div class="small muted">đo được: {{ manifest.width }}×{{ manifest.height }} · {{ "%.2f"|format(manifest.duration_s) }} giây (trần {{ task.brief.max_s }}) · plan rev {{ manifest.plan_rev }}</div>{% endif %}
+      {% set mine = reviews|selectattr("render_rev", "equalto", current_render)|list %}
+      {% if mine %}<div class="small">Phiếu đã ghi: {% for r in mine %}<span class="chip {{ 'ok' if r.accepted else 'warn' }}">accepted={{ r.accepted == 1 }} · {{ r.active_minutes }} phút · {{ r.reviewer }}</span> {% endfor %}</div>{% endif %}
+      {% if task.status == "waiting" and task.wait_reason == "gate:final" %}
+      <form method="post" action="/tasks/{{ task.id }}/review" class="edit" id="review">
+        <table class="checklist">
+          <tr><th>Tiêu chí</th><th>Kết quả</th><th>Mốc</th><th>Ghi chú</th></tr>
+          {% for c in checklist %}
+          <tr><td><b>{{ c }}</b> {{ checklist_text[c] }}</td>
+            <td><select name="{{ c }}_result"><option>unknown</option><option>pass</option><option>fail</option></select></td>
+            <td><input type="text" name="{{ c }}_ts" placeholder="mm:ss" style="width: 70px"></td>
+            <td><input type="text" name="{{ c }}_note"></td></tr>
+          {% endfor %}
+        </table>
+        <div class="row">
+          <div><label>Phút chủ động</label><input type="number" step="0.5" min="0" name="active_minutes" id="minutes" style="width: 110px"></div>
+          <div><label>Người duyệt</label><input type="text" name="reviewer" value="Tuan" style="width: 140px"></div>
+          <div style="flex: 1"><label>Ghi chú</label><input type="text" name="note"></div>
+        </div>
+        <p class="small muted">Phút chủ động tự điền theo thời gian mở trang này; sửa lại nếu khác. accepted chỉ đúng khi cả 9 tiêu chí pass.</p>
+        <p><button {{ dis }}>Ghi phiếu duyệt</button></p>
+      </form>
+      <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate">
+        <input type="text" name="note" placeholder="ghi chú gate" style="max-width: 320px">
+        <button class="primary" name="decision" value="approve" {{ dis }}>Duyệt bản cuối</button>
+        <button name="decision" value="reject" {{ dis }}>Từ chối</button>
+      </form>
+      <script>
+        (() => { const t0 = Date.now(), m = document.getElementById("minutes");
+          const tick = () => { if (!m.dataset.touched) m.value = (Math.round((Date.now() - t0) / 30000) / 2).toFixed(1); };
+          m.addEventListener("input", () => m.dataset.touched = "1"); tick(); setInterval(tick, 15000); })();
+      </script>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="split">
+  <div class="grid">
+    {% for s in scenes %}
+    <a class="scene {{ 'active' if s.scene.id == active }}" href="/tasks/{{ task.id }}?scene={{ s.scene.id }}">
+      {% if s.image %}<img loading="lazy" src="/files/tasks/{{ task.id }}/{{ s.image.path }}" alt="{{ s.scene.id }}">{% else %}<div class="thumb"></div>{% endif %}
+      <div class="meta">
+        <b>{{ s.scene.id }}</b> · {{ s.scene.mode }}
+        {% if s.stale %}<span class="chip warn">lệch revision</span>{% endif %}
+        {% if s.unknown %}<span class="chip bad">unknown</span>{% endif %}
+        <div class="muted">{{ s.scene.shot.size }} · {{ s.scene.shot.angle }} · {{ s.scene.shot.movement }}</div>
+        <div class="muted">{{ s.kinds.image.candidates|length }} ảnh · {{ s.kinds.voice.candidates|length }} giọng{% if s.scene.shows %} · {{ s.scene.shows|join(", ") }}{% endif %}</div>
+      </div>
+    </a>
+    {% else %}
+    <p class="muted">Chưa có ScenePlan.</p>
+    {% endfor %}
+  </div>
+
+  {% for s in scenes if s.scene.id == active %}
+  {% set sc = s.scene %}
+  <div class="card">
+    <h2 style="margin-top: 0">Sửa {{ sc.id }}</h2>
+    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/edit" class="edit">
+      <label>narration</label><textarea name="narration" rows="4">{{ sc.narration }}</textarea>
+      <label>visual</label><textarea name="visual" rows="3">{{ sc.visual }}</textarea>
+      <div class="cols3">
+        {% for key in ("size", "angle", "movement") %}
+        <div><label>{{ key }}</label><select name="{{ key }}">
+          {% for option in (camera.get(key) or {}) %}<option {{ "selected" if sc.shot[key] == option }}>{{ option }}</option>{% endfor %}
+        </select></div>
+        {% endfor %}
+      </div>
+      <div class="cols3">
+        <div><label>mode</label><select name="mode"><option {{ "selected" if sc.mode == "still" }}>still</option><option {{ "selected" if sc.mode == "motion" }}>motion</option></select></div>
+        <div style="grid-column: span 2"><label>ghi chú revision</label><input type="text" name="note"></div>
+      </div>
+      <p class="small muted">nhân vật: {{ sc.characters|join(", ") or "—" }}</p>
+      <p><button class="primary" {{ dis }}>Lưu → revision mới</button></p>
+    </form>
+
+    {% for kind, label in (("image", "Ảnh"), ("clip", "Clip"), ("voice", "Giọng")) %}
+    {% set slot = s.kinds[kind] %}
+    {% if slot.candidates %}
+    <h3>{{ label }} ({{ slot.candidates|length }})</h3>
+    <div class="strip">
+      {% for c in slot.candidates %}
+      <div class="cand {{ 'sel' if c.id == slot.selected }}">
+        {% if kind == "image" %}<a href="/files/tasks/{{ task.id }}/{{ c.path }}" target="_blank"><img loading="lazy" src="/files/tasks/{{ task.id }}/{{ c.path }}"></a>
+        {% elif kind == "voice" %}<audio controls preload="none" src="/files/tasks/{{ task.id }}/{{ c.path }}" style="width: 92px"></audio>
+        {% else %}<a href="/files/tasks/{{ task.id }}/{{ c.path }}" target="_blank">▶ clip</a>{% endif %}
+        <div>{{ c.id }}{% if c.provider == "user" %} · user{% endif %}</div>
+        <div class="muted">rev {{ c.plan_rev }}{% if c.duration_s %} · {{ "%.1f"|format(c.duration_s) }}s{% endif %}</div>
+        {% if c.id != slot.selected %}
+        <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/select" class="edit"><input type="hidden" name="candidate" value="{{ c.id }}"><button {{ dis }}>Chọn</button></form>
+        {% else %}<span class="chip ok">selected</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <h3>Chạy lại kèm ghi chú</h3>
+    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/rerun" class="row edit">
+      <select name="step" style="width: auto"><option>keyframes</option><option>voice</option></select>
+      <input type="text" name="note" required placeholder="vd: hands out of frame" style="flex: 1">
+      <button {{ dis }}>Chạy lại</button>
+    </form>
+
+    <h3>Upload asset riêng</h3>
+    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/upload" enctype="multipart/form-data" class="edit">
+      <div class="row"><select name="kind" style="width: auto"><option>image</option><option>clip</option><option>voice</option></select><input type="file" name="file" required></div>
+      <label>Nguồn</label><input type="text" name="source" required placeholder="ảnh tự chụp, stock …">
+      <label>Quyền sử dụng</label><input type="text" name="rights" required placeholder="owned, CC-BY 4.0 …">
+      <label><input type="checkbox" name="ai_generated" value="1"> nội dung do AI tạo</label>
+      <p><button {{ dis }}>Upload và chọn</button></p>
+    </form>
+    <p class="small muted">Chi phí scene: {{ usd(s.usd, 0) }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

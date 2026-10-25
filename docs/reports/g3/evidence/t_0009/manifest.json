@@ -1,0 +1,68 @@
+{
+  "render_rev": "r_001",
+  "task_id": "t_0009",
+  "plan_rev": 3,
+  "scenes": [
+    {
+      "id": "s01",
+      "clip": "clip_s01_a1",
+      "voice": "vo_s01_a1",
+      "start_s": 0.0,
+      "duration_s": 10.9
+    },
+    {
+      "id": "s02",
+      "clip": "clip_s02_a1",
+      "voice": "vo_s02_a1",
+      "start_s": 10.9,
+      "duration_s": 11.1
+    },
+    {
+      "id": "s03",
+      "clip": "clip_s03_a1",
+      "voice": "vo_s03_a1",
+      "start_s": 22.0,
+      "duration_s": 10.633
+    },
+    {
+      "id": "s04",
+      "clip": "clip_s04_a1",
+      "voice": "vo_s04_a1",
+      "start_s": 32.633,
+      "duration_s": 10.8
+    },
+    {
+      "id": "s05",
+      "clip": "clip_s05_a1",
+      "voice": "vo_s05_a1",
+      "start_s": 43.433,
+      "duration_s": 9.672
+    }
+  ],
+  "video_project_revision": "a27c1350ae9a4ad5a03d27002c9e8779",
+  "stages_reused": [],
+  "stages_built": [
+    "s01:audio",
+    "s01:timing",
+    "s01:scene",
+    "s02:audio",
+    "s02:timing",
+    "s02:scene",
+    "s03:audio",
+    "s03:timing",
+    "s03:scene",
+    "s04:audio",
+    "s04:timing",
+    "s04:scene",
+    "s05:audio",
+    "s05:timing",
+    "s05:scene",
+    "assembly",
+    "export"
+  ],
+  "duration_s": 53.133,
+  "width": 1080,
+  "height": 1920,
+  "final_sha256": "02ffdecea1458b13dc7fde8316741a1606ce6a1b98aebed606223ad6d0afdac0",
+  "subtitles": "subtitles/cues_a1.json"
+}

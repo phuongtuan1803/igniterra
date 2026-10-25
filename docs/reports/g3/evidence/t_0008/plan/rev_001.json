@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "parent": null,
+  "series": "station",
+  "title": "Tín hiệu từ ngày mai",
+  "cast": {},
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "Người gác trạm nhận được một lời cảnh báo bằng chính giọng mình. Ca trực yên lặng, chỉ còn tiếng lọc khí và ánh sao trượt qua ô cửa. Anh tuần tra hành lang một mình.",
+      "visual": "A dim orbital station corridor stretches beneath cold blue emergency lights, with nguoi_gac appearing as a distant silhouette near a small observation window. Stars drift slowly beyond the glass while the station remains motionless.",
+      "shot": {
+        "size": "wide",
+        "angle": "eye_level",
+        "movement": "pan_left"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "trạm ngoài không gian"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s02",
+      "narration": "Thiết bị liên lạc bỗng phát giọng anh: tuyệt đối không mở cửa khoang. Anh nhìn đèn báo chớp đỏ, rồi quay về cánh cửa đang đóng kín. Ngoài kia chỉ là bóng tối.",
+      "visual": "Inside a compact control room, nguoi_gac stands with his back to the camera beside a blinking communication console. A red indicator illuminates the dark metal walls, while the distant airlock remains closed in the background.",
+      "shot": {
+        "size": "medium",
+        "angle": "eye_level",
+        "movement": "push_in"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "thiết bị liên lạc"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s03",
+      "narration": "Ba tiếng gõ vang lên từ phía ngoài. Anh đứng sững, tay lơ lửng gần bảng khóa, nghe thêm hai tiếng nữa. Cánh cửa rung rất nhẹ, dù không có ai đáng lẽ có thể đứng trong chân không.",
+      "visual": "A sealed airlock door fills the frame under a narrow overhead light. nguoi_gac is seen from behind at a cautious distance, one hand hovering near the lock panel as the heavy door trembles faintly.",
+      "shot": {
+        "size": "medium",
+        "angle": "low",
+        "movement": "pan_right"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "cửa khoang đóng"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s04",
+      "narration": "Anh không mở cửa. Từ khe quan sát, anh chỉ thấy trạm nối dài vào màu đen. Khi quay lại phòng điều khiển, anh phát hiện thiết bị gửi tín hiệu đang hẹn lịch phát vào ngày mai.",
+      "visual": "Nguoi_gac leans toward a small observation slit without touching the airlock, seeing only black space beyond it. In the control room behind him, a compact transmitter glows with a newly activated scheduling panel, its details unreadable from this distance.",
+      "shot": {
+        "size": "wide",
+        "angle": "high",
+        "movement": "pull_out"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "trạm ngoài không gian",
+        "thiết bị liên lạc"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    },
+    {
+      "id": "s05",
+      "narration": "Anh mở lịch sử ghi âm: trống rỗng. Lời cảnh báo chưa được anh ghi âm.",
+      "visual": "The control room is nearly dark as nguoi_gac stands motionless before the communication console. The amber shoulder lamp casts a small pool of light over the silent equipment, with no visible message or recording displayed.",
+      "shot": {
+        "size": "close_up",
+        "angle": "eye_level",
+        "movement": "static"
+      },
+      "characters": [
+        "nguoi_gac"
+      ],
+      "shows": [
+        "thiết bị liên lạc"
+      ],
+      "mode": "still",
+      "target_s": 0.0,
+      "start_from": null
+    }
+  ],
+  "note": "plan: codex/gpt-5.6-luna"
+}

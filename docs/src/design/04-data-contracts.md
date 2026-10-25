@@ -2,7 +2,7 @@
 id: IGN-DAT
 title: Igniterra — Contract và dữ liệu
 type: design
-ver: "2.3"
+ver: "2.4"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -14,6 +14,7 @@ rev:
   - ["2.1", 2026-10-24, "Soát trước Gate 2: contract Brief theo mẫu Gate 0, ScenePlan gắn hình bắt buộc, wps của giọng, nguồn và quyền của ứng viên, render revision thay cho một file final, bảng reviews (phiếu duyệt C01–C09, phút công), quy tắc ghi assets.json, cấu hình MPT nạp lúc import"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
   - ["2.3", 2026-10-25, "Migration đầu tiên ở Gate 2: tasks.wait_detail và pause_requested, gate_decisions.subject, ScenePlan.cast khi chưa có series"]
+  - ["2.4", 2026-10-25, "Gate 3: bảng series_jobs, ảnh tham chiếu có mốc và character sheet chỉ thêm, lớp phủ data/settings.toml"]
 ---
 
 <!-- id:s1 -->
@@ -393,6 +394,8 @@ camera:
 ```
 
 <!-- id:s7.b3 -->
+Đã chốt ở Gate 3 (`studio/series.py`): ảnh tham chiếu sinh bằng job trong bảng `series_jobs` (worker chạy, chi phí ghi `data/series/<tên>/costs.jsonl`, `request_id = series:<tên>:<nhân vật>:<góc>:<job>.<lượt>:<thử>`). Ứng viên nằm ở `refs/candidates/`; ảnh duyệt chép thành `refs/<nhân vật>_ref_vN` và ghép thành `refs/<nhân vật>_sheet_vN.png` (cùng chiều cao 1536 px), không ghi đè. Ảnh duyệt đầu tiên là mốc: các góc nhìn sinh sau được gửi kèm nó làm ảnh tham chiếu, vì 3 góc sinh độc lập không cùng một nhân vật (T09). `bible.yaml` được thay qua file tạm; bản trước giữ trong `history/`.
+
 Prompt keyframe được ghép xác định trong `prompt.py`: style + mô tả nhân vật + cụm từ camera + visual + negative, kèm ảnh refs. LLM không bao giờ viết lại mô tả nhân vật.
 
 <!-- id:s7.b4 -->
@@ -533,7 +536,7 @@ max_attempts = 3
 ```
 
 <!-- id:s9.b4 -->
-Ghi đè theo task lưu trong `tasks.overrides` và không đổi cấu hình chung; model thật được ghi vào ứng viên và chi phí. Ghi đè chỉ có tác dụng với adapter trực tiếp và tham số truyền qua lời gọi (giọng, tốc độ): MPT đọc `config.toml` một lần lúc import (`app.config`, thư mục do `MPT_HOME` chỉ định), nên provider và khóa bên trong MPT là cấu hình chung của process worker. Worker đặt `MPT_HOME` trước khi import adapter MPT; `MPT_HOME` là thư mục riêng ngoài `data/`, vì MPT có thể tự ghi lại `config.toml`. Chọn adapter mặc định qua file cấu hình ở Gate 2, qua trang Settings đơn giản từ Gate 3.
+Ghi đè theo task lưu trong `tasks.overrides` và không đổi cấu hình chung; model thật được ghi vào ứng viên và chi phí. Ghi đè chỉ có tác dụng với adapter trực tiếp và tham số truyền qua lời gọi (giọng, tốc độ): MPT đọc `config.toml` một lần lúc import (`app.config`, thư mục do `MPT_HOME` chỉ định), nên provider và khóa bên trong MPT là cấu hình chung của process worker. Worker đặt `MPT_HOME` trước khi import adapter MPT; `MPT_HOME` là thư mục riêng ngoài `data/`, vì MPT có thể tự ghi lại `config.toml`. Chọn adapter mặc định qua file cấu hình ở Gate 2, qua trang Settings đơn giản từ Gate 3. Trang Settings ghi lớp phủ `data/settings.toml` (thứ tự: mặc định < `studio.toml` < `data/settings.toml` < `tasks.overrides`), không sửa `studio.toml` đã commit; worker đọc lúc khởi động.
 
 <!-- id:s10 -->
 ## Version của contract

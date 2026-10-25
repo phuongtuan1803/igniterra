@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Series{% endblock %}
+{% block body %}
+<h1>Series</h1>
+<ul>{% for s in series %}<li><a href="/series/{{ s }}">{{ s }}</a></li>{% else %}<li class="muted">Chưa có series.</li>{% endfor %}</ul>
+<h2>Tạo series</h2>
+<form class="card" method="post" action="/series">
+  <div class="cols3">
+    <div><label>Tên (chữ thường, số, gạch nối)</label><input type="text" name="name" required pattern="[a-z0-9][a-z0-9_-]{0,40}"></div>
+    <div><label>Lấy nhân vật từ cast của task</label><select name="from_task"><option value="">(trống)</option>{% for t in tasks %}<option>{{ t.id }}</option>{% endfor %}</select></div>
+  </div>
+  <p><button class="primary">Tạo</button></p>
+</form>
+{% endblock %}
