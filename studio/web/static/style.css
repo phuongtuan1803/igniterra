@@ -201,3 +201,9 @@ main>.card{margin-bottom:20px}
 .settings-actions p{margin:0}
 @media(max-width:1100px){.series-workspace>form.card{position:static}.scene-inspector{position:static}}
 @media(max-width:600px){.settings-actions{align-items:stretch;flex-direction:column}.settings-form .concurrency-grid{grid-template-columns:1fr 1fr}}
+
+/* Keep table column layout while aligning story icon and title. */
+.story-cell{display:table-cell;vertical-align:middle}
+.story-cell>.story-icon,.story-cell>span:last-child{display:inline-flex;vertical-align:middle}
+.story-cell>.story-icon{margin-right:12px}
+.story-cell>span:last-child{display:inline-block;max-width:calc(100% - 52px);overflow-wrap:anywhere}
