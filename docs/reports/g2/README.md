@@ -27,7 +27,7 @@ Table: Checklist Gate 2 (08 · Gate 2)
 | Test core với bản giả | Xong | `tests/test_pipeline.py`: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene, T11, T12 (17 test) |
 | 5 brief ra MP4 9:16 có phụ đề, đạt hậu điều kiện | Xong | Bảng ở [Kết quả chạy](#s3) |
 | Phiếu duyệt C01–C09, phút công, so mục tiêu Gate 0 | **Chờ Tuan** | [Việc của Tuan](#s6) |
-| Quyết định đi tiếp hoặc quay lại MPT (D-07) | **Chờ Tuan** | Cần phiếu duyệt và hóa đơn |
+| Quyết định đi tiếp hoặc quay lại MPT (D-07) | **Tuan chốt đi tiếp (25/10/2026)** | Không dựa trên số đo đạt mục tiêu Gate 0: chỉ 2/7 phiếu chấm thật, 5,20 USD > 5 USD |
 
 <!-- id:s2 -->
 ## Đã xây
@@ -126,7 +126,7 @@ Claude đã duyệt gate `keyframes` của cả 5 task sau khi xem contact sheet
 - [ ] Ghi phiếu cho từng task: chép `review-template.json`, rồi chạy `python -m studio review t_000N --checklist <file> --minutes <phút chủ động>`
 - [ ] Duyệt hoặc từ chối gate final: `python -m studio gate t_000N approve|reject`; muốn sửa thì `scene edit`, `rerun`, `select` (06 · CLI)
 - [x] Đối chiếu chi phí: toàn dự án (Gate 2 + 3) 5,20 USD trên OpenRouter; chưa tách riêng Gate 2 và chưa ghi vào `evidence/pilot-runs.jsonl`
-- [ ] Quyết định D-07: so với mục tiêu Gate 0 (ít nhất 3/5 được duyệt, ≤ 15 phút chủ động mỗi video được duyệt, tổng ≤ 5 USD)
+- [x] Quyết định D-07 (đi tiếp, 25/10/2026; mục tiêu chưa đo đủ): so với mục tiêu Gate 0 (ít nhất 3/5 được duyệt, ≤ 15 phút chủ động mỗi video được duyệt, tổng ≤ 5 USD)
 - [ ] Điều khoản gói codex khi dùng qua gateway cho sản xuất video (05 · việc cần kiểm)
 ```
 

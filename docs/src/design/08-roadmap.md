@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.8"
+ver: "2.9"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -19,6 +19,7 @@ rev:
   - ["2.6", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview (1 character sheet)"]
   - ["2.7", 2026-10-25, "Gate 2 đã code và chạy 5 brief (báo cáo g2): checklist cập nhật; phiếu duyệt và D-07 chờ Tuan"]
   - ["2.8", 2026-10-25, "Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan; phần xây xong, T09 đã đo (báo cáo g3)"]
+  - ["2.9", 2026-10-25, "Tuan chốt D-07 = đi tiếp và T09 = chưa cần LoRA; số đo phiếu duyệt Gate 2 chưa đủ, ghi nhận trong báo cáo g2, g3"]
 ---
 
 <!-- id:s1 -->
@@ -151,7 +152,7 @@ b.w7 -> b.w8
 - [x] Test core với bản giả: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene, T11, T12 (`tests/test_pipeline.py`, 21 test xanh)
 - [x] Cùng 5 brief của Gate 0 ra MP4 9:16 có phụ đề, đạt hậu điều kiện (1080×1920, có audio, 48–57 giây; [báo cáo g2](../../reports/g2/README.md))
 - [ ] (Chờ Tuan) Phiếu duyệt C01–C09 và phút công cho 5 lần chạy studio; nhật ký pilot; so với mục tiêu Gate 0 (tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD)
-- [ ] (Chờ Tuan, sau phiếu duyệt và hóa đơn) Quyết định đi tiếp hoặc quay lại MPT (D-07)
+- [x] D-07: Tuan chốt đi tiếp (25/10/2026), dù phiếu duyệt mới có 2/7 chấm thật và chi phí 5,20 USD vượt trần 5 USD; quyết định này không dựa trên số đo đạt mục tiêu Gate 0
 ```
 
 <!-- id:s4 -->

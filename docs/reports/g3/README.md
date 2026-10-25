@@ -111,8 +111,10 @@ Không phiếu nào đạt accepted, và 5/7 phiếu không có chấm thật n�
 - [x] Đối chiếu chi phí: 5,20 USD (vượt trần 5 USD), nạp thêm hay dừng là quyết định của Tuan
 - [ ] Chấm lại phiếu Gate 2 chưa chấm thật (t_0004, t_0005, t_0006): mốc để đo điều kiện ra Gate 3; hiện chỉ t_0001, t_0003 có chấm
 - [ ] Chấm thêm t_0008, t_0009 (có series); so phút công và số lần sinh lại với bản không series cùng brief
-- [ ] Chốt T09: có cần LoRA không; có thêm `props` vào Series Bible không
-- [ ] Quyết định D-07 (Gate 2) và điều kiện ra Gate 3
+- [x] T09: Tuan chốt chưa cần LoRA (25/10/2026)
+- [ ] Còn mở: có thêm `props` vào Series Bible không
+- [x] D-07: Tuan chốt đi tiếp (25/10/2026)
+- [ ] Điều kiện ra Gate 3: chưa đo được, cần chấm lại phiếu
 ```
 
 <!-- id:s6 -->
