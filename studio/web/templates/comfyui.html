@@ -1,11 +1,19 @@
 {% extends "base.html" %}
-{% block title %}ComfyUI Workflows{% endblock %}
-{% block body %}
-<div class="page-heading">
-  <div><p class="eyebrow">08 / COMFYUI WORKFLOWS</p><h1>Workflows, reviewed before they run.</h1><p class="page-subtitle">Import a workflow, approve what it depends on, run it on a ready GPU, keep only verified output.</p></div>
-  {% if gpu_enabled %}<span class="chip">GPU provider on</span>{% else %}<span class="chip warn">GPU provider off · library only</span>{% endif %}
-</div>
-<section class="card">
+{% from "_macros.html" import metric, icon %}
+{% block title %}ComfyUI Workflows</section>
+<dialog class="dialog" id="import-workflow" aria-labelledby="import-workflow-title"><div class="dialog-heading"><h2 id="import-workflow-title">Nhập workflow JSON</h2><a class="button" href="#main" data-close-dialog aria-label="Đóng">{{ icon("close") }}</a></div>
+
+  <p class="section-note">GUI JSON (<em>Save</em>) cho phép trích dependency; API JSON (<em>Export (API)</em>) là bản chạy được nhưng không có metadata model/node, nên luôn <code>needs_review</code> tới khi có manifest khai tay và đã duyệt. Mỗi lần nhập là một revision bất biến.</p>
+  <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Tên <input name="name" maxlength="200"></label>
+    <label>Workflow JSON (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
+    <label>Kèm bản Export (API) nếu file trên là GUI <input type="file" name="api_file" accept=".json,application/json"></label>
+    <button class="button" type="submit">Nhập</button>
+  </form>
+</dialog>
+
+<details class="card"><summary>Profile ảnh · FLUX.2 Klein 4B</summary><section class="card">
   <p class="eyebrow">IMAGE PROFILE</p><h2>FLUX.2 Klein 4B distilled</h2>
   <p>Workflow text-to-image và một character sheet tham chiếu, model ghim revision và SHA-256.
     Nhập profile chỉ tạo bản khai chờ duyệt. Việc thuê GPU, tải model và chạy cần thao tác riêng.</p>
@@ -16,18 +24,22 @@
   </form>
   <p><a href="/monitor">Mở Monitor →</a></p>
 </section>
-<section class="card" aria-label="Import workflow">
-  <p class="eyebrow">IMPORT</p><h2>Nhập workflow</h2>
-  <p class="section-note">GUI JSON (<em>Save</em>) cho phép trích dependency; API JSON (<em>Export (API)</em>) là bản chạy được nhưng không có metadata model/node, nên luôn <code>needs_review</code> tới khi có manifest khai tay và đã duyệt. Mỗi lần nhập là một revision bất biến.</p>
-  <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Tên <input name="name" maxlength="200"></label>
-    <label>Workflow JSON (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
-    <label>Kèm bản Export (API) nếu file trên là GUI <input type="file" name="api_file" accept=".json,application/json"></label>
-    <button class="button" type="submit">Nhập</button>
-  </form>
+</details>
+{% endblock %}
+{% block body %}
+<div class="page-heading">
+  <div><p class="eyebrow">INFRASTRUCTURE / COMFYUI</p><h1>Workflows dễ kiểm soát</h1><p class="page-subtitle">Nhập workflow, kiểm phụ thuộc, chọn GPU sẵn sàng và nhận kết quả đã xác minh.</p></div>
+  <a class="button primary" href="#import-workflow" data-open-dialog="import-workflow">{{ icon("upload") }} Nhập workflow</a>
+</div>
+<section class="metrics" aria-label="Workflow overview">
+  {{ metric('WORKFLOWS', library|length, 'Đã nhập vào thư viện') }}
+  {{ metric('ĐÃ DUYỆT', library|selectattr('latest.status','equalto','approved')|list|length, 'Vẫn cần API JSON và GPU ready') }}
+  {{ metric('CHỜ REVIEW', library|rejectattr('latest.status','equalto','approved')|list|length, 'Kiểm tra dependency và manifest', 'warn') }}
+  {{ metric('RUN GẦN ĐÂY', runs|length, 'Tối đa 20 lượt gần nhất') }}
 </section>
-<section class="card" aria-label="Workflow library">
+{% if not gpu_enabled %}<p class="section-note">GPU provider off · library only. Thư viện dùng được; chạy workflow cần GPU provider và rental ready.</p>{% endif %}
+<section class="card" data-tabs data-initial-tab="workflow-library"><nav class="tabs" aria-label="ComfyUI views"><a href="#workflow-library" data-tab="workflow-library">Thư viện workflow</a><a href="#workflow-runs" data-tab="workflow-runs">Lượt chạy</a></nav>
+<section id="workflow-library" data-tab-panel aria-label="Workflow library">
   <div class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>Thư viện</h2></div><span class="muted small">{{ library|length }} workflow</span></div>
   <div class="table-scroll"><table>
     <thead><tr><th>Workflow</th><th>Revision</th><th>Dạng</th><th>Trạng thái</th><th>SHA-256 file gốc</th></tr></thead>
@@ -40,7 +52,7 @@
     </tbody>
   </table></div>
 </section>
-<section class="card" aria-label="Recent runs">
+<section id="workflow-runs" data-tab-panel aria-label="Recent runs">
   <p class="eyebrow">RUNS</p><h2>Lượt chạy gần đây</h2>
   <div class="table-scroll"><table>
     <thead><tr><th>Run</th><th>Workflow</th><th>Rental</th><th>Trạng thái</th></tr></thead>
@@ -51,4 +63,29 @@
     </tbody>
   </table></div>
 </section>
+</section>
+<dialog class="dialog" id="import-workflow" aria-labelledby="import-workflow-title"><div class="dialog-heading"><h2 id="import-workflow-title">Nhập workflow JSON</h2><a class="button" href="#main" data-close-dialog aria-label="Đóng">{{ icon("close") }}</a></div>
+
+  <p class="section-note">GUI JSON (<em>Save</em>) cho phép trích dependency; API JSON (<em>Export (API)</em>) là bản chạy được nhưng không có metadata model/node, nên luôn <code>needs_review</code> tới khi có manifest khai tay và đã duyệt. Mỗi lần nhập là một revision bất biến.</p>
+  <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Tên <input name="name" maxlength="200"></label>
+    <label>Workflow JSON (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
+    <label>Kèm bản Export (API) nếu file trên là GUI <input type="file" name="api_file" accept=".json,application/json"></label>
+    <button class="button" type="submit">Nhập</button>
+  </form>
+</dialog>
+
+<details class="card"><summary>Profile ảnh · FLUX.2 Klein 4B</summary><section class="card">
+  <p class="eyebrow">IMAGE PROFILE</p><h2>FLUX.2 Klein 4B distilled</h2>
+  <p>Workflow text-to-image và một character sheet tham chiếu, model ghim revision và SHA-256.
+    Nhập profile chỉ tạo bản khai chờ duyệt. Việc thuê GPU, tải model và chạy cần thao tác riêng.</p>
+  <form method="post" action="/comfyui/image-profile" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label><input type="checkbox" name="confirm"> Xác nhận nhập hai workflow và manifest model để xem xét</label>
+    <button class="button" type="submit">Nhập profile FLUX</button>
+  </form>
+  <p><a href="/monitor">Mở Monitor →</a></p>
+</section>
+</details>
 {% endblock %}

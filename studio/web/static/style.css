@@ -277,3 +277,13 @@ body.menu-open{overflow:hidden}}
 @media(max-width:620px){.metrics[aria-label="Storyboard overview"]{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics[aria-label="Storyboard overview"]>:last-child{grid-column:1/-1}}
 input[type=search],input:not([type]){border:1px solid var(--line2);border-radius:9px;padding:10px 11px;max-width:100%;background:var(--panel);color:var(--ink);min-height:40px;font-size:12px}
 button,.button{gap:8px}
+/* Workflow and rental operations keep their real guarded forms. */
+.tabs{display:flex;gap:7px;border-bottom:1px solid var(--line);padding:0 5px;margin-bottom:20px;flex-wrap:wrap}
+.tabs a{border-bottom:2px solid transparent;padding:11px 13px;color:var(--muted);font-size:12px;font-weight:670}
+.tabs a.active{color:var(--accent);border-color:var(--accent)}.tabs a:hover{text-decoration:none;background:var(--soft)}
+[hidden]{display:none!important}
+.provision-steps{display:grid;gap:0;list-style:none;margin:0;padding:0}.provision-steps li{display:flex;gap:12px;align-items:flex-start;padding:13px 0}.provision-steps li>div{min-width:0}.provision-steps strong{font-size:12px;overflow-wrap:anywhere}.provision-steps p{font-size:11px;color:var(--muted);margin:4px 0 0}
+.step-num{height:27px;width:27px;border-radius:50%;background:#f2f4f0;color:#66766e;font-size:11px;font-weight:800;display:grid;place-items:center;flex:none}.step-num.done{color:var(--ok);background:#e7f4ec}
+.workflow-layout{grid-template-columns:repeat(2,minmax(0,1fr))}.workflow-layout>.card{margin-bottom:0}.create-panel{margin-bottom:22px}
+code,.data-trail{overflow-wrap:anywhere}th{white-space:nowrap}.table-scroll,.wide-table,.review-table{overscroll-behavior-inline:contain}
+@media(max-width:890px){.workflow-layout{grid-template-columns:minmax(0,1fr)}}

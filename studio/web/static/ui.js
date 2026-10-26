@@ -68,3 +68,32 @@
     }
   });
 })();
+
+/* Tabs remain anchor-linked sections when JavaScript is unavailable. */
+document.querySelectorAll('[data-tabs]').forEach(group => {
+  const links = [...group.querySelectorAll('[data-tab]')];
+  const panels = [...group.querySelectorAll('[data-tab-panel]')];
+  const activate = (link, focus = false) => {
+    links.forEach(item => {
+      const active = item === link;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
+      item.tabIndex = active ? 0 : -1;
+    });
+    panels.forEach(panel => { panel.hidden = panel.id !== link.dataset.tab; });
+    if (focus) link.focus();
+  };
+  group.querySelector('.tabs').setAttribute('role', 'tablist');
+  links.forEach((link, index) => {
+    link.id = `${link.dataset.tab}-tab`;
+    link.setAttribute('role', 'tab'); link.setAttribute('aria-controls', link.dataset.tab);
+    const panel = panels.find(p => p.id === link.dataset.tab);
+    panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', link.id);
+    link.addEventListener('click', e => { e.preventDefault(); activate(link); });
+    link.addEventListener('keydown', e => {
+      const target = e.key === 'ArrowRight' ? links[(index + 1) % links.length] : e.key === 'ArrowLeft' ? links[(index - 1 + links.length) % links.length] : e.key === 'Home' ? links[0] : e.key === 'End' ? links.at(-1) : null;
+      if (target) { e.preventDefault(); activate(target, true); }
+    });
+  });
+  activate(links.find(link => link.dataset.tab === location.hash.slice(1)) || links.find(link => link.dataset.tab === group.dataset.initialTab) || links[0]);
+});
