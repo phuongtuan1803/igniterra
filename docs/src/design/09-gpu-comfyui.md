@@ -2,7 +2,7 @@
 id: IGN-GPU
 title: Igniterra — Quản lý GPU thuê và ComfyUI Workflows
 type: design
-ver: "1.0"
+ver: "1.1"
 status: draft
 date: 2026-10-26
 owner: Tuan
@@ -10,6 +10,7 @@ sum: Thiết kế Gate 4 tách GPU Rentals khỏi ComfyUI Workflows; GPU provide
 kv: [[Phạm vi, "Gate 4; thiết kế, chưa triển khai"], [Thành phần, "studio/gpu/, studio/comfyui/, studio/web/"], [Nguồn quyết định, "FR-19..FR-23, NFR-11..NFR-13; 01-system-design"]]
 rev:
   - ["1.0", 2026-10-26, "Bổ sung module GPU provider-neutral, hai màn hình độc lập, tiến độ provisioning, workflow ComfyUI, kiểm soát chi phí và lifecycle"]
+  - ["1.1", 2026-10-26, "Chuyển toàn bộ sơ đồ text sang D2 và liên kết đặc tả chuyên biệt 10–13"]
 ---
 
 <!-- id:s1 -->
@@ -27,27 +28,34 @@ Tài liệu này là thiết kế chính thức cho **Gate 4**, bổ sung vào b
 <!-- id:s2 -->
 ## Luồng tổng thể (từ trên xuống dưới)
 
-```text
-[Web: GPU Rentals]         [Web: ComfyUI Workflows]
-          |                           |
-          v                           v
-[GPU Rental Service]       [ComfyUI Workflow Service]
-          |                           |
-          v                           v
-[GPU Provider Protocol]    [Dependency Planner / Executor]
-          |                           |
-          v                           |
-[Vast.ai Adapter]                   |
-          |                           |
-          v                           |
-[GPU Instance + ComfyUI Runtime] <----+
-          |
-          v
-[Health Check -> Run -> Outputs -> Verify/Download]
-          |
-          v
-[Stop/Destroy + Cost Reconcile]
+<!-- id:s2.b1 -->
+<!-- report-kit:d2
+```d2
+# cap: GPU provider-neutral and ComfyUI service boundaries
+direction: down
+gpuui: "GPU Rentals\nWeb UI" {class: plain}
+wfui: "ComfyUI Workflows\nWeb UI" {class: plain}
+gpu: "GPU Rental Service" {class: gate}
+workflow: "Workflow Service" {class: gate}
+proto: "GPUProvider Protocol" {class: data}
+deps: "Dependency Planner" {class: data}
+vast: "Vast.ai Adapter" {class: hands}
+runtime: "ComfyUI Runtime" {class: hands}
+outputs: "Verified Outputs" {class: data}
+gpuui -> gpu
+wfui -> workflow
+gpu -> proto
+proto -> vast
+workflow -> deps
+vast -> runtime
+deps -> runtime
+runtime -> outputs
 ```
+-->
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="09-gpu-comfyui.figs/s2.b1-dark.svg">
+<img alt="GPU provider-neutral and ComfyUI service boundaries" src="09-gpu-comfyui.figs/s2.b1-light.svg">
+</picture>
 
 Các service nằm trong cùng modular monolith FastAPI và worker hiện có, dùng SQLite và thư mục data/. Không thêm n8n, LangGraph, queue broker hoặc microservice chỉ để thuê GPU. Progress được persist ở SQLite, web đọc qua polling HTMX (2–5 giây khi đang chạy, giảm khi idle); SSE có thể bổ sung nếu polling không đáp ứng. Không hiển thị phần trăm giả: hiển thị **step hiện tại, step hoàn tất, thời điểm cập nhật và log**, và số byte tải nếu provider hỗ trợ.
 
@@ -67,25 +75,26 @@ Bố cục ưu tiên: thanh filter ở trên; danh sách offers/instances ở gi
 
 Ví dụ timeline trên detail:
 
-```text
-1. Offer selected        DONE    14:01  (quote captured)
-   |
-2. Instance requested    DONE    14:02  (provider instance ID)
-   |
-3. Host boot             DONE    14:03
-   |
-4. SSH/API connection    DONE    14:04
-   |
-5. Runtime provision     RUNNING 14:05  (Docker / ComfyUI)
-   |
-6. Custom nodes + deps   PENDING
-   |
-7. Model downloads       PENDING
-   |
-8. Health + smoke test   PENDING
-   |
-9. Ready                 PENDING
+<!-- id:s3.b1 -->
+<!-- report-kit:d2
+```d2
+# cap: Persisted provisioning steps and readiness evidence
+direction: down
+quote: "Offer and quote\nConfirmed" {class: data}
+create: "Create instance\nProvider ID" {class: hands}
+boot: "Boot GPU\nNetwork reachable" {class: hands}
+image: "Pinned ComfyUI\nRuntime image" {class: hands}
+nodes: "Nodes and deps\nPinned commits" {class: hands}
+models: "Model downloads\nBytes and checksum" {class: hands}
+smoke: "Health and smoke\nVerified" {class: gate}
+ready: "Ready for runs" {class: gate}
+quote -> create -> boot -> image -> nodes -> models -> smoke -> ready
 ```
+-->
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="09-gpu-comfyui.figs/s3.b1-dark.svg">
+<img alt="Persisted provisioning steps and readiness evidence" src="09-gpu-comfyui.figs/s3.b1-light.svg">
+</picture>
 
 Các phase có thể `skipped` khi template đã cài sẵn; thứ tự model/nodes có thể phụ thuộc manifest. Dòng tiến độ chỉ chuyển thành DONE sau khi có bằng chứng kiểm tra (không dựa vào thông báo bắt đầu). Cho phép hủy từ mọi bước đã có instance ID, nhưng không được xóa trạng thái theo dõi trước khi xác nhận provider đã destroy.
 
@@ -140,18 +149,38 @@ studio/
 
 ### Rental lifecycle
 
-```text
-draft -> creating -> provisioning -> ready -> busy -> ready
-            |             |          |
-            v             v          v
-          unknown        failed    stopped
-            |             |          |
-            +------ reconcile -----+
-                           |
-                        destroying -> destroyed
-                           |
-                        destroy_unknown
+<!-- id:s6.b1 -->
+<!-- report-kit:d2
+```d2
+# cap: Rental lifecycle and unknown-operation recovery
+direction: down
+draft: "Draft" {class: data}
+create: "Creating" {class: hands}
+unknown: "Create unknown\nReconcile" {class: bad}
+provision: "Provisioning" {class: hands}
+failed: "Provision failed\nMay still bill" {class: bad}
+ready: "Ready" {class: gate}
+busy: "Busy" {class: hands}
+destroy: "Destroying" {class: hands}
+dunknown: "Destroy unknown\nReconcile" {class: bad}
+done: "Destroyed\nConfirmed" {class: gate}
+draft -> create
+create -> unknown
+create -> provision
+provision -> failed
+provision -> ready
+ready -> busy
+ready -> destroy
+busy -> destroy
+failed -> destroy
+destroy -> dunknown
+destroy -> done
 ```
+-->
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="09-gpu-comfyui.figs/s6.b1-dark.svg">
+<img alt="Rental lifecycle and unknown-operation recovery" src="09-gpu-comfyui.figs/s6.b1-light.svg">
+</picture>
 
 - `creating` không rõ kết quả: lưu client operation ID/offer/time rồi query `list_owned_instances` và provider dashboard trước khi gửi lại; **không tự tạo instance lần hai** khi response timeout.
 - `provisioning` thất bại: ghi `failed`, để instance có thể vẫn **đang bị tính tiền**; chỉ retry bước có tính idempotent hoặc destroy theo chính sách đã xác nhận.
@@ -253,3 +282,10 @@ Các route, DB tables là hợp đồng **thiết kế**, chưa triển khai. Kh
 | [ChristopherJdL/vast-ai-comfyui-wan2.2-remix](https://github.com/ChristopherJdL/vast-ai-comfyui-wan2.2-remix) | Bootstrap Wan custom nodes/models | Chỉ dùng như ví dụ install, không coi là framework quản trị |
 
 Đây là **static source review + thiết kế**: chưa chạy E2E trên GPU thuê; không có bằng chứng live readiness/chi phí thực tế. Quyền dùng model/node và giấy phép phải kiểm lại tại lúc triển khai.
+
+<!-- id:s11 -->
+## Đặc tả chi tiết Gate 4
+
+[10 · GPU Rentals](10-gpu-rentals.md) — API/provider, provisioning, reconciliation và chi phí. [11 · ComfyUI Workflows](11-comfyui-workflows.md) — manifest, nodes/models, execution/output. [12 · UX/UI](12-gpu-comfyui-ux.md) — hai màn hình và states. [13 · Verification](13-gpu-comfyui-verification.md) — kiểm thử G01–G12, chỉ mở live pilot sau khi được duyệt.
+
+Tất cả sơ đồ của phần Gate 4 sử dụng **nguồn D2 trong Markdown** và preview SVG cạnh nguồn. Không dùng Mermaid/PlantUML hay ảnh raster.
