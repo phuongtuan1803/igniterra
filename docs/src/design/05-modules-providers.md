@@ -2,22 +2,15 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.7"
+ver: "2.8"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
 sum: Core định nghĩa 5 provider interface và 4 loại lỗi chung; adapter cài interface bằng SDK trực tiếp hoặc bằng MoneyPrinterTurbo, chỉ trong studio/providers/mpt/; mỗi interface có bản giả để test core không tốn tiền.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.2, 5, 9.2, 12"], [Thành phần, "studio/providers/, render/, vendor/"], [Gate xây, "2 (TTS, aligner, ảnh, renderer), 4 (video, ComfyUI, audiobook)"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu (Module và provider), tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 5 provider interface, adapter MPT, chính sách dùng lại mã; bỏ module registry, ctx, router"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2 trên mã MPT 82bb4a7 (gói mpt 1.3.9): renderer không nhận ảnh tĩnh và không có chuyển động camera → bước animate; vendor tại 82bb4a7; ánh xạ lỗi sau khi gửi lượt gọi trả phí; lỗi unconfirmed theo từng provider; pin phụ thuộc của gói mpt; cấu hình MPT nạp lúc import"]
-  - ["2.2", 2026-10-24, "Gate 2b gọi LLM và ảnh qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1, đổi được trong studio.toml): adapter, ánh xạ lỗi, chặn fallback, việc cần kiểm"]
-  - ["2.3", 2026-10-25, "Kiểm OmniRoute 3.8.52 trên máy Tuan (chỉ đọc): cinf không có nano-banana nên ảnh đi qua openrouter/google/gemini-nano-banana-2.1; codex qua OAuth; codex/gpt-5.6-luna nằm trong combo free-stack"]
-  - ["2.4", 2026-10-25, "Ảnh đổi sang codex/gpt-image-2 (dự phòng codex/gpt-5.6-luna-image): OpenRouter chỉ nhận 1 ảnh tham chiếu và Google AI Studio trả 429 hết hạn mức"]
-  - ["2.5", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview với 1 character sheet; model ảnh codex trả 401 No credentials"]
-  - ["2.6", 2026-10-25, "Code Gate 2: chữ ký LLMProvider.generate_json và SubtitleAligner.align, lỗi ContentRefused cho moderation, JSON schema qua gateway đã kiểm, adapter đọc media_type"]
-  - ["2.7", 2026-10-25, "Gate 3: 400 'could not generate an image' cũng là ContentRefused; FakeAltTTS cho T07; test adapter OmniRoute với server giả"]
+  - ["2.7", 2026-10-25, "Gate 3: 400 'could not generate an image' cũng là ContentRefused; FakeAltTTS cho T07; test adapter OmniRoute với server giả (lịch sử trước đó: git log)"]
+  - ["2.8", 2026-10-26, "Soát theo code: bỏ phần dùng nguyên WebUI/CLI của MPT, chi phí Gate 2–3 thật thay ví dụ t_0042, VideoProvider chưa có adapter thật; GPUProvider tách khỏi content provider (09)"]
 ---
 
 <!-- id:s1 -->
@@ -114,7 +107,7 @@ MPT (khoảng 36.000 dòng Python, MIT, 203 file test, cập nhật gần như h
 <!-- id:s2.b2 -->
 <!-- report-kit:d2
 ```d2
-# cap: Phần của MPT ta dùng, chỉ dùng ở Gate 1, và không dùng
+# cap: Phần của MPT ta dùng và không dùng
 direction: right
 use: Dùng qua adapter {
   class: zone
@@ -128,12 +121,9 @@ copy: Copy (vendor) {
   class: zone
   vp: "video_project.py\nrevision, dựng lại theo scene" {class: data}
 }
-g1: Chỉ dùng nguyên ở Gate 1 {
-  class: zone
-  ui: "WebUI Streamlit, REST API,\nCLI" {class: plain}
-}
 no: Không dùng {
   class: zone
+  ui: "WebUI Streamlit, REST API,\nCLI" {class: bad}
   x1: "task.py, state.py\n(trạng thái trong process)" {class: bad}
   x2: "video.py\n(MoviePy, một file giọng)" {class: bad}
   x3: "upload_post.py" {class: bad}
@@ -142,7 +132,7 @@ no: Không dùng {
 -->
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="05-modules-providers.figs/s2.b2-dark.svg">
-<img alt="Phần của MPT ta dùng, chỉ dùng ở Gate 1, và không dùng" src="05-modules-providers.figs/s2.b2-light.svg">
+<img alt="Phần của MPT ta dùng và không dùng" src="05-modules-providers.figs/s2.b2-light.svg">
 </picture>
 
 <!-- id:s2.b3 -->
@@ -156,7 +146,7 @@ Table: MPT có gì và ta dùng gì
 | Video AI | Seedance, MiniMax H3, WaveSpeed, MuAPI, OFox; lỗi riêng cho job trả phí chưa xác nhận | Có ở Gate 4, qua `MptVideo` |
 | Revision theo scene | `video_project.py`: revision bất biến, chỉ dựng lại scene đổi, kiểm tra SHA-256, khóa, retry | Có, copy làm renderer |
 | Dựng video chính | MoviePy, một file giọng cho cả bài, chuyển cảnh, nhiều biến thể | Không |
-| Giao diện, API | WebUI Streamlit, REST API, CLI, skill cho AI agent | Chỉ dùng nguyên bản ở Gate 1 |
+| Giao diện, API | WebUI Streamlit, REST API, CLI, skill cho AI agent | Không |
 | Trạng thái | Bộ nhớ trong process (mất khi khởi động lại) hoặc Redis | Không |
 | Đăng bài | Qua dịch vụ trung gian upload-post.com | Hoãn |
 
@@ -208,7 +198,7 @@ Table: Bảng adapter
 | `LLMProvider` | `OmniRouteLLM` qua OmniRoute (mặc định); hoặc lớp kết nối trong `llm.py` của MPT | Prompt và schema do ta viết | Gate 2 |
 | `ImageProvider` (nhân vật) | `OmniRouteImage` qua OmniRoute (`openrouter/google/gemini-3.1-flash-image-preview`, cần ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
 | `ImageProvider` (phụ) | MPT stock footage trong `material.py` | Trả ứng viên cho scene không cần nhân vật | Khi cần |
-| `VideoProvider` | MPT `generate_videos()` của từng provider, hoặc SDK Veo | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4 |
+| `VideoProvider` | MPT `generate_videos()` của từng provider, SDK Veo, hoặc ComfyUI (Wan 2.2) trên GPU thuê | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4; chưa có adapter thật, registry chỉ có `FakeVideo` |
 | Renderer | `vendor/video_project.py` (bản copy tại `82bb4a7`) | `render(plan, assets)` → manifest (mỗi scene: clip selected dạng MP4, giọng selected, narration) → `create_revision`, `plan`, `render` | Gate 2 |
 
 <!-- id:s3.b4 -->
@@ -221,7 +211,6 @@ Quy tắc giữ ranh giới:
 - Ghim phiên bản MPT; mỗi adapter có test riêng chạy trước khi nâng ([07 · Nâng MPT](07-operations.md#s3)).
 - MPT không có một lớp lỗi unconfirmed chung: mỗi provider có lớp riêng (`MuAPIUnconfirmedTaskError`, `VolcEngineSeedanceUnconfirmedTaskError`, `MetasoMiniMaxUnconfirmedTaskError`, `OFoxUnconfirmedTaskError`, `WaveSpeedUnconfirmedTaskError`, `InfistarVideoUnconfirmedError`, `OpenAIImageUnconfirmedError` tại `82bb4a7`). `MptVideo` giữ danh sách này và test adapter kiểm nó khi nâng MPT.
 - Gói `mpt` 1.3.9 ghim cứng các thư viện dùng chung với studio (`fastapi==0.136.3`, `starlette==1.2.1`, `uvicorn==0.32.1`, `openai==2.24.0`, `requests==2.33.1`, `pyyaml==6.0.3`) và kéo theo Streamlit, faster-whisper, Azure Speech, Redis client. Studio dùng đúng các bản đó trong một `uv.lock`; nâng MPT cũng là nâng web của ta, nên test web chạy cùng test adapter.
-- Test adapter kiểm cả cách ánh xạ tham số: pilot Gate 1 gặp `bgm_type="none"` bị từ chối trong manifest batch trong khi CLI `--bgm-type none` chạy được.
 
 <!-- id:s4 -->
 ## Ví dụ: adapter MptTTS
@@ -379,7 +368,7 @@ Table: Model và adapter mặc định
 Table: Chi phí ước tính một Short 60 giây theo cấu hình (báo cáo nghiên cứu, chưa đo thực tế)
 | Cấu hình | Chi phí ước tính | Nguồn |
 | --- | --- | --- |
-| Gate 3: ảnh tĩnh + chuyển động camera, Edge TTS | Khoảng $0,53 cho 6 scene, nhạc tắt | Ví dụ t_0042 ([08](08-roadmap.md#s6)) |
+| Gate 2–3 đã chạy: ảnh tĩnh + chuyển động camera, Edge TTS | Chưa có số: response ảnh qua OmniRoute không có `usage`, `est_usd` để trống; đối chiếu openrouter.ai → Activity | [g2](../../reports/g2/README.md), [g3](../../reports/g3/README.md) |
 | Ảnh tĩnh có chuyển động camera (ước tính chung) | Khoảng $1–1,5 | ADD-AIVIDEO-003 mục 1 |
 | Gate 4: thêm 4 clip Veo 3.1 Fast 720p | Khoảng $5–7 | ADD-AIVIDEO-003 mục 11 |
 
@@ -390,9 +379,8 @@ Table: Chi phí ước tính một Short 60 giây theo cấu hình (báo cáo ng
 Table: Cách dùng lại mã MPT
 | Cách | Áp dụng cho | Điều kiện |
 | --- | --- | --- |
-| Dùng nguyên | WebUI/CLI của MPT ở Gate 1 | Không viết code |
 | Phụ thuộc pip, ghim phiên bản | `voice`, `subtitle`, `llm`, provider video | Chỉ gọi từ `studio/providers/mpt/` |
-| Copy (vendor) | `video_project.py` | Giữ header bản quyền, kèm `LICENSE-MPT`, ghi commit gốc `82bb4a7` (trùng gói `mpt` 1.3.9 đã chạy ở Gate 1; khác `9e7d8b7` đúng một dòng sửa `fsync`) |
+| Copy (vendor) | `video_project.py` | Giữ header bản quyền, kèm `LICENSE-MPT`, ghi commit gốc `82bb4a7` (trùng gói `mpt` 1.3.9; khác `9e7d8b7` đúng một dòng sửa `fsync`) |
 | Không dùng | `webui/Main.py`, `task.py`, `state.py`, `video.py`, `upload_post.py` | — |
 
 <!-- id:s7.b2 -->
@@ -421,7 +409,7 @@ Mỗi năng lực mới ở Gate 4 là một adapter mới, không đổi core.
 - [ ] Ghi `pending` trước mỗi lượt gọi trả phí qua `costs.py`; ghi `units` thật
 - [ ] Ghi `provider` và `model` thật vào ứng viên
 - [ ] Bất đồng bộ: tách `submit` / `poll`, không chờ trong `submit`
-- [ ] Đọc khóa từ `config.toml` của MPT hoặc biến môi trường, không từ `studio.toml`
+- [ ] Đọc khóa từ `config.toml` của MPT hoặc biến môi trường, không từ `studio.toml`; khóa mới thêm vào `SECRET_ENV` trong `studio/config.py` để log che nó
 - [ ] Đăng ký tên trong `providers/__init__.py`; chọn bằng một dòng `studio.toml`
 - [ ] Test riêng của adapter (gọi thật, đánh dấu chạy tay) và test quét import vẫn xanh
 ```
@@ -484,14 +472,14 @@ Table: Các quy trình khác
 ## Kiểm thử
 
 <!-- id:s11.b1 -->
-Mỗi interface phải có một bản giả để test core không tốn tiền (NFR-04). Test chia ba tầng: core với bản giả chạy mọi lần commit; adapter gọi thật chạy tay trước khi nâng MPT hay đổi model; test chấp nhận T01–T10 chạy ở các gate ([08 · Kiểm thử](08-roadmap.md#s4)).
+Mỗi interface phải có một bản giả để test core không tốn tiền (NFR-04). Test chia ba tầng: core với bản giả chạy mọi lần commit; adapter gọi thật chạy tay trước khi nâng MPT hay đổi model; test chấp nhận T01–T12 chạy ở các gate ([08 · Kiểm thử](08-roadmap.md#s4)).
 
 <!-- id:s11.b2 -->
 <!-- report-kit:d2
 ```d2
 # cap: Ba tầng test: rẻ và thường xuyên ở dưới, đắt và hiếm ở trên
 direction: down
-acc: "Test chấp nhận T01–T10\n5 brief thật, ở mỗi gate\n(tốn tiền, chạy tay)" {class: brain}
+acc: "Test chấp nhận T01–T12\n5 brief thật, ở mỗi gate\n(tốn tiền, chạy tay)" {class: brain}
 adp: "Test adapter\ngọi dịch vụ thật, một lượt mỗi adapter\n(trước khi nâng MPT, đổi model)" {class: hands}
 core: "Test core với Fake*\nresume, retry, unknown, selected, revision\n+ test quét import (mỗi commit, CI)" {class: gate}
 acc -> adp -> core
@@ -514,3 +502,9 @@ Table: Test core bắt buộc (với bản giả)
 | QualityFail | `FakeImage` trả ảnh trượt kiểm tra | Chỉ scene đó chạy lại; lý do có trong prompt lượt sau |
 | Sửa scene | Đổi narration s05 | Chỉ voice s05, subtitles, render chạy lại |
 | Đổi adapter | Đổi `tts` trong cấu hình sang `FakeTTS` khác | Không sửa code core (T07) |
+
+<!-- id:s12 -->
+## GPUProvider không phải content provider
+
+<!-- id:s12.b1 -->
+Năm interface ở s1 là năng lực sinh nội dung. Thuê GPU là hạ tầng: `GPUProvider` (search, create, get, list, stop, destroy) sống ở `studio/gpu/adapters/`, không đăng ký trong `REGISTRY` của `studio/providers/__init__.py`, không chọn bằng `[adapters]`. Adapter nội dung dùng ComfyUI (`providers/direct/comfyui.py`) chỉ nhận endpoint đã `ready` và vẫn dịch lỗi về 4 loại ở s1; lỗi tạo hay hủy instance đi qua `gpu_events`, không qua `Retryable`, để không có retry nào thuê thêm GPU. Thiết kế và cách dùng vast-cli, base-image, ComfyUI ở [09](09-gpu-comfyui.md).

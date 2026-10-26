@@ -2,17 +2,15 @@
 id: IGN-ARC
 title: Igniterra — Kiến trúc tổng thể
 type: design
-ver: "2.2"
+ver: "3.0"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
-sum: Modular monolith Python gồm 4 tầng (giao diện, core, adapter, dịch vụ); core tối thiểu do ta viết gọi 5 provider interface, MPT chỉ nằm sau adapter; 2 process chia sẻ SQLite và thư mục data/.
+sum: Modular monolith Python gồm 4 tầng (giao diện, core, adapter, dịch vụ); core tối thiểu do ta viết gọi 5 provider interface, MPT chỉ nằm sau adapter; 2 process chia sẻ SQLite và thư mục data/. GPU thuê và ComfyUI (Gate 4) là module hạ tầng riêng, chưa code.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 1–5, 9"], [Kiểu kiến trúc, "Modular monolith, core + adapter"], [Yêu cầu, "01 · Thiết kế hệ thống"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 4 tầng, core tối thiểu, MPT sau adapter, bỏ registry, profile YAML, router, ngân sách"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2: bước animate, vendor video_project tại 82bb4a7, phụ thuộc ghim theo gói mpt, quy tắc web chỉ ghi khi task không chạy, ranh giới đường dẫn cho /files"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.2", 2026-10-24, "LLM và ảnh qua OmniRoute, model đặt trong studio.toml (lịch sử trước đó: git log)"]
+  - ["3.0", 2026-10-26, "Soát theo code: bỏ nội dung pilot trước Gate 2, lý do AD viết thẳng thay vì dẫn bảng rà soát cũ, ADR đã duyệt, phụ thuộc web đến từ gói mpt; GPU thuê/ComfyUI là module hạ tầng (09)"]
 ---
 
 <!-- id:s1 -->
@@ -38,7 +36,7 @@ rev:
   p: "Kịch bản, chấm điểm, sửa prompt là lời gọi LLM có schema (AD-13)."
 - h: Kiểm chứng trước khi xây
   chip: scope
-  p: "Chưa viết code trước Gate 2; mỗi năng lực mới ở Gate 4 là một adapter, không đổi core (AD-12)."
+  p: "Mỗi gate cần số đo của gate trước; mỗi năng lực mới ở Gate 4 là một adapter hoặc module hạ tầng, không đổi core (AD-12)."
 ```
 
 <!-- id:s1.b2 -->
@@ -84,7 +82,7 @@ svc: Dịch vụ {
   mpt: "gói mpt\n(ghim phiên bản)" {class: plain}
   api: "API cloud\nOmniRoute, Veo" {class: plain}
   ff: FFmpeg {class: plain}
-  gpu: "ComfyUI\n(chỉ khi mở rộng)" {class: plain}
+  gpu: "GPU thuê + ComfyUI\n(Gate 4, thiết kế)" {class: plain}
 }
 ui -> core: "tạo task, chọn, sửa, duyệt"
 core.stp -> core.iface: gọi
@@ -107,7 +105,7 @@ Table: Tầng và thành phần
 | Giao diện | CLI; trang review (FastAPI + Jinja2 + HTMX) | CLI bắt buộc từ Gate 2; trang review từ Gate 3 |
 | Core | Danh sách bước, contract, trạng thái SQLite, gate, nhật ký chi phí, 5 provider interface | Bắt buộc |
 | Adapter | API trực tiếp (LLM, ảnh có tham chiếu nhân vật); MPT (TTS, phụ đề, video); renderer `video_project` | Mỗi adapter bật theo năng lực đang dùng |
-| Dịch vụ | Gói `mpt` ghim phiên bản; API cloud; FFmpeg; GPU tự host qua ComfyUI | GPU tự host chỉ khi mở rộng |
+| Dịch vụ | Gói `mpt` ghim phiên bản; API cloud; FFmpeg; GPU thuê chạy ComfyUI | GPU thuê chỉ từ Gate 4 ([09](09-gpu-comfyui.md)) |
 
 <!-- id:s3 -->
 ## Góc nhìn process và lưu trữ
@@ -365,7 +363,7 @@ ch.c1 -> where.cfg
 ch.c2 -> where.adp: "adapter SDK trực tiếp"
 ch.c3 -> where.adp: "MptVideo / VeoVideo"
 ch.c3 -> where.cfg: "scene mode: motion"
-ch.c4 -> where.adp: "ComfyImage"
+ch.c4 -> where.adp: "comfyui.py\n(GPU thuê ở studio/gpu)"
 ch.c5 -> where.lst: "chapterize, master"
 where -> core: "không chạm" {style.stroke-dash: 3}
 ```
@@ -382,7 +380,7 @@ Table: Kiểm chứng tính ổn định của core
 | Đổi giọng Edge TTS sang ElevenLabs | Cấu hình giọng trong Series Bible và `config.toml` của MPT | Không đổi | T07 |
 | Bỏ MPT cho TTS | Viết `providers/direct/elevenlabs.py` cùng `TTSProvider`, đổi một dòng `studio.toml` | Không đổi | Test adapter |
 | Bật image-to-video | Adapter `MptVideo` hoặc `VeoVideo`; scene `mode: motion` | Bước `motion` đã có, tự bỏ qua scene ảnh tĩnh | T06 |
-| Ảnh cloud → GPU tự host | Adapter `ComfyImage` (FLUX.2 klein 4B) | Không đổi | Test adapter |
+| Ảnh cloud → GPU thuê | Adapter `providers/direct/comfyui.py` (FLUX.2 klein 4B) gọi runtime đã `ready`; thuê và provisioning ở `studio/gpu/` ([09](09-gpu-comfyui.md)) | Không đổi | Test adapter, G01–G12 |
 | Thêm audiobook | Danh sách bước mới với `chapterize`, `master` | Không đổi | Gate 4 |
 
 <!-- id:s8 -->
@@ -434,22 +432,22 @@ app -> tools
 Table: Nền tảng
 | Thành phần | Chọn | Thay thế | Khi nào đổi |
 | --- | --- | --- | --- |
-| Ngôn ngữ | Python 3.11+ với `uv`; một `uv.lock` chung với gói `mpt` | — | Cùng yêu cầu Python của MPT (`>=3.11`; pilot chạy 3.13). Các thư viện `mpt` ghim cứng (FastAPI, Starlette, uvicorn, openai) là bản studio dùng |
+| Ngôn ngữ | Python 3.11–3.13 với `uv`; một `uv.lock` chung với gói `mpt` | — | `pyproject.toml` chỉ khai báo `mpt==1.3.9` và `pydantic`; FastAPI, uvicorn, `requests` do `mpt` ghim, Jinja2 đến gián tiếp qua `litellm`. Gỡ hoặc nâng `mpt` là đổi stack web |
 | Giao diện | FastAPI + Jinja2 + HTMX | NiceGUI | Khi muốn viết UI hoàn toàn bằng Python |
 | Contract | Pydantic v2 | — | Dùng luôn làm schema structured output của LLM |
 | Trạng thái | SQLite (WAL) + file JSON | Postgres | Khi có worker trên nhiều máy; phải sửa phần nhận task, không chỉ đổi URL (AD-11) |
 | Artifact | Thư mục `data/` | S3 / R2 | Khi nhiều máy cần chung file |
 | Dựng video | `vendor/video_project.py` + FFmpeg | MoviePy; Remotion | Remotion khi cần template đồ họa động (có phí với công ty từ 4 người) |
 | Provider TTS, phụ đề, video | Gói `mpt` ghim phiên bản | Gọi SDK trực tiếp | Khi một provider cần tính năng MPT chưa có |
-| GPU tự host | ComfyUI chế độ API | Script `diffusers` | Chỉ từ Gate 4 |
+| GPU thuê | Vast.ai on-demand (REST) + ComfyUI chế độ API trên `vastai/base-image` | Provider khác qua `GPUProvider` (cần image riêng); script `diffusers` | Chỉ từ Gate 4, khi D-05 mở |
 | Agent framework | Không dùng | Claude Agent SDK; LangGraph | Khi một bước cần nhiều lượt dùng tool |
-| Triển khai | 2 process trên một máy (systemd hoặc docker compose) | VPS | Khi cần chạy 24/7 |
+| Triển khai | 2 process trên một máy, chạy tay trong môi trường `uv` (chưa có unit systemd hay compose trong repo) | systemd hoặc docker compose; VPS | Khi cần chạy 24/7 |
 
 <!-- id:s9 -->
 ## Quyết định kiến trúc
 
 <!-- id:s9.b1 -->
-Các quyết định AD-01 đến AD-13 của ADD-AIVIDEO-003 được xem là chốt khi tài liệu được duyệt. Ba nhóm khó đảo ngược nhất có ADR riêng chờ duyệt trước Gate 2.
+Các quyết định AD-01 đến AD-13 của ADD-AIVIDEO-003 đã được code theo. Ba nhóm khó đảo ngược nhất có ADR riêng, đã duyệt ngày 24/10/2026.
 
 <!-- id:s9.b2 -->
 Table: Quyết định kiến trúc AD-01..AD-13
@@ -459,14 +457,14 @@ Table: Quyết định kiến trúc AD-01..AD-13
 | AD-02 | Core tối thiểu + adapter | Giữ quyền kiểm soát contract và trạng thái, không tự viết provider | Tự xây toàn bộ (v1.1); dùng nguyên MPT | [ADR-0004](../adr/0004-minimal-core-mpt-adapters.md) |
 | AD-03 | MPT là thư viện provider, ghim phiên bản | 14 TTS, căn phụ đề, provider video được bảo trì liên tục | Fork MPT; copy toàn bộ mã | [ADR-0004](../adr/0004-minimal-core-mpt-adapters.md) |
 | AD-04 | Copy duy nhất `video_project.py` | Tự chứa, làm đúng revision và dựng lại theo scene; đã kiểm thử | Tự viết renderer; dùng `video.py` của MPT | [ADR-0004](../adr/0004-minimal-core-mpt-adapters.md) |
-| AD-05 | Danh sách bước cố định bằng Python | Bản rà soát F01: chưa cần runner tổng quát | Profile YAML, registry động, cú pháp parallel | [ADR-0001](../adr/0001-generic-fan-out.md), [ADR-0003](../adr/0003-parallel-step-groups.md) (bị loại) |
-| AD-06 | ScenePlan là contract kịch bản duy nhất | Bản rà soát F02; lời đọc lấy từ `narration` | Hai contract ScenePlan + SpeechScript | [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) |
-| AD-07 | Render dùng ứng viên selected | Bản rà soát F04 | "Lấy bản mới nhất" | [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) |
-| AD-08 | Sửa scene tạo revision mới | Bản rà soát F05 | Ghi đè output | [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) |
-| AD-09 | Ghi pending trước lượt gọi trả phí; kết quả không rõ thì hỏi người | Bản rà soát F03 | Hứa "không bao giờ trả tiền hai lần" | [ADR-0006](../adr/0006-paid-call-ledger.md) |
-| AD-10 | Ghi nhật ký chi phí, không đặt ngân sách trước | Bản rà soát F10: giá đổi, ước tính lệch hóa đơn | `pricing.yaml` + reservation | [ADR-0006](../adr/0006-paid-call-ledger.md) |
-| AD-11 | SQLite + file; không hứa chuyển Postgres bằng đổi URL | Bản rà soát F08 | Postgres + S3 từ đầu | — |
-| AD-12 | Lộ trình theo decision gate, có lối ra "dừng xây" | Bản rà soát mục 7 | 5 phase cố định | [08 · Lộ trình](08-roadmap.md) |
+| AD-05 | Danh sách bước cố định bằng Python | Chỉ có một loại video; runner tổng quát chưa có nhu cầu | Profile YAML, registry động, cú pháp parallel | [ADR-0001](../adr/0001-generic-fan-out.md), [ADR-0003](../adr/0003-parallel-step-groups.md) (bị loại) |
+| AD-06 | ScenePlan là contract kịch bản duy nhất | Lời đọc lấy từ `narration`; contract thứ hai chỉ để đồng bộ | Hai contract ScenePlan + SpeechScript | [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) |
+| AD-07 | Render dùng ứng viên selected | Bản mới nhất chưa chắc là bản người chọn | "Lấy bản mới nhất" | [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) |
+| AD-08 | Sửa scene tạo revision mới | Giữ bản cũ; `input_hash` chỉ chạy lại phần phụ thuộc | Ghi đè output | [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) |
+| AD-09 | Ghi pending trước lượt gọi trả phí; kết quả không rõ thì hỏi người | Mất response sau khi gửi thì không biết đã bị tính phí chưa | Hứa "không bao giờ trả tiền hai lần" | [ADR-0006](../adr/0006-paid-call-ledger.md) |
+| AD-10 | Ghi nhật ký chi phí, không đặt ngân sách trước | Giá đổi, ước tính lệch hóa đơn | `pricing.yaml` + reservation | [ADR-0006](../adr/0006-paid-call-ledger.md) |
+| AD-11 | SQLite + file; không hứa chuyển Postgres bằng đổi URL | Đổi sang Postgres phải sửa cách nhận task và nơi ghi `costs.jsonl`, `assets.json` | Postgres + S3 từ đầu | — |
+| AD-12 | Lộ trình theo decision gate, có lối ra "dừng xây" | Chỉ xây phần số đo của gate trước biện minh | 5 phase cố định | [08 · Lộ trình](08-roadmap.md) |
 | AD-13 | Không dùng AI agent mặc định | Kịch bản, chấm điểm, sửa prompt đều là lời gọi LLM có schema | Multi-agent, LangGraph | — |
 
 <!-- id:s10 -->
@@ -487,6 +485,7 @@ Table: Yêu cầu → thành phần → tài liệu thiết kế
 | FR-15 image-to-video | `VideoProvider` submit / poll | [03](03-runner.md), [05](05-modules-providers.md) |
 | NFR-01 ranh giới import | Toàn bộ | Mục Quy tắc phụ thuộc ở trên |
 | NFR-02 không tự gửi lại | `costs.py`, `VideoProvider` | [03](03-runner.md) |
+| FR-19, FR-20, NFR-11, NFR-12 GPU thuê, ComfyUI | `studio/gpu/`, `studio/comfyui/` (chưa code) | [09](09-gpu-comfyui.md) |
 
 <!-- id:s11 -->
 ## Tiến hóa kiến trúc
@@ -499,17 +498,13 @@ Kiến trúc lớn lên theo decision gate, không theo phase cố định. Mỗ
 ```d2
 # cap: Thành phần xuất hiện theo gate; core chỉ được viết ở Gate 2 và không đổi ở Gate 4
 grid-rows: 2
-grid-columns: 5
-g0: "Gate 0\nMục tiêu\n\nchưa có code\n5 brief + checklist" {class: plain}
-g1: "Gate 1\nPilot MPT\n\nđã đóng: bỏ baseline,\nD-01 = build" {class: plain}
-g2: "Gate 2\nCore + adapter, CLI\n\ncontract, StepRun,\ncosts.jsonl, MptTTS,\naligner, ảnh, renderer" {class: brain}
-g3: "Gate 3\nDuyệt và sửa\n\ntrang review, selected,\nrerun scene,\nSeries Bible" {class: brain}
-g4: "Gate 4\nMở rộng\n\nimage-to-video,\nComfyUI, audiobook,\nđăng bài" {class: hands}
-c0: "—" {class: plain}
-c1: "—" {class: plain}
+grid-columns: 3
+g2: "Gate 2 (đã xây)\nCore + adapter, CLI\n\ncontract, StepRun,\ncosts.jsonl, MptTTS,\naligner, ảnh, renderer" {class: brain}
+g3: "Gate 3 (đã xây)\nDuyệt và sửa\n\ntrang review, selected,\nrerun scene,\nSeries Bible" {class: brain}
+g4: "Gate 4\nMở rộng\n\nimage-to-video,\nGPU thuê + ComfyUI,\naudiobook, đăng bài" {class: hands}
 c2: "core (viết mới)" {class: data}
 c3: "core (thêm web)" {class: data}
-c4: "core (không đổi;\nmỗi năng lực một adapter)" {class: data}
+c4: "core (không đổi;\nadapter hoặc module hạ tầng)" {class: data}
 ```
 -->
 <picture>
@@ -529,3 +524,9 @@ Table: Thành phần bị bỏ hoặc hoãn so với v1.1 và điều kiện th�
 | VLM chấm mọi scene | Người duyệt thành nút thắt |
 | Đa người dùng, phân quyền | Có người dùng thứ hai |
 | Postgres, S3 / R2 | Có worker trên hơn một máy |
+
+<!-- id:s12 -->
+## Hạ tầng GPU thuê (Gate 4, thiết kế)
+
+<!-- id:s12.b1 -->
+GPU thuê và ComfyUI là hai module hạ tầng `studio/gpu/` và `studio/comfyui/`, không phải provider interface thứ sáu trong `studio/providers/base.py`. Chúng chạy trong worker và web hiện có, dùng bảng `gpu_*`, `comfy_*` riêng trong cùng SQLite, không import `app.*` của MPT. Pipeline video chỉ thấy một endpoint ComfyUI đã `ready` qua adapter `providers/direct/comfyui.py`; không bước nào trong `VIDEO_STEPS` thuê GPU. Chi tiết, kể cả lý do không cài gói `vastai`, ở [09](09-gpu-comfyui.md).

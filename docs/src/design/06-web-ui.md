@@ -2,18 +2,15 @@
 id: IGN-UI
 title: Igniterra — Giao diện review và CLI
 type: design
-ver: "2.3"
+ver: "2.4"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
 sum: CLI ở Gate 2 và một ứng dụng web nhỏ do server render (FastAPI + Jinja2 + HTMX) từ Gate 3; màn hình quan trọng nhất là Storyboard, nơi xem kịch bản theo scene, chọn ứng viên, sửa và chạy lại ở cùng một chỗ.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 8"], [Thành phần, "studio/cli.py, studio/web/"], [Gate xây, "2 (CLI), 3 (trang review, Settings)"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu (Giao diện web và Task API), tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: CLI trước, 4 trang review, chọn ứng viên selected, sửa tạo revision, quyết định lượt gọi unknown; bỏ ngân sách và Settings ghi profile"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2: phiếu duyệt C01–C09 và phút công ở gate final, lệnh review và task pause, không sửa khi task đang chạy, khai báo nguồn khi upload, trạng thái duration_exceeded"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
-  - ["2.3", 2026-10-25, "Gate 3 đã xây: route, phiếu duyệt trên Storyboard, job ảnh tham chiếu, Settings ghi lớp phủ, lệnh web và series"]
+  - ["2.3", 2026-10-25, "Gate 3 đã xây: route, phiếu duyệt trên Storyboard, job ảnh tham chiếu, Settings ghi lớp phủ, lệnh web và series (lịch sử trước đó: git log)"]
+  - ["2.4", 2026-10-26, "Soát theo code: giao diện Editorial Light (sidebar, CSS thuần), bảng lệnh CLI đúng với cli.py, Task detail không có tải artifact hay chạy lại bước, Settings ghi data/settings.toml, chưa có CSRF; GPU Rentals và ComfyUI Workflows là thiết kế (09)"]
 ---
 
 <!-- id:s1 -->
@@ -101,9 +98,9 @@ Table: Trang, nội dung và hành động
 | --- | --- | --- |
 | Tasks | Danh sách task: tiêu đề, trạng thái, bước hiện tại, chi phí đã ghi | Tạo task (brief, series, phần Nâng cao để ghi đè adapter/model) |
 | Storyboard | Lưới scene: ảnh được chọn, số ứng viên, narration, góc máy, revision, chi phí | Chọn ứng viên, sửa scene, upload asset riêng, chạy lại, duyệt/từ chối gate |
-| Task detail | Dòng thời gian các bước, input/output, log, lỗi, chi phí từng lượt gọi, video cuối | Chạy lại bước, quyết định với lượt gọi `unknown`, tải toàn bộ artifact |
+| Task detail | Các bước và gate theo thứ tự, StepRun từng lượt (trạng thái, output, lỗi), `costs.jsonl`, 50 dòng cuối `worker.log`, revision plan và render | Quyết định lượt gọi `unknown`: sinh lại hoặc bỏ qua |
 | Series | Series Bible: style, nhân vật kèm ảnh tham chiếu, giọng, từ vựng camera, từ điển phát âm | Tạo ảnh tham chiếu, chọn ảnh được duyệt |
-| Settings (Gate 3) | Adapter mặc định cho từng năng lực, giới hạn song song | Chọn adapter; kiểm adapter khởi tạo được trước khi lưu `studio.toml` |
+| Settings | Adapter mặc định cho từng năng lực, model OmniRoute, giới hạn song song, bật gate `keyframes` | Lưu lớp phủ `data/settings.toml` sau khi kiểm mọi adapter khởi tạo được; không sửa `studio.toml` |
 
 <!-- id:s4 -->
 ## Storyboard
@@ -213,39 +210,44 @@ Task detail là nơi vận hành và debug: dòng thời gian các bước, mỗ
 │ ◐ keyframes   s01–s05 ✔  s06 ?                                                │
 │ · gate: keyframes · voice · subtitles · animate · render · gate: final        │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│ costs.jsonl (12 dòng) · log worker (50 dòng cuối) · [Tải toàn bộ artifact]     │
+│ costs.jsonl (12 dòng) · log worker (50 dòng cuối) · revision plan, render      │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 <!-- id:s7 -->
-## CLI (Gate 2)
+## CLI
 
 <!-- id:s7.b1 -->
-CLI là giao diện duy nhất ở Gate 2, đủ để chạy 5 brief ra MP4 và duyệt gate bằng cách mở file. Tên lệnh là đề xuất; chốt khi code.
+CLI (`studio/cli.py`) làm được mọi việc của web và gọi cùng lớp `gates.Actions` / `series.SeriesActions`.
 
 <!-- id:s7.b2 -->
-Table: Lệnh CLI đề xuất
+Table: Lệnh CLI (`python -m studio ...`)
 | Lệnh | Làm gì |
 | --- | --- |
-| `python -m studio task new --brief brief.json [--series lyra7]` | Tạo task `pending`, in id |
-| `python -m studio worker` | Chạy worker (vòng lặp) |
-| `python -m studio task show t_0042` | Trạng thái, bước, `wait_reason`, đường dẫn ứng viên, chi phí |
-| `python -m studio gate t_0042 approve\|reject [--note ...]` | Quyết định gate hiện tại |
-| `python -m studio review t_0042 --checklist review.json [--minutes 12]` | Ghi phiếu duyệt gate `final` (C01–C09, `accepted`, phút công); bắt buộc trước `gate ... approve` ở gate `final` |
-| `python -m studio task pause t_0042` | Yêu cầu worker dừng task ở ranh giới mục kế tiếp để sửa |
-| `python -m studio select t_0042 s03 img_s03_a2` | Đổi selected |
-| `python -m studio scene edit t_0042 s03 --visual "..."` | Tạo ScenePlan revision mới |
-| `python -m studio unknown t_0042 s06 retry\|skip` | Quyết định lượt gọi `unknown` |
-| `python -m studio run-step keyframes --task t_0042 --scene s03` | Chạy một bước cho một scene khi debug |
+| `task new --brief briefs/brief-01.json [--series lyra7] [--overrides '{...}']` | Tạo task `pending`, in id |
+| `task list`, `task show t_0042 [--runs]` | Danh sách; trạng thái, `wait_reason`, ứng viên, render, chi phí, pending mồ côi |
+| `task pause\|resume t_0042`, `task cancel t_0042 [--note]` | Dừng ở ranh giới mục kế tiếp; chạy tiếp; hủy (task `failed`) |
+| `worker [--once] [--task t_0042] [--skip-preflight]` | Chạy worker; preflight kiểm FFmpeg và khởi tạo adapter trước |
+| `gate t_0042 approve\|reject [--note]` | Quyết định gate hiện tại |
+| `review t_0042 --checklist review.json [--minutes 12]` | Ghi phiếu duyệt C01–C09 cho render hiện tại; bắt buộc trước khi duyệt gate `final` |
+| `select t_0042 s03 img_s03_a2` | Đổi selected |
+| `scene edit t_0042 s03 [--narration\|--visual\|--size\|--angle\|--movement\|--mode\|--note]` | Tạo ScenePlan revision mới |
+| `rerun t_0042 s03 --note "..." [--step keyframes]` | Chạy lại một bước của scene, ghi chú vào prompt |
+| `upload t_0042 s03 image\|clip\|voice file --source ... --rights ... [--ai-generated]` | Thêm ứng viên `provider: user` và chọn |
+| `unknown t_0042 s06 retry\|skip [--note]` | Quyết định lượt gọi `unknown` |
+| `series list\|new\|show\|character\|ref\|approve` | Series Bible và job ảnh tham chiếu |
+| `web [--host 127.0.0.1 --port 8600]` | Trang review |
+| `run-step keyframes --task t_0042 [--scene s03]` | Chạy một bước khi debug |
 
 <!-- id:s8 -->
 ## Đã xây ở Gate 3
 
+<!-- id:s8.b1-2 -->
 Table: Route của trang review (`studio/web/`)
 | Route | Trang / hành động |
 | --- | --- |
 | `GET /`, `POST /tasks` | Tasks; tạo task từ `briefs/*.json` hoặc JSON dán vào, series, ghi đè |
-| `GET /tasks/{id}?scene=sNN` | Storyboard: lưới scene, khung sửa, dải ứng viên, video của render hiện tại, phiếu C01–C09 |
+| `GET /tasks/{id}?scene=sNN`, `GET /tasks/{id}/status` | Storyboard: lưới scene, khung sửa, dải ứng viên, video của render hiện tại, phiếu C01–C09; partial trạng thái cho HTMX |
 | `POST /tasks/{id}/scenes/{s}/edit\|select\|rerun\|upload` | Sửa → revision mới; chọn; chạy lại kèm ghi chú; upload kèm nguồn, quyền, cờ AI |
 | `POST /tasks/{id}/gate\|review\|pause\|resume\|cancel` | Gate, phiếu duyệt (phút chủ động tự điền theo thời gian mở trang), điều khiển task |
 | `GET /tasks/{id}/detail`, `POST /tasks/{id}/unknown/{s}` | Task detail: bước, lượt chạy, `costs.jsonl`, `worker.log`; quyết định `unknown` |
@@ -253,18 +255,20 @@ Table: Route của trang review (`studio/web/`)
 | `GET/POST /settings` | Adapter mặc định, model, song song, gate keyframes → `data/settings.toml` |
 | `GET /files/{path}` | File trong `data/`, `realpath` + `commonpath`; symlink ra ngoài bị chặn |
 
-Lệnh thêm: `python -m studio web [--host --port]`, `python -m studio series list|new|show|character|ref|approve`. Basic auth bật bằng biến `STUDIO_BASIC_AUTH=user:pass`.
+<!-- id:s8.b2 -->
+Giao diện "Editorial Light" (`studio/web/static/style.css`, CSS thuần, không bước build, không tải tài nguyên ngoài): sidebar cố định với Tasks, Series, Settings; Storyboard và Task detail mở từ Tasks. `tests/test_editorial_ui.py` giữ hợp đồng tên trường và `action` của các form POST, không kiểm pixel. Basic auth bật bằng biến `STUDIO_BASIC_AUTH=user:pass`.
 
+<!-- id:s9-2 -->
 ## Truy cập và bảo mật
 
 <!-- id:s8.b1 -->
-Giao diện chạy ở `localhost` hoặc sau Tailscale/basic auth; API key không hiển thị trên UI. Chọn adapter mặc định làm qua file cấu hình ở Gate 2, qua trang Settings đơn giản từ Gate 3. Không có đa người dùng hay phân quyền; thêm đăng nhập ở lớp web khi có người dùng thứ hai.
+Giao diện chạy ở `127.0.0.1` hoặc sau Tailscale/basic auth; API key không hiển thị trên UI. Không có đa người dùng, phân quyền hay CSRF token; chấp nhận được khi chỉ một người dùng trên localhost, phải thêm CSRF trước khi có route tốn tiền như thuê GPU ([09](09-gpu-comfyui.md#s7)).
 
 <!-- id:s9 -->
 ## Nguyên tắc giữ UI nhỏ
 
 <!-- id:s9.b1 -->
-- Giữ 4 trang và Settings; mọi trang mới phải chứng minh nhu cầu bằng một lỗi đã thấy ở gate trước.
+- Giữ 4 trang và Settings; mọi trang mới phải chứng minh nhu cầu bằng một lỗi đã thấy ở gate trước. Khi D-05 mở, thêm đúng hai mục sidebar GPU Rentals (`/gpu`) và ComfyUI Workflows (`/comfyui/workflows`) theo [09](09-gpu-comfyui.md#s7).
 - Không dashboard thống kê: `costs.jsonl` và `jq` đủ cho báo cáo tháng.
-- Không workflow editor: danh sách bước là mã Python.
+- Không workflow editor: danh sách bước là mã Python; ComfyUI workflow chỉ nhập, duyệt và chạy, sửa graph mở ComfyUI gốc.
 - Không thay trình dựng phim: chỉnh nhịp từng khung phải sửa dữ liệu rồi render lại, hoặc xuất timeline sang trình dựng ngoài.

@@ -11,16 +11,16 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 | [05 · Provider, adapter và MPT](src/design/05-modules-providers.md) | 5 interface, ranh giới MPT, adapter, model mặc định, agent, quy trình khác, kiểm thử |
 | [06 · Giao diện review và CLI](src/design/06-web-ui.md) | Bản đồ trang, Storyboard, can thiệp, Task detail, lệnh CLI |
 | [07 · Triển khai và vận hành](src/design/07-operations.md) | Triển khai, bí mật, nâng cấp MPT, quan sát, sao lưu, bảo mật, rủi ro, runbook |
-| [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 0–4, thứ tự việc Gate 2, test T01–T10, quyết định mở P/D |
-| [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 chờ chốt |
+| [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 2–4, test T01–T12, thứ tự triển khai GPU thuê, quyết định còn mở |
+| [09 · GPU thuê và ComfyUI](src/design/09-gpu-comfyui.md) | Gate 4, thiết kế chưa code: GPUProvider, Vast.ai, provisioning, ComfyUI workflow, license và cách dùng repo mã nguồn mở, G01–G12 |
+| [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 đã duyệt |
 
 ## Báo cáo pilot
 
-- [Gate 0–1: quyết định, kết quả thực thi và bằng chứng](reports/g0-g1/README.md) — G0 đã chốt; G1 có preview kỹ thuật, chưa hoàn tất baseline hoặc quyết định build/reuse.
-- [Bài học kiến trúc từ MPT](reports/g0-g1/mpt-architecture-review.md) — nhận xét từ mã nguồn ghim commit, không phải benchmark.
-- [Gate 2: core, CLI và 5 brief ra MP4](reports/g2/README.md) — 21 test xanh, 5 MP4 đạt hậu điều kiện; phiếu duyệt C01–C09 và D-07 chờ Tuan.
-- [Gate 3 (đang làm): trang review, Series Bible, T09](reports/g3/README.md) — bắt đầu trước D-07; character sheet giữ nhân vật 5/5 scene; điều kiện ra chờ số đo Gate 2.
-- [Soát thiết kế trước Gate 2](reports/design-review-2026-10-24/README.md) — 5 phát hiện chặn, 11 phát hiện cần làm, đã sửa vào tài liệu 2.1; 4 quyết định chờ Tuan.
+- [Gate 2: core, CLI và 5 brief ra MP4](reports/g2/README.md) — 5 MP4 đạt hậu điều kiện; phiếu duyệt C01–C09 và D-07 chờ Tuan.
+- [Gate 3: trang review, Series Bible, T09](reports/g3/README.md) — bắt đầu trước D-07; character sheet giữ nhân vật 5/5 scene; điều kiện ra chờ số đo Gate 2.
+
+Báo cáo là ảnh chụp tại thời điểm viết; trạng thái hiện hành nằm ở [08 · Lộ trình](src/design/08-roadmap.md). Hiện có 46 test (`uv run pytest`).
 
 ## Cách viết và build
 
@@ -31,7 +31,7 @@ Bản Report Kit dùng để viết bộ này: commit `cefd883`. Mã D2 nằm tr
 ```sh
 git clone https://github.com/phuongtuan1803/report-kit && cd report-kit
 git checkout cefd883 && uv sync && npm ci
-uv run report check  ../igniterra/docs/src/design ../igniterra/docs/src/adr ../igniterra/docs/reports/design-review-2026-10-24   # kiểm nguồn, SVG cập nhật (thêm --browser để soát bố cục)
+uv run report check  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # kiểm nguồn, SVG cập nhật (thêm --browser để soát bố cục)
 uv run report build  ../igniterra/docs/src/design ../igniterra/docs/src/adr   # SVG + HTML vào docs/html/
 uv run report adr-index ../igniterra/docs/src/adr                           # sau khi sửa ADR
 ```

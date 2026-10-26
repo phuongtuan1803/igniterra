@@ -1,0 +1,251 @@
+---
+id: IGN-GPU
+title: Igniterra — GPU thuê và ComfyUI Workflows (Gate 4, thiết kế)
+type: design
+ver: "2.0"
+status: draft
+date: 2026-10-26
+owner: Tuan
+sum: Thiết kế Gate 4 cho thuê GPU on-demand (Vast.ai là adapter đầu tiên) và chạy ComfyUI workflow trên GPU đó; chưa có dòng code nào. Gồm ranh giới module, contract GPUProvider, vòng đời thuê, cách áp dụng đúng các repo mã nguồn mở (license, cách cài, cách gọi), dữ liệu, chi phí, bảo mật và bộ kiểm chứng G01–G12.
+kv: [[Trạng thái, "Thiết kế; chưa code; D-05 chưa mở"], [Module đề xuất, "studio/gpu/, studio/comfyui/, studio/web/"], [Yêu cầu, "FR-19, FR-20, NFR-11, NFR-12, CON-09"]]
+rev:
+  - ["1.1", 2026-10-26, "PR #9: 09 tổng quan, 10 GPU Rentals, 11 ComfyUI Workflows, 12 UX, 13 Verification"]
+  - ["2.0", 2026-10-26, "Gộp 09–13 thành một tài liệu, bỏ phần lặp; soát lại cách áp dụng repo mã nguồn mở: không cài gói vastai (xung đột pillow với mpt), license Vast.ai Elastic của base-image, label chủ sở hữu, cancel_unavail, on_failure destroy, prompt_id do client sinh"]
+---
+
+<!-- id:s1 -->
+## Phạm vi và trạng thái
+
+<!-- id:s1.b1 -->
+> [!IMPORTANT]
+> Đây là thiết kế. Trong `studio/` chưa có module GPU hay ComfyUI, không có Dockerfile hay script provisioning, `studio.toml` đặt `video = "none"`. Không thuê GPU thật trước khi Tuan mở D-05 ([08](08-roadmap.md#s5)).
+
+<!-- id:s1.b2 -->
+- **GPU Rentals**: tìm offer, thuê on-demand, theo dõi provisioning, chi phí ước tính, stop/destroy. Là module hạ tầng, không phải provider nội dung thứ sáu.
+- **ComfyUI Workflows**: nhập workflow JSON, duyệt dependency, chạy trên một GPU đã `ready`, tải và kiểm output. Không viết lại node editor.
+- **Video studio** giữ nguyên danh sách bước. Khi cần, adapter `providers/direct/comfyui.py` (`ImageProvider`/`VideoProvider`) chỉ nhận endpoint ComfyUI đã `ready`; pipeline không thuê GPU.
+- MVP: on-demand, một người vận hành, một worker, một run mỗi instance, một provider (Vast.ai). Không bid/interruptible, serverless, autoscaling hay provider thứ hai (CON-09).
+
+<!-- id:s2 -->
+## Thành phần và ranh giới
+
+<!-- id:s2.b1 -->
+<!-- report-kit:d2
+```d2
+# cap: GPU Rentals và ComfyUI Workflows là hai module hạ tầng riêng; pipeline video chỉ thấy endpoint đã ready
+direction: down
+ui: "Web: /gpu, /comfyui\n(FastAPI + Jinja2 + HTMX)" {class: plain}
+gsvc: "studio/gpu/service.py\nvòng đời thuê, reconcile" {class: gate}
+csvc: "studio/comfyui/\nworkflow, manifest, run" {class: gate}
+proto: "GPUProvider\n(Fake, Vast)" {class: data}
+vast: "Vast.ai REST API\n(requests, không gói vastai)" {class: hands}
+inst: "Instance thuê\nbase-image + provisioner\n+ ComfyUI ghim version" {class: hands}
+pipe: "Pipeline video\nproviders/direct/comfyui.py" {class: brain}
+db: "SQLite gpu_*, comfy_*\n+ data/gpu, data/comfyui" {shape: cylinder; class: data}
+ui -> gsvc
+ui -> csvc
+gsvc -> proto -> vast
+vast -> inst: "tạo, xóa"
+csvc -> inst: "HTTP ComfyUI\nqua tunnel có xác thực"
+pipe -> inst: "endpoint ready"
+gsvc -> db
+csvc -> db
+```
+-->
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="09-gpu-comfyui.figs/s2.b1-dark.svg">
+<img alt="GPU Rentals và ComfyUI Workflows là hai module hạ tầng riêng; pipeline video chỉ thấy endpoint đã ready" src="09-gpu-comfyui.figs/s2.b1-light.svg">
+</picture>
+
+<!-- id:s2.b2 -->
+Table: Module đề xuất
+| Đường dẫn | Trách nhiệm |
+| --- | --- |
+| `studio/gpu/contracts.py` | `Offer`, `Rental`, `ProvisionStep`, `GPUEvent` (Pydantic) |
+| `studio/gpu/service.py` | Tạo, theo dõi, reconcile, destroy; khóa theo `rental_id` |
+| `studio/gpu/adapters/base.py`, `fake.py`, `vast.py` | `GPUProvider` Protocol, bản giả, adapter Vast.ai |
+| `studio/comfyui/workflows.py`, `manifest.py` | Nhập JSON, revision SHA-256, manifest dependency đã duyệt |
+| `studio/comfyui/runtime.py`, `runs.py` | Client HTTP ComfyUI; chạy, theo dõi, tải output |
+| `studio/providers/direct/comfyui.py` | Tùy chọn: `ImageProvider`/`VideoProvider` gọi một runtime đã `ready` |
+
+<!-- id:s2.b3 -->
+Quy tắc: web chỉ gọi service, không import adapter; `studio/gpu` và `studio/comfyui` không import `app.*` của MPT (giữ NFR-01); worker hiện có làm poll và reconcile, không thêm process, broker hay dịch vụ riêng. Hai trang có state riêng, liên kết bằng `rental_id`; xóa workflow không hủy GPU, hủy GPU không xóa workflow.
+
+<!-- id:s3 -->
+## GPUProvider và adapter Vast.ai
+
+<!-- id:s3.b1 -->
+Table: GPUProvider và lời gọi Vast.ai tương ứng (theo `vast.py` của vast-cli 1.9.1; kiểm lại khi viết adapter)
+| Method | Vast.ai REST | Ghi chú |
+| --- | --- | --- |
+| `capabilities()` | — | `supports_stop`, thành phần giá có sẵn |
+| `search_offers(filters)` | `POST /bundles/` | Lọc `rentable`, `verified`, `gpu_ram`, `disk_space`, `reliability`, `cuda_max_good`; giữ thời điểm báo giá |
+| `create_instance(offer, spec)` | `PUT /asks/{offer_id}/` | Luôn gửi `label = igniterra:<rental_id>` và `cancel_unavail = true`; image ghim digest |
+| `get_instance(id)` | `GET /instances/{id}/` | `actual_status`, cổng, giá |
+| `list_owned_instances()` | `GET /instances` | Lọc theo tiền tố label `igniterra:`; dùng để reconcile |
+| `stop_instance(id)` | `PUT /instances/{id}/` `{"state": "stopped"}` | Stop vẫn tính phí storage |
+| `destroy_instance(id)` | `DELETE /instances/{id}/` | API chỉ trả "destroying"; xác nhận bằng `get`/`list` tới khi instance biến mất |
+
+<!-- id:s3.b2 -->
+- **Không thêm gói `vastai`/`vastai-sdk` vào `pyproject.toml`.** `vastai==1.9.1` ghim `pillow==12.2.0`, còn `mpt==1.3.9` kéo `moviepy==2.2.1` cần `pillow<12`: hai gói không cài chung một `uv.lock`. Adapter là client REST nhỏ trên `requests` (đã có trong lock), đọc vast-cli (MIT) làm tài liệu tham chiếu endpoint. CLI `vastai` chỉ dùng tay, cài riêng bằng `uv tool install vastai`.
+- **Label là khóa đối soát.** Lời gọi create của vast-cli không mang idempotency key. Ghi `rental_id` và `operation_id` vào SQLite trước khi gọi create; nếu timeout, tìm instance có label đó trước khi cân nhắc tạo lại (G04).
+- **`cancel_unavail = true`.** Không có cờ này, khi lập lịch thất bại Vast tạo instance ở trạng thái stopped, vẫn tính phí disk.
+- **Chi phí ước tính tách ba phần**: giá theo giờ `dph_total`, disk (`storage_cost` tính theo GB-tháng × dung lượng yêu cầu), băng thông (`inet_up_cost`, `inet_down_cost` theo GB). vast-cli không ghi rõ `dph_total` đã gồm disk hay chưa; kiểm bằng một lượt thuê ở lát E rồi sửa công thức. Ghi nhãn "ước tính, không phải hóa đơn".
+- Khóa API: biến môi trường `VAST_API_KEY`, thêm vào `SECRET_ENV` của `studio/config.py` để `redact()` che nó trong log và lỗi.
+
+<!-- id:s4 -->
+## Vòng đời thuê
+
+<!-- id:s4.b1 -->
+<!-- report-kit:d2
+```d2
+# cap: Vòng đời thuê; mọi kết quả không rõ đều reconcile trước khi làm tiếp, chỉ destroyed đã xác nhận mới kết thúc phí
+direction: down
+draft: "draft\noffer + báo giá đã xác nhận" {class: data}
+create: "creating\noperation đã ghi" {class: hands}
+cunk: "create_unknown\ntìm theo label" {class: bad}
+prov: "provisioning\ntheo bước" {class: hands}
+pfail: "provision_failed\nvẫn có thể tính phí" {class: bad}
+ready: "ready\nhealth + smoke đạt" {class: gate}
+busy: "busy\nmột run" {class: hands}
+destroying: "destroying" {class: hands}
+dunk: "destroy_unknown\ngiữ record, reconcile" {class: bad}
+done: "destroyed\nprovider xác nhận" {class: gate}
+draft -> create
+create -> prov
+create -> cunk
+cunk -> prov: "thấy instance"
+prov -> ready
+prov -> pfail
+ready -> busy
+busy -> ready
+ready -> destroying
+pfail -> destroying
+destroying -> done
+destroying -> dunk
+dunk -> done: "không còn trong list"
+```
+-->
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="09-gpu-comfyui.figs/s4.b1-dark.svg">
+<img alt="Vòng đời thuê; mọi kết quả không rõ đều reconcile trước khi làm tiếp, chỉ destroyed đã xác nhận mới kết thúc phí" src="09-gpu-comfyui.figs/s4.b1-light.svg">
+</picture>
+
+<!-- id:s4.b2 -->
+- Mọi mutation (create, stop, destroy, submit) ghi intent vào SQLite trước khi gọi API; không tự retry mutation có kết quả không rõ, chỉ retry GET và download có backoff, giới hạn số lần. Cùng nguyên tắc với `Unconfirmed` của pipeline (ADR-0006).
+- Khóa CAS theo `rental_id` (cột `version`); tối đa một run trên một instance.
+- `ready` chỉ khi có bằng chứng: host chạy, kết nối có xác thực, `/.provisioning_complete` tồn tại, ComfyUI trả `GET /system_stats`, workflow smoke chạy ra file. Host `running` không phải `ready`.
+- Sau khi worker khởi động lại: đọc `list_owned_instances()`, đối chiếu từng rental; instance có label `igniterra:` mà không có record thì báo orphan, không tự xóa.
+- Idle TTL, `max_runtime_minutes`, `max_hourly_usd` là guardrail mềm do worker thực thi; khi mất kết nối, tiền vẫn chạy. Đặt thêm giới hạn ở tài khoản Vast (nạp trước số dư nhỏ).
+
+<!-- id:s5 -->
+## Provisioning trên instance
+
+<!-- id:s5.b1 -->
+Image khởi điểm là `vastai/base-image` (CUDA, Caddy, Instance Portal, provisioner) ghim theo digest, cài ComfyUI ở commit cố định. Provisioning dùng **manifest YAML khai báo** của provisioner (`PROVISIONING_MANIFEST`), không dùng shell tùy ý từ form.
+
+<!-- id:s5.b2 -->
+Table: Cách dùng provisioner của base-image
+| Việc | Cách làm | Vì sao |
+| --- | --- | --- |
+| Manifest | Sinh từ manifest đã duyệt trong SQLite, ghi vào `data/gpu/<rental_id>/provisioning.yaml`, truyền qua `PROVISIONING_MANIFEST` hoặc `onstart` | Tái lập được; review được trước khi trả tiền |
+| ComfyUI và custom node | `git_repos` với `ref` là full commit SHA | Provisioner nhận tag, branch hoặc commit; branch trôi theo thời gian |
+| Model | `downloads` từ Hugging Face dạng `/resolve/<commit>/<file>`; sau đó worker kiểm SHA-256 qua SSH với giá trị LFS của Hugging Face | Provisioner không kiểm checksum |
+| Phát hiện dependency | Extension `provisioner_comfyui` chỉ chạy khô (dry run) khi nhập workflow, rồi đóng băng kết quả vào manifest | Extension tra Registry, lấy bản node hiện hành, không ghim |
+| Lỗi provisioning | `on_failure.action: destroy`, `max_retries` nhỏ | Mặc định là `continue`: instance hỏng vẫn tính phí |
+| Tiến độ | Worker đọc log provisioning và `/.provisioning_complete` qua SSH, hoặc `GET /capabilities` của Instance Portal | Webhook của provisioner cần studio nhận request từ Internet; studio chỉ chạy ở localhost/Tailscale |
+| Xác thực | Giữ `ENABLE_AUTH` mặc định; đặt `WEB_PASSWORD` ngẫu nhiên cho mỗi rental lúc tạo, lưu cục bộ, dùng làm Bearer; không đặt `AUTH_EXCLUDE` cho cổng ComfyUI | Instance Portal tự tạo Cloudflare tunnel với URL công khai |
+| SSH | Ghim host key lần kết nối đầu vào `data/gpu/<rental_id>/known_hosts`; không `StrictHostKeyChecking=no` | Chống giả mạo host |
+
+<!-- id:s5.b3 -->
+Bước provisioning lưu ở `gpu_provision_steps`: `instance_create`, `host_boot`, `transport_ready`, `runtime_setup`, `custom_nodes`, `models`, `health_smoke`, `ready`. Mỗi bước có `pending/running/done/failed/skipped/unknown`, lượt thử, thời điểm, mã lỗi, con trỏ log và số byte nếu biết. UI không hiển thị phần trăm khi không có tổng byte.
+
+<!-- id:s6 -->
+## ComfyUI workflow và lượt chạy
+
+<!-- id:s6.b1 -->
+- **Nhập**: mỗi lần nhập là một revision bất biến (`workflow_id`, `revision`, SHA-256 của file gốc). GUI JSON có `nodes[].properties.models` và `cnr_id` nên trích được dependency; API JSON (`{node_id: {class_type, inputs}}`) thường thiếu, kết quả là `needs_review`, không đoán.
+- **Duyệt**: manifest liệt kê model (URL ghim commit, đích, dung lượng, SHA-256, license) và custom node (repo, commit, `requirements.txt`). Chỉ manifest đã duyệt mới được gắn vào một rental.
+- **Kiểm trước khi chạy**: `GET /object_info` của runtime phải có mọi `class_type` trong workflow dạng API; thiếu node thì chặn, không submit.
+- **Submit**: worker sinh UUID, ghi `comfy_runs.prompt_id` rồi mới `POST /prompt` kèm `prompt_id` đó (ComfyUI hiện hành nhận `prompt_id` do client đặt; ghim bản ComfyUI có tính năng này). Khi mất response, tra `GET /history/{prompt_id}` và `GET /queue`; không submit lại mù (G08).
+- **Theo dõi**: WebSocket `/ws` nếu có, nếu không thì poll `/queue` và `/history/{prompt_id}`; hiển thị node đang chạy và thời điểm sự kiện cuối.
+- **Output**: tải qua `GET /view`, kiểm SHA-256 và loại media, ghi vào `data/comfyui/runs/<run_id>/` qua kiểm `realpath`/`commonpath` như `safe_path` của web. Run chỉ `succeeded` khi output đã kiểm; output chưa tải thì cảnh báo trước khi destroy (G11).
+
+<!-- id:s7 -->
+## Dữ liệu, chi phí, bảo mật và route
+
+<!-- id:s7.b1 -->
+Table: Bảng SQLite riêng của Gate 4 (không đổi 5 bảng core)
+| Bảng | Trường chính |
+| --- | --- |
+| `gpu_rentals` | `rental_id`, `provider_key`, `provider_instance_id`, `label`, `offer_json`, `status`, `version`, `idle_deadline`, `destroy_confirmed_at` |
+| `gpu_operations` | `op_id`, `rental_id`, `action`, `request_hash`, `sent_at`, `confirmed_at`, `status` |
+| `gpu_provision_steps` | `rental_id`, `step_key`, `attempt`, `status`, thời điểm, `bytes_done/total`, `log_ref` |
+| `gpu_events` | `rental_id`, `ts_utc`, `transition`, `error_code`, `detail` đã che bí mật (chỉ thêm) |
+| `gpu_cost_samples` | `rental_id`, `ts`, `compute_per_h`, `disk_per_h`, `accrued_est` |
+| `comfy_workflows`, `comfy_manifests` | Revision workflow; manifest và trạng thái duyệt |
+| `comfy_runs` | `run_id`, `workflow_revision`, `manifest_sha256`, `rental_id`, `prompt_id`, `status`, đường dẫn output |
+
+<!-- id:s7.b2 -->
+- Chi phí GPU không ghi vào `costs.jsonl` của task: chưa có cách phân bổ giờ GPU cho từng asset. Hóa đơn Vast là thực chi.
+- Bí mật (`VAST_API_KEY`, `HF_TOKEN`, `WEB_PASSWORD` từng rental) chỉ ở `.env` hoặc `data/gpu/` quyền 600; không vào workflow JSON, manifest, `gpu_events`, HTML.
+- Mọi POST đổi trạng thái có xác nhận và nonce chống bấm hai lần. `studio/web/` hiện chỉ có basic auth, chưa có CSRF token; phải thêm trước khi có route thuê GPU, vì một POST giả mạo có thể tốn tiền.
+
+<!-- id:s7.b3 -->
+Table: Route đề xuất (kế thừa basic auth của `studio/web/`)
+| Route | Mục đích |
+| --- | --- |
+| `GET /gpu`, `GET /gpu/offers` | Danh sách rental; tìm offer (HTMX) |
+| `POST /gpu/instances` | Thuê sau khi xác nhận báo giá còn hạn |
+| `GET /gpu/instances/{id}` | Timeline provisioning, sự kiện, chi phí ước tính |
+| `POST /gpu/instances/{id}/reconcile\|stop\|destroy` | Đồng bộ với provider; stop, destroy có xác nhận |
+| `GET/POST /comfyui/workflows`, `GET /comfyui/workflows/{id}` | Thư viện, nhập, duyệt manifest |
+| `POST /comfyui/workflows/{id}/runs`, `GET /comfyui/runs/{id}` | Chạy trên GPU `ready`; tiến độ và output |
+
+<!-- id:s8 -->
+## Kiểm chứng G01–G12
+
+<!-- id:s8.b1 -->
+Test chạy với `FakeGPUProvider`, Vast REST giả và `FakeComfyUIRuntime` (mô phỏng `/system_stats`, `/object_info`, `/prompt`, `/queue`, `/history`, `/view`), 0 USD, trong `uv run pytest`. Lượt thuê thật chỉ ở lát E ([08](08-roadmap.md#s5)), chạy tay, có trần chi phí, kết thúc bằng xác nhận không còn instance có label `igniterra:`.
+
+<!-- id:s8.b2 -->
+Table: Bộ test chấp nhận
+| ID | Tình huống | Kết quả bắt buộc |
+| --- | --- | --- |
+| G01 | Đổi provider Vast sang Fake | Service và web không import hay viết cứng Vast |
+| G02 | Offer rẻ nhưng thiếu VRAM/disk | Bị loại, không create |
+| G03 | Báo giá quá hạn hoặc chưa xác nhận | Không create |
+| G04 | Create đã tới provider nhưng response timeout | `create_unknown`, tìm theo label, không create thêm |
+| G05 | Host chạy, pip hoặc model lỗi | `provision_failed`, không `ready`; manifest có `on_failure: destroy` |
+| G06 | API JSON thiếu metadata model/node | `needs_review`, không cài |
+| G07 | Thiếu disk hoặc dependency xung đột; thiếu `class_type` trong `/object_info` | Chặn run, ghi nguyên nhân |
+| G08 | `POST /prompt` mất response | Tra `/history/{prompt_id}`, không submit thêm |
+| G09 | Destroy trả lỗi hoặc timeout | `destroy_unknown`, giữ record, reconcile |
+| G10 | Worker khởi động lại; idle TTL hết | Phục hồi state; chỉ thu hồi instance có label của app |
+| G11 | Tải output lỗi | Không tự destroy khi output chưa kiểm |
+| G12 | Token giả trong log, URL hoặc đường dẫn độc hại, endpoint không xác thực | Token bị che; URL, path bị chặn; không mở cổng ComfyUI không xác thực |
+
+<!-- id:s9 -->
+## Repo mã nguồn mở: áp dụng thế nào
+
+<!-- id:s9.b1 -->
+Kiểm ngày 26/10/2026 từ metadata GitHub, PyPI, Hugging Face và mã nguồn; không có lượt chạy trên GPU thật. Kiểm lại license và commit khi bắt đầu lát tương ứng.
+
+<!-- id:s9.b2 -->
+Table: Repo, license và cách áp dụng
+| Repo / model | License | Áp dụng trong Igniterra | Không làm |
+| --- | --- | --- | --- |
+| [vast-ai/vast-cli](https://github.com/vast-ai/vast-cli) (PyPI `vastai` 1.9.1) | MIT | Tham chiếu endpoint, tên trường offer; CLI cài riêng để thao tác tay | Thêm vào dependency của `studio` (xung đột `pillow` với `mpt`) |
+| [vast-ai/base-image](https://github.com/vast-ai/base-image) (`vastai/base-image`) | Vast.ai Elastic License: bản dẫn xuất chỉ dùng trên Vast.ai, không cung cấp như dịch vụ hosted | Image runtime ghim digest; provisioner manifest; Instance Portal có TLS và auth | Mang image hoặc template dẫn xuất sang provider khác; coi đây là phần provider-neutral |
+| [Comfy-Org/ComfyUI](https://github.com/Comfy-Org/ComfyUI) | GPL-3.0 | Chạy như process riêng trên instance, gọi qua HTTP; ghim commit | Import mã ComfyUI vào `studio` (sẽ kéo nghĩa vụ GPL); phát hành image chứa ComfyUI mà không kèm nguồn |
+| `provisioner_comfyui` (trong base-image) | Như base-image | Chạy khô để gợi ý dependency từ GUI JSON | Dùng lúc boot để tự cài node bản mới nhất |
+| [ttulttul/ComfyUI-Modal](https://github.com/ttulttul/ComfyUI-Modal) | Không có license | Chỉ đọc ý tưởng lease, watchdog | Copy mã |
+| [ayan4m1/vast-ai-provisioner](https://github.com/ayan4m1/vast-ai-provisioner) | MIT | Đọc cách chọn template và tự thuê | Mang cơ chế tải script qua Pastebin, HTTP không kiểm response |
+| [ai-dock/comfyui](https://github.com/ai-dock/comfyui) | License riêng, cấm sửa mã gốc; cập nhật cuối 11/2024 | Không dùng | Làm image nền |
+| [daveinme/ComfyUI-Cloud-Manager](https://github.com/daveinme/ComfyUI-Cloud-Manager) | Không có license | Không dùng | Copy cấu hình SSH bỏ kiểm host key |
+| [ChristopherJdL/vast-ai-comfyui-wan2.2-remix](https://github.com/ChristopherJdL/vast-ai-comfyui-wan2.2-remix) | Không có license | Chỉ đọc danh sách node, model của Wan 2.2 | Copy script |
+| FLUX.2 klein 4B (`black-forest-labs/FLUX.2-klein-4B`) | Apache-2.0 | Ảnh keyframe tự host (CON-06) | Dùng FLUX.2 klein 9B hay FLUX.2 dev cho thương mại (license khác, có gate) |
+| Wan 2.2 (`Wan-AI/Wan2.2-TI2V-5B`, `Wan2.2-I2V-A14B`) | Apache-2.0 | Image-to-video tự host | Tải không ghim commit |
+
+<!-- id:s9.b3 -->
+Hệ quả của license base-image: "provider-neutral" chỉ đúng ở tầng `GPUProvider` và manifest dependency. Runtime template gắn với Vast.ai; provider thứ hai cần image riêng, dựng từ `nvidia/cuda` và ComfyUI.

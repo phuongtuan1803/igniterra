@@ -2,7 +2,7 @@
 id: ADR-0006
 title: "Ghi pending trước lượt gọi trả phí, nhật ký chi phí thay cho ngân sách đặt trước"
 type: adr
-ver: 0.3
+ver: 0.4
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -24,6 +24,7 @@ rev:
   - [0.1, 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-09, AD-10 và mục 7.1–7.2"]
   - [0.2, 2026-10-24, "Soát trước Gate 2: fsync dòng pending trước khi gửi; timeout, 5xx, mất id sau khi gửi là unknown chứ không retry; lỗi unconfirmed của MPT theo từng provider"]
   - [0.3, 2026-10-24, "Quyết định: Tuan duyệt"]
+  - [0.4, 2026-10-26, "Giới hạn chi tiêu D-03 đã đặt (OpenRouter 5 USD, 25/10/2026); nội dung quyết định không đổi"]
 ---
 
 <!-- id:summary -->
@@ -84,7 +85,7 @@ Table: Việc phải xong trước
 | Việc | Người làm | Bị chặn |
 | --- | --- | --- |
 | Duyệt ADR này | Tuan | Lớp ghi chi phí dùng chung cho adapter |
-| Đặt giới hạn chi tiêu pilot ở tài khoản provider (D-03) | Tuan | Gate 1 |
+| ~~Đặt giới hạn chi tiêu pilot ở tài khoản provider (D-03)~~ Đã đặt: OpenRouter 5 USD (25/10/2026) | Tuan | Lượt gọi trả phí đầu tiên |
 
 <!-- id:risks -->
 ## Rủi ro

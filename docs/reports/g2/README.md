@@ -2,20 +2,21 @@
 id: IGN-G2-REPORT
 title: Igniterra — Báo cáo Gate 2
 type: report
-ver: "1.0"
+ver: "1.1"
 status: draft
 date: 2026-10-25
 owner: Tuan
-sum: Core, CLI và adapter Gate 2 đã viết và có 21 test xanh; 5 brief của Gate 0 ra MP4 1080×1920, 48–57 giây qua OmniRoute và Edge TTS, đạt hậu điều kiện kỹ thuật. Phiếu duyệt C01–C09, phút công và hóa đơn còn chờ Tuan nên chưa quyết định D-07.
+sum: Core, CLI và adapter Gate 2 đã viết và có 21 test xanh; 5 brief trong `briefs/` ra MP4 1080×1920, 48–57 giây qua OmniRoute và Edge TTS, đạt hậu điều kiện kỹ thuật. Phiếu duyệt C01–C09, phút công và hóa đơn còn chờ Tuan nên chưa quyết định D-07.
 rev:
   - ["1.0", 2026-10-25, "Bản đầu: Gate 2a và 2b đã chạy; phiếu duyệt và D-07 chờ Tuan"]
+  - ["1.1", 2026-10-26, "Mục tiêu pilot và phiếu C01–C09 dẫn về 01 · Mục tiêu (G-02) thay cho kế hoạch pilot đã xóa"]
 ---
 
 <!-- id:s1 -->
 ## Kết luận
 
 <!-- id:s1.b1 -->
-Phần máy của Gate 2 đã xong. Core (contract, StepRun, `costs.jsonl`, gate), CLI, bản giả và adapter thật (`OmniRouteLLM`, `OmniRouteImage`, `MptTTS`, `MptSubtitleAligner`, renderer `video_project` kèm bước `animate`) đã viết. Cùng 5 brief của Gate 0 đều ra MP4 9:16 có phụ đề và đạt hậu điều kiện. Phần người chưa xong: chưa có phiếu duyệt C01–C09, phút công hay số hóa đơn, nên Gate 2 chưa thể kết luận đạt mục tiêu Gate 0 và D-07 chưa quyết định.
+Phần máy của Gate 2 đã xong. Core (contract, StepRun, `costs.jsonl`, gate), CLI, bản giả và adapter thật (`OmniRouteLLM`, `OmniRouteImage`, `MptTTS`, `MptSubtitleAligner`, renderer `video_project` kèm bước `animate`) đã viết. Cùng 5 brief trong `briefs/` đều ra MP4 9:16 có phụ đề và đạt hậu điều kiện. Phần người chưa xong: chưa có phiếu duyệt C01–C09, phút công hay số hóa đơn, nên Gate 2 chưa thể kết luận đạt G-02 và D-07 chưa quyết định.
 
 <!-- id:s1.b2 -->
 Table: Checklist Gate 2 (08 · Gate 2)
@@ -26,7 +27,7 @@ Table: Checklist Gate 2 (08 · Gate 2)
 | Test quét import xanh | Xong | `tests/test_import_boundary.py` (4 test, kèm kiểm bản vendor trùng `mpt` 1.3.9) |
 | Test core với bản giả | Xong | `tests/test_pipeline.py`: resume, retry, mồ côi → `unknown`, poll sau resume, sửa scene, T11, T12 (17 test) |
 | 5 brief ra MP4 9:16 có phụ đề, đạt hậu điều kiện | Xong | Bảng ở [Kết quả chạy](#s3) |
-| Phiếu duyệt C01–C09, phút công, so mục tiêu Gate 0 | **Chờ Tuan** | [Việc của Tuan](#s6) |
+| Phiếu duyệt C01–C09, phút công, so mục tiêu G-02 | **Chờ Tuan** | [Việc của Tuan](#s6) |
 | Quyết định đi tiếp hoặc quay lại MPT (D-07) | **Chờ Tuan** | Cần phiếu duyệt và hóa đơn |
 
 <!-- id:s2 -->
@@ -122,11 +123,11 @@ Claude đã duyệt gate `keyframes` của cả 5 task sau khi xem contact sheet
 
 <!-- id:s6.b1 -->
 ```chk
-- [ ] Xem 5 file `data/tasks/t_000{1,3,4,5,6}/renders/r_001/final_9x16.mp4`, chấm C01–C09 theo [g0-plan](../g0-g1/g0-plan.md), kèm timestamp
+- [ ] Xem 5 file `data/tasks/t_000{1,3,4,5,6}/renders/r_001/final_9x16.mp4`, chấm C01–C09 theo [01 · Mục tiêu](../../src/design/01-system-design.md#s3), kèm timestamp
 - [ ] Ghi phiếu cho từng task: chép `review-template.json`, rồi chạy `python -m studio review t_000N --checklist <file> --minutes <phút chủ động>`
 - [ ] Duyệt hoặc từ chối gate final: `python -m studio gate t_000N approve|reject`; muốn sửa thì `scene edit`, `rerun`, `select` (06 · CLI)
 - [ ] Đối chiếu chi phí ảnh trên openrouter.ai → Activity (25 ảnh, 6 lượt bị chặn) và ghi vào `evidence/pilot-runs.jsonl`
-- [ ] Quyết định D-07: so với mục tiêu Gate 0 (ít nhất 3/5 được duyệt, ≤ 15 phút chủ động mỗi video được duyệt, tổng ≤ 5 USD)
+- [ ] Quyết định D-07: so với G-02 (ít nhất 3/5 được duyệt, ≤ 15 phút chủ động mỗi video được duyệt, tổng ≤ 5 USD)
 - [ ] Điều khoản gói codex khi dùng qua gateway cho sản xuất video (05 · việc cần kiểm)
 ```
 
