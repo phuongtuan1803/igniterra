@@ -5,8 +5,10 @@ Mô phỏng lỗi bằng ``fail[method] = mode`` (dùng một lần):
 - ``create_instance``: ``timeout_after_send`` (instance đã tạo, response mất → ``GPUUnknown``),
   ``timeout_before_send`` (request không tới provider nhưng client cũng chỉ thấy timeout → ``GPUUnknown``),
   ``reject`` (provider từ chối chắc chắn → ``GPUError``).
-
-Lỗi destroy (G09) thêm ở lát B cùng reconcile.
+- ``destroy_instance`` (G09): ``timeout_after_send`` (đã hủy, response mất), ``timeout_before_send`` (chưa hủy,
+  client chỉ thấy timeout), ``reject`` (chưa hủy, ``GPUError``), ``linger`` (nhận yêu cầu, instance còn ở
+  ``destroying`` tới khi gọi ``finish_destroying``, như API thật chỉ trả "destroying").
+- ``stop_instance``: ``timeout_after_send``, ``timeout_before_send``, ``reject``.
 """
 
 from __future__ import annotations
@@ -85,15 +87,40 @@ class FakeGPUProvider:
 
     def stop_instance(self, instance_id: str) -> None:
         self.calls.append(("stop_instance", instance_id))
+        mode = self.fail.pop("stop_instance", None)
+        if mode == "reject":
+            raise GPUError(f"provider từ chối stop {instance_id}")
+        if mode == "timeout_before_send":
+            raise GPUUnknown("timeout khi stop instance")
         if instance_id not in self.instances:
             raise GPUError(f"không có instance {instance_id}")
         self.instances[instance_id] = self.instances[instance_id].model_copy(update={"actual_status": "stopped"})
+        if mode == "timeout_after_send":
+            raise GPUUnknown("timeout khi stop instance")
 
     def destroy_instance(self, instance_id: str) -> None:
         self.calls.append(("destroy_instance", instance_id))
+        mode = self.fail.pop("destroy_instance", None)
+        if mode == "reject":
+            raise GPUError(f"provider từ chối destroy {instance_id}")
+        if mode == "timeout_before_send":
+            raise GPUUnknown("timeout khi destroy instance")
+        if mode == "linger" and instance_id in self.instances:
+            self.instances[instance_id] = self.instances[instance_id].model_copy(update={"actual_status": "destroying"})
+            return
         self.instances.pop(instance_id, None)
+        if mode == "timeout_after_send":
+            raise GPUUnknown("timeout khi destroy instance")
 
     # ------------------------------------------------------------ chỉ dành cho test
+
+    def finish_destroying(self) -> None:
+        """Instance ``destroying`` biến mất (provider hủy xong)."""
+        for instance_id in [k for k, v in self.instances.items() if v.actual_status == "destroying"]:
+            del self.instances[instance_id]
+
+    def destroyed(self) -> int:
+        return sum(call[0] == "destroy_instance" for call in self.calls)
 
     def reprice(self, offer_id: str, dph_total: float) -> None:
         self.prices[offer_id] = dph_total

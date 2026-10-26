@@ -25,7 +25,7 @@ from studio import costs, providers
 from studio.contracts import Brief, CheckItem, Review
 from studio.gates import ActionError, Actions
 from studio.gpu import service as gpu_service
-from studio.gpu.contracts import ATTENTION, BILLABLE, OfferFilters, Quote
+from studio.gpu.contracts import ATTENTION, BILLABLE, TRANSITIONS, OfferFilters, Quote
 from studio.series import VIEWS, SeriesActions, SeriesDir, SeriesError, list_series
 from studio.store import Store
 from studio.web import views
@@ -304,10 +304,12 @@ def create_app(config: dict | None = None) -> FastAPI:
         studio_config.write_settings(settings_path, overlay)
         return back("/settings", msg="đã lưu; task mới và worker khởi động lại dùng cấu hình này", request=request)
 
-    # ------------------------------------------------------------ GPU Rentals (Gate 4, lát A)
+    # ------------------------------------------------------------ GPU Rentals (Gate 4, lát A–B)
 
     gpu = gpu_service.from_config(store, config)       # một service mỗi app; None khi [gpu] provider = "none"
     csrf = secrets.token_urlsafe(32)                    # theo process: giả định một uvicorn worker
+    if gpu is not None:
+        gpu.recover()           # G10: đối soát rental chưa rõ, báo orphan theo label; không tự xóa gì
 
     def gpu_filters(params) -> OfferFilters:
         """Bộ lọc từ query hoặc form; ô trống dùng mặc định của OfferFilters."""
@@ -335,7 +337,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         rentals = gpu.rentals() if gpu else []
         return page(request, "gpu.html", gpu=gpu, rentals=rentals, filters=filters, offers=offers,
                     offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
-                    new_rental_id=gpu.new_rental_id if gpu else None)
+                    new_rental_id=gpu.new_rental_id if gpu else None, orphans=gpu.orphans if gpu else [])
 
     @app.get("/gpu/offers", response_class=HTMLResponse)
     def gpu_offers_partial(request: Request):
@@ -367,19 +369,30 @@ def create_app(config: dict | None = None) -> FastAPI:
             data = gpu.timeline(rental_id)
         except KeyError:
             return Response("không có rental", status_code=404)
-        return page(request, "gpu_rental.html", **data, csrf=csrf, attention=ATTENTION, billable=BILLABLE)
+        operations = data["operations"]
+        return page(request, "gpu_rental.html", **data, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
+                    transitions=TRANSITIONS, supports_stop=gpu.supports_stop,
+                    last_destroy=next((op for op in reversed(operations) if op["action"] == "destroy"), None),
+                    stop_unknown=any(op["action"] == "stop" and op["status"] == "unknown" for op in operations))
 
-    @app.post("/gpu/instances/{rental_id}/reconcile")
-    async def gpu_reconcile(request: Request, rental_id: str):
-        if not gpu_csrf_ok(await request.form()):
+    @app.post("/gpu/instances/{rental_id}/{action}")
+    async def gpu_rental_action(request: Request, rental_id: str, action: str):
+        """reconcile | stop | destroy. Stop và destroy cần ô xác nhận; cả ba cần CSRF token."""
+        if action not in ("reconcile", "stop", "destroy"):
+            return Response(status_code=404)
+        form = await request.form()
+        if not gpu_csrf_ok(form):
             return Response("CSRF token sai; tải lại trang", status_code=403)
         if gpu is None:
             return Response(status_code=404)
         url = f"/gpu/instances/{rental_id}"
+        if action != "reconcile" and form.get("confirm") != "on":
+            return back(url, err=f"{action} cần xác nhận", request=request)
         try:
-            return back(url, msg=f"{rental_id}: {gpu.reconcile(rental_id).status}", request=request)
+            rental = getattr(gpu, action)(rental_id)
         except (gpu_service.GPUServiceError, KeyError) as exc:
             return back(url, err=str(exc)[:500], request=request)
+        return back(url, msg=f"{rental_id}: {rental.status}", request=request)
 
     # ------------------------------------------------------------ files
 

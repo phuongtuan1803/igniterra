@@ -13,7 +13,24 @@
   <div class="metric-card"><span class="eyebrow">RENTALS</span><strong>{{ rentals|length }}</strong><span>Recorded in this workspace</span></div>
   <div class="metric-card"><span class="eyebrow">MAY BE BILLING</span><strong class="metric-warning">{{ rentals|selectattr('status', 'in', billable)|list|length }}</strong><span>Not yet confirmed destroyed</span></div>
   <div class="metric-card"><span class="eyebrow">NEEDS ATTENTION</span><strong>{{ rentals|selectattr('status', 'in', attention)|list|length }}</strong><span>Unknown outcome — reconcile first</span></div>
+  <div class="metric-card"><span class="eyebrow">ORPHANS</span><strong{% if orphans %} class="metric-warning"{% endif %}>{{ orphans|length }}</strong><span>{% if gpu.orphans_error %}Không kiểm được: {{ gpu.orphans_error }}{% elif gpu.orphans_checked_at %}Kiểm lúc {{ gpu.orphans_checked_at.strftime("%H:%M:%S") }} UTC{% else %}Chưa kiểm{% endif %}</span></div>
 </section>
+{% if orphans %}
+<section class="card" aria-label="Orphan instances">
+  <div class="section-heading"><div><p class="eyebrow">ORPHANS</p><h2>Instance mang label của app nhưng không khớp rental</h2></div></div>
+  <p class="section-note">Có thể đang tính phí. Studio chỉ báo, không tự xóa: kiểm tra trên trang provider rồi hủy thủ công nếu đúng là thừa.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Instance</th><th>Label</th><th>Trạng thái</th><th>Giá ước tính</th><th>Lý do</th></tr></thead>
+      <tbody>
+        {% for o in orphans %}
+        <tr><td>{{ o.provider_instance_id }}</td><td><code>{{ o.label }}</code></td><td>{{ o.actual_status }}</td><td class="cost-cell">{% if o.dph_total is not none %}${{ "%.3f"|format(o.dph_total) }}/giờ{% else %}—{% endif %}</td><td class="small">{{ o.reason }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 <div class="dashboard-grid">
   <section class="card production-list">
     <div class="section-heading"><div><p class="eyebrow">YOUR RENTALS</p><h2>Instances</h2></div><span class="muted small">{{ rentals|length }} rental(s)</span></div>

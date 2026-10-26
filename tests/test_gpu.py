@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from studio.gpu import adapters
-from studio.gpu.adapters.base import GPUProvider
+from studio.gpu.adapters.base import GPUError, GPUProvider
 from studio.gpu.adapters.fake import FakeGPUProvider
 from studio.gpu.contracts import Capabilities, Instance, InstanceSpec, Offer, OfferFilters, Quote
 from studio.gpu.service import GPUService, GPUServiceError, check_offer
@@ -356,3 +356,249 @@ def test_unpinned_image_is_refused_before_create(env, fake_gpu, clock):
     with pytest.raises(GPUServiceError, match="digest"):
         svc.rent(svc.new_rental_id(), quote(fake_gpu, "1002"), OfferFilters())
     assert fake_gpu.created() == 0 and env.store.rentals() == []
+
+
+# ------------------------------------------------------------ G09: destroy lỗi hoặc timeout (lát B)
+
+
+def rented(svc, fake_gpu) -> str:
+    rental_id = svc.new_rental_id()
+    assert svc.rent(rental_id, quote(fake_gpu, "1002"), OfferFilters()).status == "provisioning"
+    return rental_id
+
+
+def test_g09_destroy_confirmed_only_when_instance_gone(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    fake_gpu.fail["destroy_instance"] = "linger"                 # API chỉ trả "destroying"
+    rental = svc.destroy(rental_id)
+    assert rental.status == "destroying" and rental.destroy_confirmed_at is None
+    assert env.store.gpu_operations(rental_id, "destroy")[0]["status"] == "accepted"
+    assert svc.reconcile(rental_id).status == "destroying"
+    fake_gpu.finish_destroying()
+    rental = svc.reconcile(rental_id)
+    assert rental.status == "destroyed" and rental.destroy_confirmed_at is not None
+    assert env.store.gpu_operations(rental_id, "destroy")[0]["status"] == "confirmed"
+    assert fake_gpu.destroyed() == 1
+
+
+def test_g09_destroy_timeout_after_send_reconciles_to_destroyed(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    fake_gpu.fail["destroy_instance"] = "timeout_after_send"
+    assert svc.destroy(rental_id).status == "destroyed"
+    assert transitions(env, rental_id)[-3:] == ["provisioning→destroying", "destroying→destroy_unknown",
+                                                "destroy_unknown→destroyed"]
+    assert fake_gpu.destroyed() == 1
+
+
+def test_g09_destroy_unknown_keeps_record_and_never_destroys_twice(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    fake_gpu.fail["destroy_instance"] = "timeout_before_send"
+    rental = svc.destroy(rental_id)
+    assert rental.status == "destroy_unknown" and rental.provider_instance_id == "fake-1"
+    assert env.store.gpu_operations(rental_id, "destroy")[0]["status"] == "unknown"
+    assert [e["error_code"] for e in env.store.gpu_events(rental_id)][-2:] == ["destroy_timeout", "still_present"]
+    with pytest.raises(GPUServiceError, match="không gửi destroy lần nữa"):
+        svc.destroy(rental_id)
+    assert svc.reconcile(rental_id).status == "destroy_unknown"
+    assert fake_gpu.destroyed() == 1
+    del fake_gpu.instances["fake-1"]                                 # hủy tay trên trang provider
+    assert svc.reconcile(rental_id).status == "destroyed"
+    assert fake_gpu.destroyed() == 1
+
+
+def test_g09_destroy_rejected_may_be_resent(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    fake_gpu.fail["destroy_instance"] = "reject"
+    assert svc.destroy(rental_id).status == "destroy_unknown"
+    assert env.store.gpu_operations(rental_id, "destroy")[0]["status"] == "rejected"
+    assert svc.destroy(rental_id).status == "destroyed"              # lượt trước chắc chắn chưa làm gì
+    assert fake_gpu.destroyed() == 2
+
+
+def test_destroy_refused_without_instance_or_after_destroyed(env, svc, fake_gpu):
+    rental_id = unknown_rental(svc, fake_gpu)
+    with pytest.raises(GPUServiceError, match="create_unknown"):
+        svc.destroy(rental_id)
+    done = rented(svc, fake_gpu)
+    svc.destroy(done)
+    with pytest.raises(GPUServiceError, match="destroyed"):
+        svc.destroy(done)
+    assert fake_gpu.destroyed() == 1
+
+
+def test_stop_then_destroy(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    assert svc.stop(rental_id).status == "stopped"
+    assert fake_gpu.instances["fake-1"].actual_status == "stopped"
+    with pytest.raises(GPUServiceError, match="stopped"):
+        svc.stop(rental_id)
+    assert svc.destroy(rental_id).status == "destroyed"
+
+
+def test_stop_unknown_is_reconciled_not_resent(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    fake_gpu.fail["stop_instance"] = "timeout_before_send"
+    assert svc.stop(rental_id).status == "provisioning"
+    assert env.store.gpu_operations(rental_id, "stop")[0]["status"] == "unknown"
+    with pytest.raises(GPUServiceError, match="chưa rõ"):
+        svc.stop(rental_id)
+    fake_gpu.instances["fake-1"] = fake_gpu.instances["fake-1"].model_copy(update={"actual_status": "exited"})
+    assert svc.reconcile(rental_id).status == "stopped"
+    assert env.store.gpu_operations(rental_id, "stop")[0]["status"] == "confirmed"
+    assert sum(c[0] == "stop_instance" for c in fake_gpu.calls) == 1
+
+
+def test_stop_refused_when_provider_cannot_stop(env, monkeypatch):
+    monkeypatch.setitem(adapters.REGISTRY, "other", f"{__name__}:OtherProvider")
+    client = gpu_web(env, "other")
+    client.post("/gpu/instances", data=rent_form(client, "x1"))
+    svc = client.app.state.gpu
+    with pytest.raises(GPUServiceError, match="không hỗ trợ stop"):
+        svc.stop(svc.rentals()[0].rental_id)
+    assert "/stop" not in client.get(f"/gpu/instances/{svc.rentals()[0].rental_id}").text
+
+
+def test_g09_web_stop_destroy_need_csrf_and_confirmation(env):
+    client = gpu_web(env)
+    provider = client.app.state.gpu.provider
+    location = client.post("/gpu/instances", data=rent_form(client, "1002")).headers["location"]
+    rental_id = location.split("/")[-1].split("?")[0]
+    url = f"/gpu/instances/{rental_id}"
+    detail = client.get(url).text
+    assert f'action="{url}/stop"' in detail and f'action="{url}/destroy"' in detail
+    csrf = re.search(r'name="csrf" value="([^"]+)"', detail).group(1)
+    assert client.post(f"{url}/destroy", data={"csrf": "sai", "confirm": "on"}).status_code == 403
+    assert "err=" in client.post(f"{url}/destroy", data={"csrf": csrf}).headers["location"]
+    assert "err=" in client.post(f"{url}/stop", data={"csrf": csrf}).headers["location"]
+    assert client.post(f"{url}/explode", data={"csrf": csrf, "confirm": "on"}).status_code == 404
+    assert provider.destroyed() == 0 and not any(c[0] == "stop_instance" for c in provider.calls)
+    assert "stopped" in client.post(f"{url}/stop", data={"csrf": csrf, "confirm": "on"}).headers["location"]
+    provider.fail["destroy_instance"] = "timeout_before_send"
+    assert "destroy_unknown" in client.post(f"{url}/destroy", data={"csrf": csrf, "confirm": "on"}).headers["location"]
+    page = client.get(url).text
+    assert "không gửi destroy lần nữa" in page and f'action="{url}/destroy"' not in page
+    assert f'action="{url}/reconcile"' in page
+    again = client.post(f"{url}/destroy", data={"csrf": csrf, "confirm": "on"})
+    assert "err=" in again.headers["location"] and provider.destroyed() == 1
+    del provider.instances["fake-1"]
+    assert "destroyed" in client.post(f"{url}/reconcile", data={"csrf": csrf}).headers["location"]
+
+
+# ------------------------------------------------------------ G10: khởi động lại, orphan theo label
+
+
+def test_g10_orphan_with_app_label_is_reported_not_deleted(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    fake_gpu.instances["fake-90"] = Instance(provider_instance_id="fake-90", label="igniterra:r_0123456789ab",
+                                             actual_status="running", dph_total=0.4)
+    fake_gpu.instances["fake-91"] = Instance(provider_instance_id="fake-91", label="someone-else",
+                                             actual_status="running")
+    orphans = svc.find_orphans()
+    assert [o.provider_instance_id for o in orphans] == ["fake-90"]
+    assert "không có rental" in orphans[0].reason
+    assert {"fake-1", "fake-90", "fake-91"} <= set(fake_gpu.instances)
+    assert fake_gpu.destroyed() == 0 and not any(c[0] == "stop_instance" for c in fake_gpu.calls)
+    assert svc.rental(rental_id).status == "provisioning"
+
+
+def test_g10_instance_left_after_rental_destroyed_is_orphan(env, svc, fake_gpu):
+    rental_id = rented(svc, fake_gpu)
+    svc.destroy(rental_id)
+    fake_gpu.instances["fake-5"] = Instance(provider_instance_id="fake-5", label=f"igniterra:{rental_id}",
+                                            actual_status="running")
+    [orphan] = svc.find_orphans()
+    assert orphan.provider_instance_id == "fake-5" and "destroyed" in orphan.reason
+    assert "fake-5" in fake_gpu.instances
+
+
+def test_g10_restart_recovers_unknown_states(env, svc, fake_gpu, clock):
+    destroying = rented(svc, fake_gpu)
+    fake_gpu.fail["destroy_instance"] = "timeout_before_send"
+    assert svc.destroy(destroying).status == "destroy_unknown"
+    creating = unknown_rental(svc, fake_gpu)
+    # Trong lúc worker tắt: provider hủy xong instance cũ, instance của create mất response hiện ra.
+    del fake_gpu.instances["fake-1"]
+    fake_gpu.instances["fake-20"] = Instance(provider_instance_id="fake-20", label=f"igniterra:{creating}",
+                                             actual_status="loading")
+    restarted = GPUService(env.store, fake_gpu, image=IMAGE, clock=clock)   # process mới, cùng SQLite
+    assert restarted.recover() == []
+    assert restarted.rental(destroying).status == "destroyed"
+    assert restarted.rental(creating).status == "provisioning"
+    assert fake_gpu.created() == 2 and fake_gpu.destroyed() == 1
+
+
+class SeededFake(FakeGPUProvider):
+    """Provider có sẵn một instance mang label của app nhưng SQLite không có rental (worker chết sau create)."""
+
+    def __init__(self, config: dict | None = None):
+        super().__init__(config)
+        self.instances["fake-77"] = Instance(provider_instance_id="fake-77", label="igniterra:r_feedfacecafe",
+                                             actual_status="running", dph_total=0.29)
+
+
+class DownFake(FakeGPUProvider):
+    def list_owned_instances(self) -> list[Instance]:
+        raise GPUError("provider down")
+
+
+def test_g10_app_startup_surfaces_orphan_on_gpu_page(env, monkeypatch, caplog):
+    monkeypatch.setitem(adapters.REGISTRY, "seeded", f"{__name__}:SeededFake")
+    with caplog.at_level("WARNING", logger="studio.gpu"):
+        client = gpu_web(env, "seeded")
+    provider = client.app.state.gpu.provider
+    assert ("list_owned_instances",) in provider.calls
+    assert any("fake-77" in r.getMessage() and "không tự xóa" in r.getMessage() for r in caplog.records)
+    page = client.get("/gpu").text
+    assert "fake-77" in page and "igniterra:r_feedfacecafe" in page and "không tự xóa" in page
+    assert "fake-77" in provider.instances and provider.destroyed() == 0
+
+
+def test_g10_orphan_check_failure_does_not_block_startup(env, monkeypatch):
+    monkeypatch.setitem(adapters.REGISTRY, "down", f"{__name__}:DownFake")
+    client = gpu_web(env, "down")
+    assert "Không kiểm được: provider down" in client.get("/gpu").text
+
+
+# ------------------------------------------------------------ chi phí ước tính
+
+
+def test_cost_estimate_accrues_by_state(env, svc, fake_gpu, clock):
+    rental_id = rented(svc, fake_gpu)                               # 0,35 USD/giờ, disk 60 GB × 0,10/GB-tháng
+    disk_per_h = 0.10 * 60 / (30 * 24)
+    cost = svc.cost(rental_id)
+    assert cost["compute_per_h"] == 0.35 and cost["disk_per_h"] == pytest.approx(disk_per_h)
+    assert cost["label"] == "ước tính, không phải hóa đơn" and cost["accrued_est"] == 0
+    clock.now += timedelta(hours=2)
+    svc.stop(rental_id)
+    assert svc.cost(rental_id)["compute_per_h"] == 0                 # stopped: chỉ còn disk
+    clock.now += timedelta(hours=3)
+    svc.destroy(rental_id)
+    clock.now += timedelta(hours=5)                                  # đã destroyed: không cộng thêm
+    expected = 2 * (0.35 + disk_per_h) + 3 * disk_per_h
+    assert svc.cost(rental_id)["accrued_est"] == pytest.approx(expected, abs=1e-5)
+    samples = env.store.cost_samples(rental_id)
+    assert {"rental_id", "ts", "compute_per_h", "disk_per_h", "accrued_est"} <= set(samples[0])
+    assert samples[-1]["compute_per_h"] == samples[-1]["disk_per_h"] == 0
+
+
+def test_rental_page_shows_estimate_label(env):
+    client = gpu_web(env)
+    location = client.post("/gpu/instances", data=rent_form(client, "1002")).headers["location"]
+    page = client.get(location.split("?")[0]).text
+    assert "Chi phí ước tính" in page and "ước tính, không phải hóa đơn" in page and "60 GB" in page
+
+
+def test_store_adds_disk_column_to_old_gpu_rentals(tmp_path):
+    import sqlite3
+
+    from studio.store import Store
+
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE gpu_rentals (rental_id TEXT PRIMARY KEY, provider_key TEXT NOT NULL, "
+                   "provider_instance_id TEXT, label TEXT NOT NULL UNIQUE, offer_json TEXT NOT NULL, "
+                   "status TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 0, idle_deadline TEXT, "
+                   "destroy_confirmed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+    Store(path)
+    with sqlite3.connect(path) as db:
+        assert "disk_gb" in {row[1] for row in db.execute("PRAGMA table_info(gpu_rentals)")}
