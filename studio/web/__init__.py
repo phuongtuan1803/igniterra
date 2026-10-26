@@ -79,10 +79,12 @@ def create_app(config: dict | None = None) -> FastAPI:
                                                           "error": request.query_params.get("err"), **context})
 
     def back(url: str, msg: str | None = None, err: str | None = None, request: Request | None = None) -> Response:
-        from urllib.parse import urlencode
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-        query = urlencode({k: v for k, v in (("msg", msg), ("err", err)) if v})
-        target = url + (("?" + query) if query else "")
+        parts = urlsplit(url)
+        query = urlencode([*parse_qsl(parts.query, keep_blank_values=True),
+                           *((k, v) for k, v in (("msg", msg), ("err", err)) if v)])
+        target = urlunsplit(parts._replace(query=query))
         if request is not None and request.headers.get("hx-request"):
             return Response(status_code=204, headers={"HX-Redirect": target})
         return RedirectResponse(target, status_code=303)

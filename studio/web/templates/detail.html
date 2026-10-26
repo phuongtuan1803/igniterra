@@ -14,7 +14,7 @@
   {% if u.pending %}({{ u.pending.provider }} · {{ u.pending.model }}) gửi lúc {{ u.pending.ts }}{% endif %}, không có kết quả. Có thể đã bị tính phí — kiểm dashboard provider trước khi sinh lại.
   {% if u.decision %}<span class="chip">đã quyết định: {{ u.decision }}</span>{% elif task.status == "waiting" %}
   <form method="post" action="/tasks/{{ task.id }}/unknown/{{ u.run.scene }}" class="row" style="margin-top: 8px">
-    <input type="text" name="note" placeholder="ghi chú" style="max-width: 300px">
+    <input type="text" name="note" aria-label="Ghi chú quyết định lượt gọi" placeholder="ghi chú" style="max-width: 300px">
     <button class="primary" name="decision" value="retry">Sinh lại {{ u.run.scene }}</button>
     <button name="decision" value="skip">Bỏ qua, giữ ứng viên hiện có</button>
   </form>{% endif %}

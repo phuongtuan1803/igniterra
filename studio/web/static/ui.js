@@ -57,16 +57,20 @@
     tick(); setInterval(tick, 15000);
   }
   document.body.addEventListener('htmx:beforeRequest', e => e.detail.elt.setAttribute('aria-busy', 'true'));
+  const showOfferError = e => {
+    const target = e.detail.target;
+    if (target?.id !== 'offers') return;
+    const message = document.createElement('p');
+    message.className = 'flash err'; message.role = 'alert';
+    message.textContent = 'Không tải được offer. Kiểm tra kết nối rồi tìm lại.';
+    target.replaceChildren(message);
+  };
   document.body.addEventListener('htmx:afterRequest', e => {
     e.detail.elt.removeAttribute('aria-busy');
-    if (e.detail.failed) {
-      const target = e.detail.target;
-      if (target?.id === 'offers') {
-        const message = document.createElement('p'); message.className = 'flash err'; message.role = 'alert';
-        message.textContent = 'Không tải được offer. Kiểm tra kết nối rồi tìm lại.'; target.replaceChildren(message);
-      }
-    }
+    if (e.detail.failed) showOfferError(e);
   });
+  document.body.addEventListener('htmx:sendError', showOfferError);
+  document.body.addEventListener('htmx:timeout', showOfferError);
 })();
 
 /* Tabs remain anchor-linked sections when JavaScript is unavailable. */

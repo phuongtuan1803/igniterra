@@ -18,7 +18,7 @@
 <div class="card review-notice">
   <p class="eyebrow">APPROVAL CHECKPOINT</p><b>Gate keyframes</b> <span class="muted small">— duyệt ảnh selected của mọi scene trước khi dựng giọng và video</span>
   <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate" style="margin-top: 8px">
-    <input type="text" name="note" placeholder="ghi chú (tùy chọn)" style="max-width: 420px">
+    <input type="text" name="note" aria-label="Ghi chú gate keyframes" placeholder="ghi chú (tùy chọn)" style="max-width: 420px">
     <button class="primary" name="decision" value="approve" data-confirm="Duyệt gate này? Pipeline có thể tiếp tục thực hiện các bước có phí." {{ dis }}>Duyệt</button>
     <button name="decision" value="reject" {{ dis }}>Từ chối</button>
   </form>
@@ -81,7 +81,7 @@
         <p><button {{ dis }}>Ghi phiếu duyệt</button></p>
       </form>
       <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate">
-        <input type="text" name="note" placeholder="ghi chú gate" style="max-width: 320px">
+        <input type="text" name="note" aria-label="Ghi chú gate cuối" placeholder="ghi chú gate" style="max-width: 320px">
         <button class="primary" name="decision" value="approve" data-confirm="Duyệt gate này? Pipeline có thể tiếp tục thực hiện các bước có phí." {{ dis }}>Duyệt bản cuối</button>
         <button name="decision" value="reject" {{ dis }}>Từ chối</button>
       </form>
@@ -99,24 +99,6 @@
     <p class="eyebrow">SCENE INSPECTOR</p>
     <h2>Scene {{ sc.id }} · {{ sc.mode }}</h2>
     {% if s.image %}<img class="selected-preview" src="/files/tasks/{{ task.id }}/{{ s.image.path }}" alt="Ảnh được chọn cho {{ sc.id }}">{% else %}<div class="selected-preview no-media">Chưa có ảnh được chọn</div>{% endif %}
-    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/edit" class="edit" data-dirty-form data-locked="{{ 'true' if locked else 'false' }}">
-      <label for="storyboard-field-4-{{ loop.index if loop is defined else 0 }}">narration</label><textarea name="narration" rows="4" id="storyboard-field-4-{{ loop.index if loop is defined else 0 }}">{{ sc.narration }}</textarea>
-      <label for="storyboard-field-5-{{ loop.index if loop is defined else 0 }}">visual</label><textarea name="visual" rows="3" id="storyboard-field-5-{{ loop.index if loop is defined else 0 }}">{{ sc.visual }}</textarea>
-      <div class="cols3">
-        {% for key in ("size", "angle", "movement") %}
-        <div><label for="storyboard-field-6-{{ loop.index if loop is defined else 0 }}">{{ key }}</label><select name="{{ key }}" id="storyboard-field-6-{{ loop.index if loop is defined else 0 }}">
-          {% for option in (camera.get(key) or {}) %}<option {{ "selected" if sc.shot[key] == option }}>{{ option }}</option>{% endfor %}
-        </select></div>
-        {% endfor %}
-      </div>
-      <div class="cols3">
-        <div><label for="storyboard-field-7-{{ loop.index if loop is defined else 0 }}">mode</label><select name="mode" id="storyboard-field-7-{{ loop.index if loop is defined else 0 }}"><option {{ "selected" if sc.mode == "still" }}>still</option><option {{ "selected" if sc.mode == "motion" }}>motion</option></select></div>
-        <div style="grid-column: span 2"><label for="storyboard-field-8-{{ loop.index if loop is defined else 0 }}">ghi chú revision</label><input type="text" name="note" id="storyboard-field-8-{{ loop.index if loop is defined else 0 }}"></div>
-      </div>
-      <p class="small muted">nhân vật: {{ sc.characters|join(", ") or "—" }}</p>
-      <p><button class="primary" data-save {{ dis }}>Lưu → revision mới</button></p>
-    </form>
-
     {% for kind, label in (("image", "Ảnh"), ("clip", "Clip"), ("voice", "Giọng")) %}
     {% set slot = s.kinds[kind] %}
     {% if slot.candidates %}
@@ -139,16 +121,34 @@
     {% endif %}
     {% endfor %}
 
+    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/edit" class="edit" data-dirty-form data-locked="{{ 'true' if locked else 'false' }}">
+      <label for="storyboard-field-4-{{ loop.index if loop is defined else 0 }}">narration</label><textarea name="narration" rows="4" id="storyboard-field-4-{{ loop.index if loop is defined else 0 }}">{{ sc.narration }}</textarea>
+      <label for="storyboard-field-5-{{ loop.index if loop is defined else 0 }}">visual</label><textarea name="visual" rows="3" id="storyboard-field-5-{{ loop.index if loop is defined else 0 }}">{{ sc.visual }}</textarea>
+      <div class="cols3">
+        {% for key in ("size", "angle", "movement") %}
+        <div><label for="storyboard-field-6-{{ loop.index if loop is defined else 0 }}">{{ key }}</label><select name="{{ key }}" id="storyboard-field-6-{{ loop.index if loop is defined else 0 }}">
+          {% for option in (camera.get(key) or {}) %}<option {{ "selected" if sc.shot[key] == option }}>{{ option }}</option>{% endfor %}
+        </select></div>
+        {% endfor %}
+      </div>
+      <div class="cols3">
+        <div><label for="storyboard-field-7-{{ loop.index if loop is defined else 0 }}">mode</label><select name="mode" id="storyboard-field-7-{{ loop.index if loop is defined else 0 }}"><option {{ "selected" if sc.mode == "still" }}>still</option><option {{ "selected" if sc.mode == "motion" }}>motion</option></select></div>
+        <div style="grid-column: span 2"><label for="storyboard-field-8-{{ loop.index if loop is defined else 0 }}">ghi chú revision</label><input type="text" name="note" id="storyboard-field-8-{{ loop.index if loop is defined else 0 }}"></div>
+      </div>
+      <p class="small muted">nhân vật: {{ sc.characters|join(", ") or "—" }}</p>
+      <p><button class="primary" data-save {{ dis }}>Lưu → revision mới</button></p>
+    </form>
+
     <h3 class="inspector-section-title">Chạy lại kèm ghi chú</h3>
     <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/rerun" class="row edit" data-confirm="Chạy lại scene có thể gọi model trả phí. Tiếp tục?">
-      <select name="step" style="width: auto"><option>keyframes</option><option>voice</option></select>
-      <input type="text" name="note" required placeholder="vd: hands out of frame" style="flex: 1">
+      <select aria-label="Bước chạy lại" name="step" style="width: auto"><option>keyframes</option><option>voice</option></select>
+      <input type="text" name="note" aria-label="Ghi chú chạy lại" required placeholder="vd: hands out of frame" style="flex: 1">
       <button {{ dis }}>Chạy lại</button>
     </form>
 
     <h3>Upload asset riêng</h3>
     <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/upload" enctype="multipart/form-data" class="edit">
-      <div class="row"><select name="kind" style="width: auto"><option>image</option><option>clip</option><option>voice</option></select><input type="file" name="file" required></div>
+      <div class="row"><select aria-label="Loại asset" name="kind" style="width: auto"><option>image</option><option>clip</option><option>voice</option></select><input type="file" name="file" aria-label="File asset" required></div>
       <label for="storyboard-field-9-{{ loop.index if loop is defined else 0 }}">Nguồn</label><input type="text" name="source" required placeholder="ảnh tự chụp, stock …" id="storyboard-field-9-{{ loop.index if loop is defined else 0 }}">
       <label for="storyboard-field-10-{{ loop.index if loop is defined else 0 }}">Quyền sử dụng</label><input type="text" name="rights" required placeholder="owned, CC-BY 4.0 …" id="storyboard-field-10-{{ loop.index if loop is defined else 0 }}">
       <label><input type="checkbox" name="ai_generated" value="1"> nội dung do AI tạo</label>

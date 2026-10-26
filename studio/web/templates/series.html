@@ -24,8 +24,8 @@
 <div class="card" style="margin-bottom: 14px">
   <form method="post" action="/series/{{ name }}/characters">
     <input type="hidden" name="key" value="{{ key }}">
-    <label><b>{{ key }}</b> — mô tả cố định (ghép y nguyên vào prompt mọi scene)</label>
-    <textarea name="description" rows="2">{{ ch.description }}</textarea>
+    <label for="character-desc-{{ key }}"><b>{{ key }}</b> — mô tả cố định (ghép y nguyên vào prompt mọi scene)</label>
+    <textarea id="character-desc-{{ key }}" name="description" rows="2">{{ ch.description }}</textarea>
     <button>Lưu mô tả</button>
   </form>
   {% if ch.sheet %}
@@ -45,15 +45,15 @@
   </form>
   <div class="row" style="margin-top: 8px">
     <form method="post" action="/series/{{ name }}/characters/{{ key }}/ref" class="row" data-confirm="Tạo ảnh tham chiếu sẽ xếp hàng cho worker gọi model trả phí. Tiếp tục?">
-      <select name="view" style="width: auto">{% for v in views %}<option>{{ v }}</option>{% endfor %}</select>
-      <input type="text" name="note" placeholder="ghi chú (tùy chọn)">
+      <select aria-label="Góc ảnh tham chiếu {{ key }}" name="view" style="width: auto">{% for v in views %}<option>{{ v }}</option>{% endfor %}</select>
+      <input type="text" name="note" aria-label="Ghi chú ảnh tham chiếu {{ key }}" placeholder="ghi chú (tùy chọn)">
       <button>Tạo ảnh tham chiếu (worker, trả phí)</button>
     </form>
   </div>
   <form method="post" action="/series/{{ name }}/characters/{{ key }}/upload" enctype="multipart/form-data" class="row" style="margin-top: 8px">
-    <input type="file" name="file" required>
-    <input type="text" name="source" required placeholder="nguồn" style="max-width: 180px">
-    <input type="text" name="rights" required placeholder="quyền" style="max-width: 180px">
+    <input type="file" aria-label="File ảnh tham chiếu {{ key }}" name="file" required>
+    <input type="text" name="source" aria-label="Nguồn ảnh {{ key }}" required placeholder="nguồn" style="max-width: 180px">
+    <input type="text" name="rights" aria-label="Quyền sử dụng ảnh {{ key }}" required placeholder="quyền" style="max-width: 180px">
     <button>Upload ảnh</button>
   </form>
 </div>

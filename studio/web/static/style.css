@@ -291,3 +291,17 @@ code,.data-trail{overflow-wrap:anywhere}th{white-space:nowrap}.table-scroll,.wid
 #find-offer .stack-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;align-items:end}
 #find-offer .stack-form>label{margin:0;grid-row:1}#find-offer .stack-form>input:not([type=hidden]){grid-row:2}#find-offer .stack-form>p{grid-column:1/-1;margin:0}#find-offer .stack-form>button{justify-self:start;width:auto}
 @media(max-width:620px){#find-offer .stack-form{display:block}#find-offer .stack-form>label{margin:16px 0 7px}#find-offer .stack-form>button{margin-top:12px}.cols3>div[style*="span 2"]{grid-column:auto!important}.series-workspace{grid-template-columns:minmax(0,1fr)}.row>input[type=file]{width:100%}}
+/* Backdrop occupies no grid cell until the mobile drawer opens. */
+.scrim{display:none}
+.status-detail{margin:0;min-width:0;max-width:100%}.status-detail p{overflow-wrap:anywhere;margin:8px 0 0}
+.final-review-panel>.row{display:block}.final-review-panel video{height:320px;width:180px;max-width:100%;margin:0 auto 20px}
+.page-heading{align-items:flex-end}.page-heading>.button{flex-shrink:0}
+@media(max-width:620px){.page-heading{align-items:stretch}}
+/* Grid items must shrink around scrollable audit/review tables on small screens. */
+.card,.panel-grid,.panel-grid>*,.stack>*{min-width:0}
+.stack{min-width:0;grid-template-columns:minmax(0,1fr)}
+.table-scroll,.wide-table,.review-table{position:relative}
+.mobile-label{display:none}
+@media(max-width:620px){
+.offer-table,.offer-table tbody,.offer-table tr,.offer-table td{display:block;width:100%}.offer-table thead{display:none}.offer-table tbody{display:grid;gap:12px}.offer-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:1px solid var(--line);border-radius:10px;padding:13px}.offer-table td{padding:0;border:0;min-width:0}.offer-table td:first-child,.offer-table td:last-child{grid-column:1/-1}.offer-table .offer-rent{min-width:0}.mobile-label{display:block;font-size:10px;color:var(--muted);margin-bottom:3px}
+}

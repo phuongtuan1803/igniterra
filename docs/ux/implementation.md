@@ -49,4 +49,8 @@
 
 ## Verification
 
-Baseline `uv run pytest -q` started before implementation; result and browser evidence will be recorded after completion. All verification must use isolated temporary data, fake providers and local test HTTP servers, never the live studio configuration.
+Baseline `uv run pytest -q`: 286 passed (362.46s). First full integration run: 287 passed (350.17s). Final results and browser evidence are recorded in `verification.md`. All verification must use isolated temporary data, fake providers and local test HTTP servers, never the live studio configuration.
+
+## Browser-discovered compatibility fix
+
+The existing `back()` helper appended `?msg=...`/`?err=...` even when a scene action already redirected to `?scene=sNN`. The selected scene then became `sNN?msg=...`, so the inspector disappeared after edit/select/upload and the flash message was lost. The helper now merges query parameters with `urlsplit`/`parse_qsl`/`urlencode` and preserves fragments. Normal POST redirects remain 303; HTMX redirects remain 204 with `HX-Redirect`. Regression tests exercise success and error feedback with the scene selection intact. No business/service behavior changes.

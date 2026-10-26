@@ -7,7 +7,7 @@
   {% elif task.status == "pending" %}
     <span>chờ worker</span>
   {% elif task.wait_detail %}
-    <span class="small">{{ task.wait_detail }}</span>
+    <details class="status-detail"><summary>Chi tiết trạng thái</summary><p class="small">{{ task.wait_detail }}</p></details>
   {% endif %}
   {% if task.status == "waiting" and task.wait_reason in ("paused", "retries_exhausted", "duration_exceeded") %}
     <form method="post" action="/tasks/{{ task.id }}/resume"><button>Chạy tiếp</button></form>
