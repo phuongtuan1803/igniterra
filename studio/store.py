@@ -496,27 +496,29 @@ class Store:
                                                     (rental_id,)).fetchall()]
 
     def set_provision_step(self, rental_id: str, step_key: str, status: str, error_code: str | None = None,
-                           **fields) -> None:
+                           only_from: str | None = None, **fields) -> None:
         """``running`` tăng lượt thử và ghi started_at; trạng thái kết thúc ghi finished_at.
 
         ``fields``: ``attempt`` (lượt thử provisioner báo, thay cho tự tăng), ``bytes_done``, ``bytes_total``, ``log_ref``.
+        ``only_from``: chỉ đổi khi trạng thái hiện tại là giá trị này (CAS trong cùng câu UPDATE).
         """
         unknown = set(fields) - {"attempt", "bytes_done", "bytes_total", "log_ref"}
         if unknown:
             raise ValueError(f"cột lạ: {sorted(unknown)}")
         stamp = utc_now()
         extra = "".join(f", {key}=?" for key in fields)
+        guard, guard_args = (" AND status=?", (only_from,)) if only_from else ("", ())
         with self.connect() as db:
             if status == "running":
                 bump = "" if "attempt" in fields else ", attempt=attempt+1"
                 db.execute(f"UPDATE gpu_provision_steps SET status=?{bump}, started_at=?, finished_at=NULL, "
-                           f"error_code=NULL{extra} WHERE rental_id=? AND step_key=?",
-                           (status, stamp, *fields.values(), rental_id, step_key))
+                           f"error_code=NULL{extra} WHERE rental_id=? AND step_key=?{guard}",
+                           (status, stamp, *fields.values(), rental_id, step_key, *guard_args))
             else:
                 db.execute(f"UPDATE gpu_provision_steps SET status=?, finished_at=?, error_code=?{extra} "
-                           "WHERE rental_id=? AND step_key=?",
+                           f"WHERE rental_id=? AND step_key=?{guard}",
                            (status, stamp if status != "pending" else None, error_code, *fields.values(), rental_id,
-                            step_key))
+                            step_key, *guard_args))
 
     def update_provision_step(self, rental_id: str, step_key: str, **fields) -> None:
         """Đổi lượt thử/byte/log của bước đang chạy mà không đổi trạng thái, started_at."""

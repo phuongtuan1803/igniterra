@@ -519,7 +519,17 @@ class GPUService:
     def poll(self) -> list[Rental]:
         """Kiểm mọi rental đang ``provisioning`` (worker hoặc CLI gọi định kỳ). Chỉ GET; mutation duy nhất là
         submit smoke (ghi ``prompt_id`` trước) và destroy khi provisioning hỏng."""
-        return [self.check_provisioning(r.rental_id) for r in self.rentals() if r.status == "provisioning"]
+        results = []
+        for rental in self.rentals():
+            if rental.status != "provisioning":
+                continue
+            try:                           # một rental lỗi không làm bỏ qua các rental khác trong lượt
+                results.append(self.check_provisioning(rental.rental_id))
+            except (GPUServiceError, GPUError) as exc:
+                log.warning("poll %s: %s", rental.rental_id, self._clean(str(exc)))
+                self.store.add_gpu_event(rental.rental_id, "provisioning", "poll_error", self._clean(str(exc)))
+                results.append(self.rental(rental.rental_id))
+        return results
 
     def check_provisioning(self, rental_id: str) -> Rental:
         """Đưa rental ``provisioning`` qua từng bước tới ``ready`` khi đủ bằng chứng (09 · s4.b2).
@@ -749,14 +759,23 @@ class GPUService:
         Mọi manifest đã duyệt đều có ``on_failure.action = destroy``: instance hỏng không được để chạy tính phí.
         """
         rental_id = rental.rental_id
+        current = self.rental(rental_id)
+        if current.status != "provisioning":
+            # Bên khác (nút Destroy, poll/reconcile song song) đã đưa rental đi tiếp: không ghi đè, trả bản hiện tại.
+            self.store.add_gpu_event(rental_id, "provisioning", "state_changed",
+                                     f"phát hiện {failure.code} ở {failure.step} nhưng rental đã {current.status}")
+            return current
         detail = self._clean(failure.detail)
         self.store.set_provision_step(rental_id, failure.step, "failed", failure.code)
         for key in STEP_KEYS[STEP_KEYS.index(failure.step) + 1:]:
             row = next(r for r in self.store.provision_steps(rental_id) if r["step_key"] == key)
             if row["status"] in ("pending", "running", "unknown"):
                 self.store.set_provision_step(rental_id, key, "skipped")
-        if not self._move(self.rental(rental_id), "provision_failed", error_code=failure.code,
-                          detail=f"{failure.step}: {detail}"):
+        try:
+            moved = self._move(current, "provision_failed", error_code=failure.code, detail=f"{failure.step}: {detail}")
+        except GPUServiceError:
+            moved = False
+        if not moved:                      # CAS thua: bên khác đổi trạng thái giữa lúc đọc và ghi
             return self.rental(rental_id)
         log.warning("%s provision_failed ở %s (%s); destroy theo on_failure", rental_id, failure.step, failure.code)
         try:
@@ -767,7 +786,8 @@ class GPUService:
 
     def _start(self, steps: dict, rental_id: str, key: str) -> None:
         if steps[key]["status"] == "pending":
-            self.store.set_provision_step(rental_id, key, "running")
+            # Chỉ chuyển từ pending trong SQL: hai lượt poll song song không đếm lượt thử hai lần.
+            self.store.set_provision_step(rental_id, key, "running", only_from="pending")
             steps[key] = {**steps[key], "status": "running", "attempt": steps[key]["attempt"] + 1}
 
     def _running(self, steps: dict, rental_id: str, key: str, fields: dict) -> None:

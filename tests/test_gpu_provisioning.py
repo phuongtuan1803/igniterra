@@ -635,3 +635,55 @@ def test_comfyui_code_is_never_imported_and_web_only_uses_service():
     for path in (STUDIO / "web").rglob("*.py"):
         names = imports(path)
         assert not {n for n in names if n.startswith(("studio.comfyui", "studio.gpu.probe", "studio.gpu.adapters"))}, path
+
+
+# ------------------------------------------------------------ race: destroy song song với lúc phát hiện lỗi provisioning
+
+
+def test_destroy_racing_provisioning_failure_returns_destroyed_rental_without_raising(env, svc, fake_gpu, inst, server,
+                                                                                     monkeypatch):
+    from studio.gpu import service as service_module
+
+    rental_id = rent(svc, fake_gpu, inst, server)
+    inst.report = {"steps": {"runtime_setup": {"status": "failed", "attempt": 3, "error": "pip exploded"}}}
+    stale = svc.rental(rental_id)                       # bản check_provisioning() đang giữ
+    assert svc.destroy(rental_id).status == "destroyed"  # nút Destroy thắng race
+    failure = service_module._Fail("runtime_setup", "pip_failed", "pip exploded")
+    assert svc._fail_provisioning(stale, failure).status == "destroyed"
+
+    # Cùng race qua đường check_provisioning: destroy xảy ra giữa lúc đọc rental và lúc phát hiện lỗi.
+    other = rent(svc, fake_gpu, inst, server)
+    original = svc._advance
+
+    def advance_then_destroyed_elsewhere(rental, manifest):
+        svc.destroy(rental.rental_id)
+        original(rental, manifest)
+
+    monkeypatch.setattr(svc, "_advance", advance_then_destroyed_elsewhere)
+    assert svc.check_provisioning(other).status == "destroyed"
+    assert fake_gpu.destroyed() == 2                    # mỗi rental đúng một lượt destroy thật
+    assert "provisioning→provision_failed" not in [e["transition"] for e in events(env, other)]
+
+
+def test_poll_keeps_going_when_one_rental_errors(env, svc, fake_gpu, inst, server, monkeypatch):
+    first, second = rent(svc, fake_gpu, inst, server), rent(svc, fake_gpu, inst, server)
+    inst.report = all_steps_done()
+    original = svc.check_provisioning
+
+    def flaky(rental_id):
+        if rental_id == first:
+            raise GPUServiceError("chuyển trạng thái không hợp lệ")
+        return original(rental_id)
+
+    monkeypatch.setattr(svc, "check_provisioning", flaky)
+    results = {r.rental_id: r.status for r in svc.poll()}
+    assert results == {first: "provisioning", second: "ready"}
+    assert any(e["error_code"] == "poll_error" for e in events(env, first))
+
+
+def test_concurrent_step_start_counts_one_attempt(env, svc, fake_gpu, inst, server):
+    rental_id = rent(svc, fake_gpu, inst, server, boot=False)
+    stale = {row["step_key"]: row for row in env.store.provision_steps(rental_id)}
+    svc._start(dict(stale), rental_id, "host_boot")
+    svc._start(dict(stale), rental_id, "host_boot")     # lượt poll thứ hai với snapshot cũ
+    assert steps(env, rental_id)["host_boot"] == ("running", 1, None)
