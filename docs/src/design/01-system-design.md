@@ -2,7 +2,7 @@
 id: IGN-SYS
 title: Igniterra — Thiết kế hệ thống
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -14,6 +14,7 @@ rev:
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: core tối thiểu + adapter, MPT làm thư viện provider, ScenePlan có revision, ứng viên selected, lộ trình theo decision gate"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: brief theo mẫu Gate 0, CON-08 sản phẩm pilot (D-02), FR-17 hậu điều kiện và trần thời lượng, FR-18 phiếu duyệt, bước animate trong luồng giá trị, ràng buộc ffprobe và pin phụ thuộc của gói mpt"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.3", 2026-10-26, "Thiết kế Gate 4: GPU provider-neutral, giao diện GPU Rentals và ComfyUI Workflows tách biệt, quan sát provisioning, cleanup/cost safety"]
 ---
 
 <!-- id:s1 -->
@@ -329,6 +330,11 @@ Table: Yêu cầu chức năng
 | FR-16 | Quy trình khác (audiobook) bằng danh sách bước mới, dùng lại adapter | 4 | 05 |
 | FR-17 | Kiểm hậu điều kiện kỹ thuật trước khi commit artifact (giải mã được, 1080×1920, có audio, thời lượng); tổng giọng vượt `max_s` thì task `waiting`, không render bản vượt trần | 2 | 03 |
 | FR-18 | Gate `final` ghi phiếu duyệt: kết quả từng tiêu chí C01–C09 (đạt, trượt, chưa rõ, kèm timestamp), `accepted` và phút công chủ động của người duyệt | 2 (CLI), 3 (web) | 04, 06 |
+| FR-19 | GPU Rentals: tìm/lọc offer, chọn template và thuê GPU on-demand qua adapter theo provider; Vast.ai là provider đầu tiên, không hardcode vào web/core | 4 | 09 |
+| FR-20 | Theo dõi tiến độ provisioning theo phase, logs/events, readiness, lỗi, retry an toàn và reconcile sau restart; không báo ready khi chỉ host running | 4 | 09, 07 |
+| FR-21 | Quản lý lifecycle, chi phí ước tính, giới hạn giá/TTL, stop/destroy có xác nhận và trạng thái kết quả không rõ; tránh thuê trùng GPU | 4 | 09, 07 |
+| FR-22 | Trang ComfyUI Workflows riêng để import/version JSON, review models/custom nodes/dependencies, run trên GPU ready và thu hồi output; không viết lại graph editor | 4 | 09, 06 |
+| FR-23 | Tách GPU provider, ComfyUI runtime và content-provider adapter; một GPU có thể được thuê/quản lý độc lập với studio task | 4 | 02, 05, 09 |
 
 <!-- id:s7 -->
 ## Yêu cầu phi chức năng
@@ -347,6 +353,9 @@ Table: Yêu cầu phi chức năng
 | NFR-08 | Đổi provider của một năng lực chỉ bằng cấu hình | T07: đổi adapter TTS chỉ bằng cấu hình | 05 |
 | NFR-09 | Nâng phiên bản MPT không ảnh hưởng core | Test riêng từng adapter chạy trước khi nâng | 05, 07 |
 | NFR-10 | Tôn trọng rate limit provider | Thread pool giới hạn theo adapter | 03 |
+| NFR-11 | Mọi transition thuê GPU ghi durable event, có provider ID và timestamp, khôi phục được sau restart | G04, G05, G09, G10 qua fake/live provider | 09 |
+| NFR-12 | Workflow dependency không được cài mù; pin nguồn/ref, review khi metadata thiếu hoặc có xung đột | G06, G07; manifest/smoke test | 09 |
+| NFR-13 | GPU/ComfyUI không lộ secrets/endpoint công khai; HTTP & SSH có xác thực; cleanup không giả báo thành công | G09, G12 và review log/SSH | 07, 09 |
 
 <!-- id:s8 -->
 ## Ràng buộc và giả định
@@ -363,6 +372,7 @@ Table: Ràng buộc và giả định
 | CON-06 | Model tự host có giấy phép khác nhau | Chỉ Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại |
 | CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Baseline MPT đã bỏ (D-01); Gate 2 đo trên studio; mọi con số là ước tính tới khi đo |
 | CON-08 | Sản phẩm pilot (D-02, chốt ở Gate 0): Short sci-fi bí ẩn tiếng Việt, 9:16, 45–58 giây, trần cứng 60 giây, 4–6 nhịp hình, nhạc tắt, không cận mặt cố định | Brief mang `max_s` và số scene; `plan` và hậu điều kiện kiểm trần; Series Bible ưu tiên bối cảnh, bóng người |
+| CON-09 | Gate 4 GPU thuê chỉ dùng on-demand, một operator, một worker, Vast.ai là provider đầu tiên; không triển khai bid/spot hoặc multi-cloud thực tế trong MVP | Giữ giao diện provider-neutral và capability-aware; hoãn provider thứ hai tới khi có số đo |
 
 <!-- id:s9 -->
 ## Thuộc tính chất lượng

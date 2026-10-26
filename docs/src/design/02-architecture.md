@@ -2,7 +2,7 @@
 id: IGN-ARC
 title: Igniterra — Kiến trúc tổng thể
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -13,6 +13,7 @@ rev:
   - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: 4 tầng, core tối thiểu, MPT sau adapter, bỏ registry, profile YAML, router, ngân sách"]
   - ["2.1", 2026-10-24, "Soát trước Gate 2: bước animate, vendor video_project tại 82bb4a7, phụ thuộc ghim theo gói mpt, quy tắc web chỉ ghi khi task không chạy, ranh giới đường dẫn cho /files"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.3", 2026-10-26, "Tách GPU rental adapter khỏi 5 content provider; bổ sung Gate 4 module GPU/ComfyUI không thay đổi pipeline"]
 ---
 
 <!-- id:s1 -->
@@ -529,3 +530,10 @@ Table: Thành phần bị bỏ hoặc hoãn so với v1.1 và điều kiện th�
 | VLM chấm mọi scene | Người duyệt thành nút thắt |
 | Đa người dùng, phân quyền | Có người dùng thứ hai |
 | Postgres, S3 / R2 | Có worker trên hơn một máy |
+
+<!-- id:s12 -->
+## Extension Gate 4 — GPU rental và ComfyUI runtime
+
+Tài liệu [09 — GPU và ComfyUI](09-gpu-comfyui.md#s5) thiết kế `studio/gpu/` (GPUProvider riêng cho thuê/quản lý instance) và `studio/comfyui/` (workflow, dependencies, runtime). Chúng là **infrastructure service**, không phải interface thứ sáu trong `studio/providers/base.py` và không import `app.*` của MPT. Adapter `studio/providers/direct/comfyui.py` chỉ được bật ở Gate 4 để gọi ComfyUI runtime đã `ready`; core pipeline không điều phối thuê GPU.
+
+Hai màn hình `/gpu` và `/comfyui/workflows` dùng FastAPI/Jinja2/HTMX và SQLite + `data/` sẵn có; worker hiện có thực hiện poll/reconcile với lock theo rental. Các bảng `gpu_*` và `comfy_*` thuộc module mới, không đổi schema bất biến của ScenePlan/AssetCandidate. Không thêm broker, agent/router, dịch vụ độc lập hay provider thứ hai ở MVP.

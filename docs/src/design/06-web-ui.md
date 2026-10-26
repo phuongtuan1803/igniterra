@@ -2,7 +2,7 @@
 id: IGN-UI
 title: Igniterra — Giao diện review và CLI
 type: design
-ver: "2.3"
+ver: "2.4"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -14,6 +14,7 @@ rev:
   - ["2.1", 2026-10-24, "Soát trước Gate 2: phiếu duyệt C01–C09 và phút công ở gate final, lệnh review và task pause, không sửa khi task đang chạy, khai báo nguồn khi upload, trạng thái duration_exceeded"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
   - ["2.3", 2026-10-25, "Gate 3 đã xây: route, phiếu duyệt trên Storyboard, job ảnh tham chiếu, Settings ghi lớp phủ, lệnh web và series"]
+  - ["2.4", 2026-10-26, "Thiết kế thêm 2 màn hình Gate 4: GPU Rentals và ComfyUI Workflows; giữ nguyên 4 trang Gate 3"]
 ---
 
 <!-- id:s1 -->
@@ -264,7 +265,14 @@ Giao diện chạy ở `localhost` hoặc sau Tailscale/basic auth; API key khô
 ## Nguyên tắc giữ UI nhỏ
 
 <!-- id:s9.b1 -->
-- Giữ 4 trang và Settings; mọi trang mới phải chứng minh nhu cầu bằng một lỗi đã thấy ở gate trước.
+- Gate 3 giữ 4 trang review và Settings; Gate 4 bổ sung **2 mục điều hướng riêng** GPU Rentals và ComfyUI Workflows theo [09](09-gpu-comfyui.md#s3) khi được duyệt triển khai, không thay bản đồ Gate 3 ở trên.
 - Không dashboard thống kê: `costs.jsonl` và `jq` đủ cho báo cáo tháng.
-- Không workflow editor: danh sách bước là mã Python.
+- Không workflow editor cho core pipeline: danh sách bước là mã Python. Gate 4 chỉ import/validate/run ComfyUI workflow JSON; chỉnh node graph mở ComfyUI gốc.
 - Không thay trình dựng phim: chỉnh nhịp từng khung phải sửa dữ liệu rồi render lại, hoặc xuất timeline sang trình dựng ngoài.
+
+<!-- id:s10 -->
+## Hai màn hình riêng cho GPU và ComfyUI (Gate 4 — thiết kế)
+
+**GPU Rentals** (route `/gpu`) có provider selector, danh sách offer on-demand, tạo rental với confirm, list instances và instance detail dạng timeline đứng gồm phases, event, log, estimated cost, retry/reconcile, stop/destroy. **ComfyUI Workflows** (route `/comfyui/workflows`) có thư viện workflow JSON/version, dependency review, chọn GPU `ready`, chạy workflow, tiến độ prompt và output; link sang instance detail để xem provisioning. Đây là hai trang độc lập về state nhưng liên kết bằng rental ID. Vast.ai chỉ là một tùy chọn provider; provider chưa hỗ trợ phải đánh dấu unavailable, không giả lập hoạt động.
+
+Thiết kế màn hình, routes, acceptance và giới hạn không viết lại graph editor nằm ở [09 — GPU/ComfyUI](09-gpu-comfyui.md#s3). Chưa phải chức năng đã triển khai; không thay đổi bảng route Gate 3 ở s8.

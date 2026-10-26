@@ -2,7 +2,7 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.7"
+ver: "2.8"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -18,6 +18,7 @@ rev:
   - ["2.5", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview với 1 character sheet; model ảnh codex trả 401 No credentials"]
   - ["2.6", 2026-10-25, "Code Gate 2: chữ ký LLMProvider.generate_json và SubtitleAligner.align, lỗi ContentRefused cho moderation, JSON schema qua gateway đã kiểm, adapter đọc media_type"]
   - ["2.7", 2026-10-25, "Gate 3: 400 'could not generate an image' cũng là ContentRefused; FakeAltTTS cho T07; test adapter OmniRoute với server giả"]
+  - ["2.8", 2026-10-26, "Phân biệt content provider adapter và hạ tầng GPU rental provider (Gate 4); Vast.ai chỉ là một adapter"]
 ---
 
 <!-- id:s1 -->
@@ -514,3 +515,8 @@ Table: Test core bắt buộc (với bản giả)
 | QualityFail | `FakeImage` trả ảnh trượt kiểm tra | Chỉ scene đó chạy lại; lý do có trong prompt lượt sau |
 | Sửa scene | Đổi narration s05 | Chỉ voice s05, subtitles, render chạy lại |
 | Đổi adapter | Đổi `tts` trong cấu hình sang `FakeTTS` khác | Không sửa code core (T07) |
+
+<!-- id:s12 -->
+## GPU provider không phải content provider
+
+Năm interface `LLMProvider`, `ImageProvider`, `TTSProvider`, `SubtitleAligner`, `VideoProvider` là **năng lực sinh nội dung**, không phải cách thuê máy. Ở Gate 4, giao diện `GPUProvider` sống riêng tại `studio/gpu/adapters/base.py` và chỉ thực hiện search/create/get/stop/destroy/reconcile theo capability; `VastGPUProvider` là triển khai đầu tiên. `ComfyUIRuntime` là lớp kết nối tới instance ready, không chứa logic thuê GPU. `ImageProvider`/`VideoProvider` dùng ComfyUI vẫn phải tuân thủ 4 loại lỗi nội dung tại s1; lỗi tạo/hủy instance đi qua `gpu_events` và state riêng, tránh retry gây thuê trùng. Chi tiết và source review: [09 — GPU/ComfyUI](09-gpu-comfyui.md#s5).

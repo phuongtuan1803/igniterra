@@ -2,7 +2,7 @@
 id: IGN-OPS
 title: Igniterra — Triển khai và vận hành
 type: design
-ver: "2.3"
+ver: "2.4"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -14,6 +14,7 @@ rev:
   - ["2.1", 2026-10-24, "Soát trước Gate 2: FFmpeg và ffprobe hệ thống, MPT_HOME riêng, vendor tại 82bb4a7, nâng MPT kéo theo test web, giới hạn chi tiêu trước lượt gọi trả phí đầu tiên, runbook duration_exceeded và lệch phụ đề"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
   - ["2.3", 2026-10-25, "Gate 3: lệnh web, STUDIO_BASIC_AUTH, data/settings.toml, runbook moderation"]
+  - ["2.4", 2026-10-26, "Định nghĩa vận hành GPU thuê Gate 4: theo dõi provisioning, unknown creation, chi phí và destroy reconcile"]
 ---
 
 <!-- id:s1 -->
@@ -323,3 +324,18 @@ Table: Điều kiện và thay đổi cho từng bậc
 | --- | --- | --- |
 | 1 → 2 | Một worker không đủ nhanh | Thêm process worker; nhận task bằng cập nhật có điều kiện trên SQLite; kiểm khóa ghi `assets.json` |
 | 2 → 3 | Cần worker trên máy khác | Postgres với `SELECT ... FOR UPDATE SKIP LOCKED`; artifact sang S3 / R2; `costs.jsonl` và `assets.json` cần nơi ghi chung (AD-11: không chỉ đổi URL) |
+
+<!-- id:s10 -->
+## Runbook GPU thuê và ComfyUI (Gate 4 — thiết kế)
+
+Tham chiếu state, cost và bảo mật tại [09 — GPU/ComfyUI](09-gpu-comfyui.md#s6). GPU đang cài model hoặc provisioning failed **có thể vẫn tính phí**; dừng instance không chắc ngừng phí storage. Trên web luôn hiển thị estimated cost, giá theo giờ, timestamp báo giá và link dashboard provider. Model outputs phải được copy/verify trước khi destroy; không lưu API token vào workflow hoặc log.
+
+| Tình huống | Xử lý |
+| --- | --- |
+| Create timeout / chưa rõ đã thuê hay chưa | Đặt `creating/unknown`; tra `list_owned_instances`/dashboard trước khi tạo lại; giữ operation id |
+| Host running nhưng ComfyUI không lên | Xem phase lỗi ở timeline, đọc provisioning logs; không chuyển `ready` khi health/smoke fail |
+| Download/pip lỗi hoặc thiếu disk | Giữ logs và instance ID, sửa manifest rồi retry bước idempotent hoặc xác nhận destroy; tránh tiếp tục phí ngầm |
+| Worker restart / app mất mạng | Reconcile provider state theo provider instance ID; không khởi tạo rental thứ hai |
+| Stop/destroy thất bại hoặc không rõ | Không xóa record; hiển thị `destroy_unknown` và cảnh báo, kiểm provider trước khi báo hoàn tất |
+| Idle TTL quá hạn | Reconciler thử destroy instance do app sở hữu, log attempt; khi API lỗi phát cảnh báo; không cam kết kết thúc tiền nếu mất kết nối |
+| Workflow output chưa tải về | Cảnh báo trước khi destroy; ưu tiên backup hoặc cho người vận hành xác nhận mất output |

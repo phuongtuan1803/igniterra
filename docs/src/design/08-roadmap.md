@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.8"
+ver: "2.9"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -19,6 +19,7 @@ rev:
   - ["2.6", 2026-10-25, "Ảnh đổi sang openrouter/google/gemini-3.1-flash-image-preview (1 character sheet)"]
   - ["2.7", 2026-10-25, "Gate 2 đã code và chạy 5 brief (báo cáo g2): checklist cập nhật; phiếu duyệt và D-07 chờ Tuan"]
   - ["2.8", 2026-10-25, "Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan; phần xây xong, T09 đã đo (báo cáo g3)"]
+  - ["2.9", 2026-10-26, "Bổ sung nhánh triển khai có điều kiện GPU Rentals và ComfyUI Workflows với provider-neutral Vast adapter và acceptance G01–G12"]
 ---
 
 <!-- id:s1 -->
@@ -231,9 +232,14 @@ Table: Điều kiện mở từng hạng mục Gate 4
 | Hạng mục | Mở khi | Quyết định |
 | --- | --- | --- |
 | Image-to-video | Gate 3 cho thấy ảnh tĩnh không đủ cho thể loại đã chọn | D-04 |
-| GPU tự host | Số liệu chi phí trên asset được duyệt chứng minh lợi ích | D-05 |
+| GPU tự host / thuê ngoài | Số liệu chi phí trên asset được duyệt chứng minh lợi ích hoặc nhu cầu thực tế được duyệt | D-05 |
 | Audiobook | Có workload thật | D-06 |
 | Đăng bài tự động | Audit YouTube/TikTok xong; cờ nội dung AI sẵn sàng | — |
+
+<!-- id:s5.b4 -->
+**Thiết kế Gate 4 đã bổ sung, chưa triển khai**: 2 màn hình riêng [GPU Rentals và ComfyUI Workflows](09-gpu-comfyui.md#s3); hợp đồng GPU provider-neutral, Vast.ai on-demand đầu tiên; UI tiến độ provisioning, dependency review và cleanup. Không thay đổi trạng thái hoàn thành của Gate 2/3 hay tự chốt D-05.
+
+Thứ tự khi D-05 mở: (1) FakeGPUProvider + UI/SQLite state; (2) Vast on-demand search/confirm/create/get/destroy + reconcile; (3) pinned ComfyUI runtime/provision manifest + progress/health; (4) workflow import/dependency review/run/output; (5) idle TTL + kiểm thử live có giới hạn. Chỉ mở rộng provider khi G01–G12 trong [09](09-gpu-comfyui.md#s9) đạt.
 
 <!-- id:s6 -->
 ## Ví dụ kiểm chứng đầu-cuối

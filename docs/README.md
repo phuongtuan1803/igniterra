@@ -12,6 +12,7 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 | [06 · Giao diện review và CLI](src/design/06-web-ui.md) | Bản đồ trang, Storyboard, can thiệp, Task detail, lệnh CLI |
 | [07 · Triển khai và vận hành](src/design/07-operations.md) | Triển khai, bí mật, nâng cấp MPT, quan sát, sao lưu, bảo mật, rủi ro, runbook |
 | [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 0–4, thứ tự việc Gate 2, test T01–T10, quyết định mở P/D |
+| [09 · GPU thuê và ComfyUI Workflows](src/design/09-gpu-comfyui.md) | Gate 4: 2 màn hình riêng, GPU provider-neutral, Vast.ai adapter, provisioning progress, workflow dependencies, lifecycle, costs |
 | [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 chờ chốt |
 
 ## Báo cáo pilot
