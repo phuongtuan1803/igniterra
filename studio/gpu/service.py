@@ -240,9 +240,9 @@ class GPUService:
             return rental
         if not self._move(rental, "destroyed", destroy_confirmed_at=self.clock().isoformat(timespec="seconds")):
             return self.rental(rental_id)
-        operations = self.store.gpu_operations(rental_id, "destroy")
-        if operations:
-            self.store.finish_gpu_operation(operations[-1]["op_id"], "confirmed")
+        for op in self.store.gpu_operations(rental_id, "destroy"):
+            if op["status"] in ("sent", "accepted", "unknown"):        # mọi lượt chưa rõ đã có kết quả: instance mất
+                self.store.finish_gpu_operation(op["op_id"], "confirmed")
         others = sorted(i.provider_instance_id for i in owned if i.label == rental.label)
         if others:
             self.store.add_gpu_event(rental_id, "reconcile", "label_still_present",
@@ -306,7 +306,8 @@ class GPUService:
         rental = self.rental(rental_id)
         if rental.status == "destroy_unknown":
             operations = self.store.gpu_operations(rental_id, "destroy")
-            if not operations or operations[-1]["status"] != "rejected":
+            # Không dựa vào thứ tự: còn bất kỳ lượt nào chưa rõ (unknown, accepted, sent) thì chỉ reconcile.
+            if not operations or any(op["status"] != "rejected" for op in operations):
                 raise GPUServiceError("destroy trước chưa rõ kết quả; reconcile, không gửi destroy lần nữa")
         elif "destroying" not in TRANSITIONS[rental.status]:
             raise GPUServiceError(f"không destroy được rental ở trạng thái {rental.status}")

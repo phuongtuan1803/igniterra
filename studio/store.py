@@ -476,7 +476,8 @@ class Store:
         if action:
             sql, args = sql + " AND action=?", args + [action]
         with self.connect() as db:
-            return [dict(row) for row in db.execute(sql + " ORDER BY sent_at, op_id", args).fetchall()]
+            # Thứ tự ghi thật (rowid): sent_at chỉ tới giây, op_id ngẫu nhiên nên không xếp được hai lượt cùng giây.
+            return [dict(row) for row in db.execute(sql + " ORDER BY rowid", args).fetchall()]
 
     def provision_steps(self, rental_id: str) -> list[dict]:
         with self.connect() as db:

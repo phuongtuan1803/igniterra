@@ -162,7 +162,11 @@ class VastGPUProvider:
         return self._instance(row) if row else None
 
     def list_owned_instances(self) -> list[Instance]:
-        """``GET /instances/``, chỉ giữ instance có label tiền tố ``igniterra:`` (G04, G09, G10)."""
+        """``GET /instances/``, chỉ giữ instance có label tiền tố ``igniterra:`` (G04, G09, G10).
+
+        Chưa phân trang: vast-cli mới gọi list v0 là deprecated và dùng ``/api/v1/instances/`` với ``next_token``;
+        kiểm ở lát E trước lượt thuê thật.
+        """
         data = self._request("GET", "/instances/", params={"owner": "me"})
         rows = data.get("instances") or []
         return [self._instance(row) for row in rows

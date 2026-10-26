@@ -415,6 +415,30 @@ def test_g09_destroy_rejected_may_be_resent(env, svc, fake_gpu):
     assert fake_gpu.destroyed() == 2
 
 
+@pytest.mark.parametrize("op_ids", [("f" * 32, "0" * 32), ("0" * 32, "f" * 32)])
+def test_g09_same_second_retry_never_resends_after_unknown(env, svc, fake_gpu, monkeypatch, op_ids):
+    """Hai lượt destroy cùng giây (bấm hai lần): op_id ngẫu nhiên không được quyết định lượt nào là "cuối"."""
+    import uuid as uuid_module
+
+    from studio import store as store_module
+
+    rental_id = rented(svc, fake_gpu)
+    ids = iter(op_ids)
+    monkeypatch.setattr(store_module, "utc_now", lambda: "2026-10-26T08:00:00+00:00")
+    monkeypatch.setattr("studio.gpu.service.uuid.uuid4", lambda: uuid_module.UUID(next(ids)))
+    fake_gpu.fail["destroy_instance"] = "reject"
+    assert svc.destroy(rental_id).status == "destroy_unknown"
+    fake_gpu.fail["destroy_instance"] = "timeout_before_send"
+    assert svc.destroy(rental_id).status == "destroy_unknown"
+    with pytest.raises(GPUServiceError, match="không gửi destroy lần nữa"):
+        svc.destroy(rental_id)
+    assert fake_gpu.destroyed() == 2
+    assert [op["status"] for op in env.store.gpu_operations(rental_id, "destroy")] == ["rejected", "unknown"]
+    del fake_gpu.instances["fake-1"]
+    assert svc.reconcile(rental_id).status == "destroyed"
+    assert [op["status"] for op in env.store.gpu_operations(rental_id, "destroy")] == ["rejected", "confirmed"]
+
+
 def test_destroy_refused_without_instance_or_after_destroyed(env, svc, fake_gpu):
     rental_id = unknown_rental(svc, fake_gpu)
     with pytest.raises(GPUServiceError, match="create_unknown"):
