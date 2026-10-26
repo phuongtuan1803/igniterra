@@ -2,7 +2,7 @@
 id: IGN-SYS
 title: Igniterra — Thiết kế hệ thống
 type: design
-ver: "2.3"
+ver: "2.4"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -15,6 +15,7 @@ rev:
   - ["2.1", 2026-10-24, "Soát trước Gate 2: brief theo mẫu Gate 0, CON-08 sản phẩm pilot (D-02), FR-17 hậu điều kiện và trần thời lượng, FR-18 phiếu duyệt, bước animate trong luồng giá trị, ràng buộc ffprobe và pin phụ thuộc của gói mpt"]
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
   - ["2.3", 2026-10-26, "Thiết kế Gate 4: GPU provider-neutral, giao diện GPU Rentals và ComfyUI Workflows tách biệt, quan sát provisioning, cleanup/cost safety"]
+  - ["2.4", 2026-10-26, "Bổ sung index chính thức 10–13 cho GPU/ComfyUI Gate 4"]
 ---
 
 <!-- id:s1 -->
@@ -64,7 +65,11 @@ Table: Tài liệu trong bộ và câu hỏi mỗi tài liệu trả lời
 | [06 · Giao diện review](06-web-ui.md) | Người dùng xem, chọn, sửa, chạy lại gì | Làm CLI, trang review |
 | [07 · Triển khai và vận hành](07-operations.md) | Chạy, sao lưu, bảo mật, xử lý sự cố thế nào | Cài đặt; sự cố |
 | [08 · Lộ trình](08-roadmap.md) | Gate nào, kiểm chứng gì, khi nào dừng xây | Lập kế hoạch; trước mỗi gate |
-| [09 · GPU thuê và ComfyUI Workflows](09-gpu-comfyui.md) | GPU Rentals, workflow ComfyUI, provider adapter, provisioning và chi phí ra sao | Thiết kế Gate 4; tích hợp GPU ngoài |
+| [09 · GPU thuê và ComfyUI Workflows](09-gpu-comfyui.md) | Tổng quan hai module | Thiết kế Gate 4 |
+| [10 · GPU Rentals](10-gpu-rentals.md) | Thuê/provision/cleanup/chi phí thế nào | Infra Gate 4 |
+| [11 · ComfyUI Workflows](11-comfyui-workflows.md) | Workflow dependencies và runtime ra sao | Workflow Gate 4 |
+| [12 · UX/UI](12-gpu-comfyui-ux.md) | Hai màn hình hiển thị và thao tác gì | Web Gate 4 |
+| [13 · Verification](13-gpu-comfyui-verification.md) | Kiểm chứng G01–G12 ra sao | Test Gate 4 |
 | [ADR](../adr/index.md) | Quyết định nào đã chốt hay bị loại, vì sao | Trước khi đổi một quyết định |
 
 <!-- id:s1.b4 -->

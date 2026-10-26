@@ -14,6 +14,9 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 | [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 0–4, thứ tự việc Gate 2, test T01–T10, quyết định mở P/D |
 | [09 · GPU thuê và ComfyUI Workflows](src/design/09-gpu-comfyui.md) | Gate 4: 2 màn hình riêng, GPU provider-neutral, Vast.ai adapter, provisioning progress, workflow dependencies, lifecycle, costs |
 | [10 · GPU Rentals](src/design/10-gpu-rentals.md) | Thao tác thuê GPU theo provider, state machine, provisioning logs, chi phí và cleanup |
+| [11 · ComfyUI Workflows](src/design/11-comfyui-workflows.md) | Workflow import, dependency manifest, runtime, execution/output |
+| [12 · GPU/ComfyUI UX/UI](src/design/12-gpu-comfyui-ux.md) | Hai màn hình riêng, wireflow D2, trạng thái và action |
+| [13 · Gate 4 Verification](src/design/13-gpu-comfyui-verification.md) | Fake/simulator/live G01–G12, evidence và go/no-go |
 | [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 chờ chốt |
 
 ## Báo cáo pilot

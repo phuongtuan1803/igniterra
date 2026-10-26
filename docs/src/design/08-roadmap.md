@@ -2,7 +2,7 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "2.9"
+ver: "3.0"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -20,6 +20,7 @@ rev:
   - ["2.7", 2026-10-25, "Gate 2 đã code và chạy 5 brief (báo cáo g2): checklist cập nhật; phiếu duyệt và D-07 chờ Tuan"]
   - ["2.8", 2026-10-25, "Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan; phần xây xong, T09 đã đo (báo cáo g3)"]
   - ["2.9", 2026-10-26, "Bổ sung nhánh triển khai có điều kiện GPU Rentals và ComfyUI Workflows với provider-neutral Vast adapter và acceptance G01–G12"]
+  - ["3.0", 2026-10-26, "Liên kết tài liệu Gate 4 mới 10–13 và sơ đồ D2"]
 ---
 
 <!-- id:s1 -->
@@ -351,3 +352,8 @@ Table: Phát hiện của bản rà soát và nơi xử lý
 | F10 | Giá ước tính lệch giá thực | Đồng ý | AD-10: chỉ ghi nhật ký, đối chiếu hóa đơn |
 | F11 | Series Bible không đảm bảo nhất quán | Đồng ý một phần | Giữ ở mức tối thiểu vì là khác biệt chính so với MPT; đo ở Gate 3 (T09) |
 | F12 | Rủi ro chính nằm ngoài code | Đồng ý | [07 · Bảo mật, pháp lý](07-operations.md#s6); không tự đăng bài trước Gate 4 |
+
+<!-- id:s9 -->
+## Đặc tả Gate 4 bổ sung
+
+[09 · Tổng quan](09-gpu-comfyui.md), [10 · GPU Rentals](10-gpu-rentals.md), [11 · ComfyUI Workflows](11-comfyui-workflows.md), [12 · UI/UX](12-gpu-comfyui-ux.md), [13 · Verification](13-gpu-comfyui-verification.md). Đây là thiết kế chính thức đang `draft`, không có nghĩa đã implement hay duyệt D-05.

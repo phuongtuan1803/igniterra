@@ -122,7 +122,7 @@ Idle TTL áp dụng khi không có run claim; `max_hourly_usd`, `max_runtime_min
 Không nhập GPU billing vào `costs.jsonl` của studio task vì chưa có cơ chế allocation verified. Giá hiển thị kèm nguồn và thời điểm; chỉ đối chiếu hóa đơn provider mới là thực chi. Lưu cả snapshot config/manifest hash cho reproducibility.
 
 <!-- id:s7 -->
-## Endpoints và सुरक्षा (Security)
+## Endpoints và bảo mật
 
 `GET /gpu`, `GET /gpu/offers`, `POST /gpu/instances`, `GET /gpu/instances/{id}`, `POST /gpu/instances/{id}/reconcile`, `POST /gpu/instances/{id}/stop`, `POST /gpu/instances/{id}/destroy`. Mutation kiểm auth, CSRF, confirmation/nonce, owner, quote freshness và state. Logs scrub token, response body bounded; SSH pin host fingerprint (không `StrictHostKeyChecking=no`), không truyền arbitrary script từ form. ComfyUI chỉ ở private tunnel hoặc authenticated TLS proxy.
 
