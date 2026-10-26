@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS gpu_rentals (
     status TEXT NOT NULL,
     version INTEGER NOT NULL DEFAULT 0,
     disk_gb REAL,
+    manifest_sha256 TEXT,
+    provision_deadline TEXT,
     idle_deadline TEXT,
     destroy_confirmed_at TEXT,
     created_at TEXT NOT NULL,
@@ -125,6 +127,14 @@ CREATE TABLE IF NOT EXISTS gpu_events (
     error_code TEXT,
     detail TEXT
 );
+CREATE TABLE IF NOT EXISTS gpu_manifests (
+    manifest_sha256 TEXT PRIMARY KEY,
+    manifest_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    approved_at TEXT
+);
 CREATE TABLE IF NOT EXISTS gpu_cost_samples (
     id INTEGER PRIMARY KEY,
     rental_id TEXT NOT NULL REFERENCES gpu_rentals(rental_id),
@@ -136,7 +146,8 @@ CREATE TABLE IF NOT EXISTS gpu_cost_samples (
 """
 
 # Cột thêm sau khi bảng đã phát hành (CREATE TABLE IF NOT EXISTS không sửa bảng cũ): (bảng, cột, kiểu).
-ADDED_COLUMNS = (("gpu_rentals", "disk_gb", "REAL"),)
+ADDED_COLUMNS = (("gpu_rentals", "disk_gb", "REAL"), ("gpu_rentals", "manifest_sha256", "TEXT"),
+                 ("gpu_rentals", "provision_deadline", "TEXT"))
 
 WAIT_REASONS = {"gate:keyframes", "gate:final", "unknown_call", "retries_exhausted", "duration_exceeded", "paused"}
 
@@ -408,14 +419,14 @@ class Store:
     # ------------------------------------------------------------ gpu_* (Gate 4; chỉ studio/gpu/service.py ghi)
 
     def add_rental(self, rental_id: str, provider_key: str, label: str, offer_json: str, steps: tuple[str, ...],
-                   disk_gb: float | None = None) -> None:
+                   disk_gb: float | None = None, manifest_sha256: str | None = None) -> None:
         """Rental ``draft`` và các bước provisioning ``pending``; rental_id trùng → sqlite3.IntegrityError."""
         stamp = utc_now()
         with self.connect() as db:
             db.execute(
-                "INSERT INTO gpu_rentals (rental_id, provider_key, label, offer_json, status, disk_gb, created_at, "
-                "updated_at) VALUES (?,?,?,?,?,?,?,?)",
-                (rental_id, provider_key, label, offer_json, "draft", disk_gb, stamp, stamp),
+                "INSERT INTO gpu_rentals (rental_id, provider_key, label, offer_json, status, disk_gb, manifest_sha256, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                (rental_id, provider_key, label, offer_json, "draft", disk_gb, manifest_sha256, stamp, stamp),
             )
             db.executemany("INSERT INTO gpu_provision_steps (rental_id, step_key, status) VALUES (?,?,?)",
                            [(rental_id, key, "pending") for key in steps])
@@ -484,16 +495,61 @@ class Store:
             return [dict(row) for row in db.execute("SELECT * FROM gpu_provision_steps WHERE rental_id=? ORDER BY rowid",
                                                     (rental_id,)).fetchall()]
 
-    def set_provision_step(self, rental_id: str, step_key: str, status: str, error_code: str | None = None) -> None:
-        """``running`` tăng lượt thử và ghi started_at; trạng thái kết thúc ghi finished_at."""
+    def set_provision_step(self, rental_id: str, step_key: str, status: str, error_code: str | None = None,
+                           **fields) -> None:
+        """``running`` tăng lượt thử và ghi started_at; trạng thái kết thúc ghi finished_at.
+
+        ``fields``: ``attempt`` (lượt thử provisioner báo, thay cho tự tăng), ``bytes_done``, ``bytes_total``, ``log_ref``.
+        """
+        unknown = set(fields) - {"attempt", "bytes_done", "bytes_total", "log_ref"}
+        if unknown:
+            raise ValueError(f"cột lạ: {sorted(unknown)}")
         stamp = utc_now()
+        extra = "".join(f", {key}=?" for key in fields)
         with self.connect() as db:
             if status == "running":
-                db.execute("UPDATE gpu_provision_steps SET status=?, attempt=attempt+1, started_at=?, finished_at=NULL, "
-                           "error_code=NULL WHERE rental_id=? AND step_key=?", (status, stamp, rental_id, step_key))
+                bump = "" if "attempt" in fields else ", attempt=attempt+1"
+                db.execute(f"UPDATE gpu_provision_steps SET status=?{bump}, started_at=?, finished_at=NULL, "
+                           f"error_code=NULL{extra} WHERE rental_id=? AND step_key=?",
+                           (status, stamp, *fields.values(), rental_id, step_key))
             else:
-                db.execute("UPDATE gpu_provision_steps SET status=?, finished_at=?, error_code=? WHERE rental_id=? AND step_key=?",
-                           (status, stamp if status != "pending" else None, error_code, rental_id, step_key))
+                db.execute(f"UPDATE gpu_provision_steps SET status=?, finished_at=?, error_code=?{extra} "
+                           "WHERE rental_id=? AND step_key=?",
+                           (status, stamp if status != "pending" else None, error_code, *fields.values(), rental_id,
+                            step_key))
+
+    def update_provision_step(self, rental_id: str, step_key: str, **fields) -> None:
+        """Đổi lượt thử/byte/log của bước đang chạy mà không đổi trạng thái, started_at."""
+        unknown = set(fields) - {"attempt", "bytes_done", "bytes_total", "log_ref"}
+        if unknown or not fields:
+            raise ValueError(f"cột lạ: {sorted(unknown)}")
+        with self.connect() as db:
+            db.execute(f"UPDATE gpu_provision_steps SET {', '.join(f'{k}=?' for k in fields)} "
+                       "WHERE rental_id=? AND step_key=?", (*fields.values(), rental_id, step_key))
+
+    def add_manifest(self, manifest_sha256: str, manifest_json: str, note: str | None = None) -> bool:
+        """Thêm manifest ``pending_review``; đã có (cùng SHA-256) thì giữ nguyên, trả False."""
+        with self.connect() as db:
+            return bool(db.execute("INSERT OR IGNORE INTO gpu_manifests (manifest_sha256, manifest_json, status, note, "
+                                   "created_at) VALUES (?,?,?,?,?)",
+                                   (manifest_sha256, manifest_json, "pending_review", note, utc_now())).rowcount)
+
+    def set_manifest_status(self, manifest_sha256: str, status: str, *, expect: str) -> bool:
+        with self.connect() as db:
+            return bool(db.execute("UPDATE gpu_manifests SET status=?, approved_at=? WHERE manifest_sha256=? AND status=?",
+                                   (status, utc_now() if status == "approved" else None, manifest_sha256,
+                                    expect)).rowcount)
+
+    def manifest(self, manifest_sha256: str) -> dict:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM gpu_manifests WHERE manifest_sha256=?", (manifest_sha256,)).fetchone()
+        if row is None:
+            raise KeyError(f"không có manifest {manifest_sha256}")
+        return dict(row)
+
+    def manifests(self) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM gpu_manifests ORDER BY created_at DESC, rowid DESC")]
 
     def add_cost_sample(self, rental_id: str, ts: str, compute_per_h: float, disk_per_h: float,
                         accrued_est: float) -> None:

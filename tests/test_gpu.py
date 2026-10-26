@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import approve_gpu_manifest
 from studio.gpu import adapters
 from studio.gpu.adapters.base import GPUError, GPUProvider
 from studio.gpu.adapters.fake import FakeGPUProvider
@@ -27,6 +28,12 @@ class Clock:
 
     def __call__(self) -> datetime:
         return self.now
+
+
+@pytest.fixture(autouse=True)
+def approved_manifest(env):
+    """Lát C: thuê cần manifest provisioning đã duyệt."""
+    return approve_gpu_manifest(env.store)
 
 
 @pytest.fixture

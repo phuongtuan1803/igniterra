@@ -101,12 +101,24 @@ class InstanceSpec(BaseModel):
     disk_gb: float
     cancel_unavail: bool = True         # không có cờ này Vast tạo instance stopped vẫn tính phí disk
     onstart: str | None = None
+    # Biến môi trường của container; có ``WEB_PASSWORD`` nên không hiện trong repr và không vào request_hash.
+    env: dict[str, str] = Field(default_factory=dict, repr=False)
 
     @field_validator("image")
     @classmethod
     def pinned(cls, value: str) -> str:
         if "@sha256:" not in value:
             raise ValueError("image phải ghim digest (…@sha256:…)")
+        return value
+
+    @field_validator("env")
+    @classmethod
+    def auth_kept(cls, value: dict[str, str]) -> dict[str, str]:
+        """Giữ ``ENABLE_AUTH`` của base-image; không bao giờ mở cổng không xác thực (09 · s5.b2, G12)."""
+        if "AUTH_EXCLUDE" in value:
+            raise ValueError("không đặt AUTH_EXCLUDE: cổng ComfyUI phải có xác thực")
+        if str(value.get("ENABLE_AUTH", "true")).lower() not in ("true", "1"):
+            raise ValueError("ENABLE_AUTH phải bật")
         return value
 
 
@@ -149,6 +161,8 @@ class Rental(BaseModel):
     status: RentalStatus
     version: int = 0
     disk_gb: float | None = None        # dung lượng đã yêu cầu lúc create (tính chi phí disk)
+    manifest_sha256: str | None = None  # manifest provisioning đã duyệt gắn lúc thuê (lát C)
+    provision_deadline: datetime | None = None  # quá hạn mà chưa ready → provision_failed, destroy
     idle_deadline: datetime | None = None
     destroy_confirmed_at: datetime | None = None
     created_at: datetime
@@ -166,6 +180,17 @@ class ProvisionStep(BaseModel):
     bytes_done: int | None = None
     bytes_total: int | None = None      # không có tổng thì UI không hiện phần trăm
     log_ref: str | None = None
+
+
+class ManifestRecord(BaseModel):
+    """Manifest provisioning trong ``gpu_manifests``: ``pending_review`` → ``approved``; chỉ bản approved được thuê."""
+
+    manifest_sha256: str
+    status: Literal["pending_review", "approved", "revoked"]
+    manifest_json: str
+    note: str | None = None
+    created_at: datetime
+    approved_at: datetime | None = None
 
 
 class GPUEvent(BaseModel):

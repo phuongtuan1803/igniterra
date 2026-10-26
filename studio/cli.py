@@ -169,6 +169,40 @@ def cmd_series(args, config, store):
         print(sa.approve_refs(args.name, args.key, args.candidates).sheet)
 
 
+def cmd_gpu(args, config, store):
+    """Manifest provisioning (thêm, đọc, duyệt) và poll provisioning; chỉ gọi ``studio.gpu.service``."""
+    from pydantic import ValidationError
+
+    from studio.gpu import service as gpu_service
+    from studio.gpu.provisioning import ProvisioningManifest
+
+    gpu = gpu_service.from_config(store, config)
+    if gpu is None:
+        sys.exit("[gpu] provider = \"none\": bật provider trước")
+    try:
+        if args.gpu_command == "poll":
+            for rental in gpu.poll():
+                print(f"{rental.rental_id}  {rental.status}")
+        elif args.manifest_command == "add":
+            try:
+                manifest = ProvisioningManifest.model_validate_json(Path(args.file).read_text(encoding="utf-8"))
+            except ValidationError as exc:
+                sys.exit(f"manifest sai dạng: {exc}")
+            record = gpu.propose_manifest(manifest, args.note)
+            print(gpu.manifest_yaml(record.manifest_sha256))
+            print(f"# {record.manifest_sha256} {record.status}; đọc kỹ rồi: gpu manifest approve {record.manifest_sha256}")
+        elif args.manifest_command == "show":
+            print(gpu.manifest_yaml(args.sha256))
+        elif args.manifest_command == "approve":
+            record = gpu.approve_manifest(args.sha256)
+            print(f"{record.manifest_sha256} {record.status}")
+        elif args.manifest_command == "list":
+            for record in gpu.manifests():
+                print(f"{record.manifest_sha256}  {record.status:<14} {record.note or ''}")
+    except gpu_service.GPUServiceError as exc:
+        sys.exit(f"lỗi: {exc}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m studio")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -278,6 +312,20 @@ def build_parser() -> argparse.ArgumentParser:
     s_approve.add_argument("candidates", nargs="+")
     for p in series.choices.values():
         p.set_defaults(func=cmd_series)
+
+    gpu = sub.add_parser("gpu", help="GPU thuê (Gate 4): manifest provisioning, poll").add_subparsers(
+        dest="gpu_command", required=True)
+    gpu.add_parser("poll", help="kiểm các rental đang provisioning một lượt").set_defaults(func=cmd_gpu)
+    manifest = gpu.add_parser("manifest", help="manifest provisioning đã duyệt").add_subparsers(
+        dest="manifest_command", required=True)
+    m_add = manifest.add_parser("add", help="thêm manifest JSON (pending_review) và in YAML để đọc")
+    m_add.add_argument("file")
+    m_add.add_argument("--note")
+    for name in ("show", "approve"):
+        manifest.add_parser(name).add_argument("sha256")
+    manifest.add_parser("list")
+    for p in manifest.choices.values():
+        p.set_defaults(func=cmd_gpu)
 
     run_step = sub.add_parser("run-step", help="chạy một bước khi debug")
     run_step.add_argument("step", choices=sorted(pipeline.STEPS))

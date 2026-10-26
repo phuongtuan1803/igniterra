@@ -142,7 +142,7 @@ class VastGPUProvider:
             "label": spec.label,
             "cancel_unavail": True,         # không có cờ này Vast tạo instance stopped vẫn tính phí disk
             "runtype": "ssh_direc ssh_proxy",
-            "env": {},
+            "env": dict(spec.env),          # WEB_PASSWORD, ENABLE_AUTH, PROVISIONING_MANIFEST (lát C)
         }
         if spec.onstart:
             body["onstart"] = spec.onstart

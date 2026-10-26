@@ -5,26 +5,33 @@ không rõ thì đối soát theo label ``igniterra:<rental_id>``, không tự g
 ``rental_id`` bằng cột ``version``.
 
 Lát A: kiểm offer và báo giá, create, ``create_unknown`` → tìm theo label. Lát B: stop, destroy và
-``destroy_unknown`` (G09), đối soát khi khởi động lại và báo orphan (G10), chi phí ước tính. Provisioning thuộc
-lát C; idle TTL do worker thực thi thuộc lát E.
+``destroy_unknown`` (G09), đối soát khi khởi động lại và báo orphan (G10), chi phí ước tính. Lát C: manifest
+provisioning đã duyệt (``gpu_manifests``), ``WEB_PASSWORD`` riêng mỗi rental, theo dõi các bước provisioning tới
+``ready`` có bằng chứng (host chạy, kết nối có xác thực, ``/.provisioning_complete``, ``/system_stats``, smoke ra
+file), ``provision_failed`` rồi destroy theo ``on_failure`` (G05, nửa disk/dependency của G07). Idle TTL do
+worker thực thi thuộc lát E.
 """
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
+import os
 import re
 import secrets
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Callable
 
 from pydantic import ValidationError
 
 from studio import config as studio_config
-from studio.gpu import adapters, costs
+from studio.comfyui import runtime as comfy
+from studio.gpu import adapters, costs, provisioning
 from studio.gpu.adapters.base import GPUError, GPUProvider, GPUUnknown
 from studio.gpu.contracts import (
     STEP_KEYS,
@@ -33,6 +40,7 @@ from studio.gpu.contracts import (
     GPUEvent,
     Instance,
     InstanceSpec,
+    ManifestRecord,
     Offer,
     OfferFilters,
     Orphan,
@@ -41,9 +49,16 @@ from studio.gpu.contracts import (
     Rental,
     label_for,
 )
+from studio.gpu.probe import InstanceProbe, PortalProbe, ProbeUnavailable
+from studio.gpu.provisioning import NON_RETRYABLE, PROVISION_STEPS, ProvisioningManifest
 from studio.store import Store
 
 QUOTE_TTL_S = 300
+PROVISION_TIMEOUT_S = 3600             # quá hạn mà chưa ready → provision_failed, destroy
+PASSWORD_FILE = "web_password"
+MANIFEST_FILE = "provisioning.yaml"
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+HOST_DOWN = ("exited", "stopped", "offline", "error", "destroying", "destroyed")
 RENTAL_ID = re.compile(r"r_[0-9a-f]{12}")
 STOPPED = ("stopped", "exited")        # actual_status coi như đã dừng máy
 log = logging.getLogger("studio.gpu")
@@ -51,6 +66,18 @@ log = logging.getLogger("studio.gpu")
 
 class GPUServiceError(Exception):
     """Từ chối trước khi gọi mutation của provider (offer không đạt, báo giá hết hạn, rental_id trùng…)."""
+
+
+class _Wait(Exception):
+    """Bước provisioning chưa xong; thử lại ở lượt poll sau (GET an toàn)."""
+
+
+class _Fail(Exception):
+    """Bước provisioning hỏng hẳn: ``provision_failed`` rồi destroy theo ``on_failure``."""
+
+    def __init__(self, step: str, code: str, detail: str):
+        super().__init__(f"{step}: {code}")
+        self.step, self.code, self.detail = step, code, detail
 
 
 def utc_now() -> datetime:
@@ -79,12 +106,20 @@ def check_offer(offer: Offer, filters: OfferFilters) -> list[str]:
 
 class GPUService:
     def __init__(self, store: Store, provider: GPUProvider, *, image: str = "", quote_ttl_s: float = QUOTE_TTL_S,
-                 clock: Callable[[], datetime] = utc_now):
+                 clock: Callable[[], datetime] = utc_now, data_dir: Path | None = None,
+                 probe_factory: Callable[[Instance, str], InstanceProbe] | None = None, portal: dict | None = None,
+                 provision_timeout_s: float = PROVISION_TIMEOUT_S):
         self.store = store
         self.provider = provider
         self.image = image
         self.quote_ttl_s = quote_ttl_s
         self.clock = clock
+        # data/gpu/<rental_id>/: provisioning.yaml và web_password (quyền 600, không vào SQLite/HTML).
+        self.data_dir = Path(data_dir) if data_dir else Path(store.path).parent / "gpu"
+        self.probe_factory = probe_factory or (lambda instance, token: PortalProbe.for_instance(instance, token, portal))
+        self.provision_timeout_s = provision_timeout_s
+        self._secrets: set[str] = {p.read_text(encoding="utf-8").strip()
+                                   for p in self.data_dir.glob(f"r_*/{PASSWORD_FILE}") if p.is_file()}
         self.orphans: list[Orphan] = []             # kết quả find_orphans() gần nhất (trang /gpu hiện)
         self.orphans_checked_at: datetime | None = None
         self.orphans_error: str | None = None
@@ -123,8 +158,12 @@ class GPUService:
 
     # ------------------------------------------------------------ create
 
-    def rent(self, rental_id: str, quote: Quote, filters: OfferFilters) -> Rental:
-        """Thuê một offer đã báo giá. Mọi kiểm tra chạy trước khi ghi intent và gọi ``create_instance``."""
+    def rent(self, rental_id: str, quote: Quote, filters: OfferFilters, manifest_sha256: str | None = None) -> Rental:
+        """Thuê một offer đã báo giá. Mọi kiểm tra chạy trước khi ghi intent và gọi ``create_instance``.
+
+        Manifest provisioning phải đã duyệt (mặc định: bản duyệt gần nhất) và vừa disk yêu cầu (G07, chặn trước
+        khi trả tiền). Lúc thuê sinh ``WEB_PASSWORD`` ngẫu nhiên, ghi ``data/gpu/<rental_id>/`` quyền 600.
+        """
         if not RENTAL_ID.fullmatch(rental_id):
             raise GPUServiceError(f"rental_id lạ: {rental_id!r}")
         problems = self.check_quote(quote)
@@ -136,19 +175,35 @@ class GPUService:
         problems = check_offer(offer, filters) + self.check_quote(quote, offer)
         if problems:
             raise GPUServiceError(f"offer {offer.offer_id} bị loại: " + "; ".join(problems))
+        record = self.manifest(manifest_sha256) if manifest_sha256 else self.approved_manifest()
+        if record is None or record.status != "approved":
+            raise GPUServiceError("chưa có manifest provisioning đã duyệt; thêm và duyệt manifest trước khi thuê")
+        manifest = self._load_manifest(record)
+        if manifest.required_disk_gb() > filters.disk_gb:
+            raise GPUServiceError(f"manifest cần ~{manifest.required_disk_gb():g} GB disk > {filters.disk_gb:g} GB "
+                                  "yêu cầu; tăng disk trước khi thuê")
+        yaml_text = provisioning.render(manifest, record.manifest_sha256)
+        password = secrets.token_urlsafe(24)
         try:
-            spec = InstanceSpec(label=label_for(rental_id), image=self.image, disk_gb=filters.disk_gb)
+            spec = InstanceSpec(label=label_for(rental_id), image=self.image, disk_gb=filters.disk_gb,
+                                onstart=_onstart(yaml_text),
+                                env={"WEB_PASSWORD": password, "ENABLE_AUTH": "true",
+                                     "PROVISIONING_MANIFEST": provisioning.REMOTE_MANIFEST})
         except ValidationError as exc:
             raise GPUServiceError(f"cấu hình [gpu] image: {exc.errors()[0]['msg']}") from None
         try:
             self.store.add_rental(rental_id, self.provider_key, spec.label, offer.model_dump_json(), STEP_KEYS,
-                                  disk_gb=spec.disk_gb)
+                                  disk_gb=spec.disk_gb, manifest_sha256=record.manifest_sha256)
         except sqlite3.IntegrityError:
             raise GPUServiceError(f"{rental_id} đã được dùng; không tạo lại (bấm hai lần?)") from None
+        self._write_private(rental_id, MANIFEST_FILE, yaml_text)
+        self._write_private(rental_id, PASSWORD_FILE, password)
+        self._secrets.add(password)
 
         op_id = uuid.uuid4().hex
-        request_hash = hashlib.sha256(json.dumps({"offer_id": offer.offer_id, "spec": spec.model_dump()},
-                                                 sort_keys=True).encode()).hexdigest()
+        # env có WEB_PASSWORD: chỉ băm tên biến, không băm giá trị bí mật.
+        request_hash = hashlib.sha256(json.dumps({"offer_id": offer.offer_id, "spec": spec.model_dump(exclude={"env"}),
+                                                  "env_keys": sorted(spec.env)}, sort_keys=True).encode()).hexdigest()
         self.store.start_gpu_operation(op_id, rental_id, "create", request_hash)
         if not self._move(self.rental(rental_id), "creating"):
             raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
@@ -171,7 +226,8 @@ class GPUService:
             self.store.add_gpu_event(rental_id, "label_mismatch", "label_mismatch",
                                      f"provider trả label {instance.label!r}")
         rental = self.rental(rental_id)
-        if not self._move(rental, "provisioning", provider_instance_id=instance.provider_instance_id):
+        if not self._move(rental, "provisioning", provider_instance_id=instance.provider_instance_id,
+                          provision_deadline=self._provision_deadline()):
             raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
         self._confirm_create(rental_id, op_id)
         return self.rental(rental_id)
@@ -182,6 +238,7 @@ class GPUService:
         - ``create_unknown``: tìm theo label (G04).
         - ``destroying``/``destroy_unknown``: chờ instance biến mất khỏi cả get và list mới ``destroyed`` (G09).
         - stop chưa rõ kết quả: xem ``actual_status`` của instance.
+        - ``provisioning``: kiểm tiếp các bước provisioning (``check_provisioning``).
         Chuyển trạng thái là CAS theo (status, version): worker và nút Reconcile chạy cùng lúc thì chỉ một bên ghi,
         bên kia trả về bản ghi hiện tại.
         """
@@ -193,6 +250,8 @@ class GPUService:
         stops = self.store.gpu_operations(rental_id, "stop")
         if stops and stops[-1]["status"] == "unknown" and "stopped" in TRANSITIONS[rental.status]:
             return self._reconcile_stop(rental, stops[-1]["op_id"])
+        if rental.status == "provisioning":
+            return self.check_provisioning(rental_id)
         return rental
 
     def _reconcile_create(self, rental: Rental) -> Rental:
@@ -217,7 +276,8 @@ class GPUService:
                                      f"{len(ids)} instance cùng label {rental.label}: {', '.join(ids)}; "
                                      "không tự gắn, kiểm tra và hủy thủ công")
             return rental
-        if not self._move(rental, "provisioning", provider_instance_id=matches[0].provider_instance_id):
+        if not self._move(rental, "provisioning", provider_instance_id=matches[0].provider_instance_id,
+                          provision_deadline=self._provision_deadline()):
             return self.rental(rental_id)          # bên khác đã đổi trạng thái trước
         operations = self.store.gpu_operations(rental_id, "create")
         self._confirm_create(rental_id, operations[-1]["op_id"] if operations else None)
@@ -359,7 +419,7 @@ class GPUService:
     def recover(self) -> list[Orphan]:
         """Gọi khi khởi động: đối soát rental đang chờ kết quả rồi tìm orphan. Lỗi provider không chặn khởi động."""
         for rental in self.rentals():
-            if rental.status in ("create_unknown", "destroying", "destroy_unknown") or any(
+            if rental.status in ("create_unknown", "provisioning", "destroying", "destroy_unknown") or any(
                     op["status"] == "unknown" for op in self.store.gpu_operations(rental.rental_id, "stop")):
                 try:
                     self.reconcile(rental.rental_id)
@@ -372,6 +432,357 @@ class GPUService:
             self.orphans_checked_at = self.clock()
             log.warning("không kiểm được orphan GPU: %s", self.orphans_error)
             return []
+
+    # ------------------------------------------------------------ manifest provisioning (lát C)
+
+    def propose_manifest(self, manifest: ProvisioningManifest, note: str | None = None) -> ManifestRecord:
+        """Lưu manifest ``pending_review`` sau khi kiểm (repo GitHub và HF ghim commit, ``on_failure: destroy``)."""
+        problems = provisioning.validate(manifest)
+        if problems:
+            raise GPUServiceError("manifest không đạt: " + "; ".join(problems))
+        sha = manifest.sha256()
+        self.store.add_manifest(sha, manifest.canonical_json(), note)
+        return self.manifest(sha)
+
+    def approve_manifest(self, manifest_sha256: str) -> ManifestRecord:
+        """Duyệt manifest đã đọc; kiểm lại nội dung và SHA-256 trước khi đổi trạng thái."""
+        record = self.manifest(manifest_sha256)
+        self._load_manifest(record)
+        if record.status == "approved":
+            return record
+        if not self.store.set_manifest_status(manifest_sha256, "approved", expect="pending_review"):
+            raise GPUServiceError(f"manifest {manifest_sha256[:12]} đang {record.status}; không duyệt được")
+        return self.manifest(manifest_sha256)
+
+    def manifest(self, manifest_sha256: str) -> ManifestRecord:
+        return ManifestRecord(**self.store.manifest(manifest_sha256))
+
+    def manifests(self) -> list[ManifestRecord]:
+        return [ManifestRecord(**row) for row in self.store.manifests()]
+
+    def approved_manifest(self) -> ManifestRecord | None:
+        return next((m for m in self.manifests() if m.status == "approved"), None)
+
+    def manifest_view(self, record: ManifestRecord) -> ProvisioningManifest:
+        """Nội dung manifest để hiện trên trang (không có bí mật)."""
+        return ProvisioningManifest.model_validate_json(record.manifest_json)
+
+    def manifest_yaml(self, manifest_sha256: str) -> str:
+        record = self.manifest(manifest_sha256)
+        return provisioning.render(self._load_manifest(record), record.manifest_sha256)
+
+    def _load_manifest(self, record: ManifestRecord) -> ProvisioningManifest:
+        """Manifest từ SQLite; SHA-256 phải khớp nội dung (không ai sửa sau khi duyệt) và vẫn đạt kiểm tra."""
+        try:
+            manifest = ProvisioningManifest.model_validate_json(record.manifest_json)
+        except ValidationError as exc:
+            raise GPUServiceError(f"manifest {record.manifest_sha256[:12]} hỏng: {exc.errors()[0]['msg']}") from None
+        if manifest.sha256() != record.manifest_sha256:
+            raise GPUServiceError(f"manifest {record.manifest_sha256[:12]} không khớp SHA-256 đã lưu")
+        problems = provisioning.validate(manifest)
+        if problems:
+            raise GPUServiceError("manifest không đạt: " + "; ".join(problems))
+        return manifest
+
+    # ------------------------------------------------------------ bí mật và file cục bộ của rental
+
+    def rental_dir(self, rental_id: str) -> Path:
+        if not RENTAL_ID.fullmatch(rental_id):
+            raise GPUServiceError(f"rental_id lạ: {rental_id!r}")
+        return self.data_dir / rental_id
+
+    def _write_private(self, rental_id: str, name: str, text: str) -> Path:
+        """Ghi file quyền 600 trong thư mục 700; mở bằng ``O_CREAT`` với mode ngay từ đầu, không chmod sau."""
+        folder = self.rental_dir(rental_id)
+        folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(folder, 0o700)
+        path = folder / name
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.chmod(path, 0o600)
+        return path
+
+    def _password(self, rental_id: str) -> str | None:
+        path = self.rental_dir(rental_id) / PASSWORD_FILE
+        if not path.is_file():
+            return None
+        password = path.read_text(encoding="utf-8").strip()
+        self._secrets.add(password)
+        return password or None
+
+    def _provision_deadline(self) -> str:
+        return (self.clock() + timedelta(seconds=self.provision_timeout_s)).isoformat(timespec="seconds")
+
+    # ------------------------------------------------------------ provisioning → ready (lát C)
+
+    def poll(self) -> list[Rental]:
+        """Kiểm mọi rental đang ``provisioning`` (worker hoặc CLI gọi định kỳ). Chỉ GET; mutation duy nhất là
+        submit smoke (ghi ``prompt_id`` trước) và destroy khi provisioning hỏng."""
+        return [self.check_provisioning(r.rental_id) for r in self.rentals() if r.status == "provisioning"]
+
+    def check_provisioning(self, rental_id: str) -> Rental:
+        """Đưa rental ``provisioning`` qua từng bước tới ``ready`` khi đủ bằng chứng (09 · s4.b2).
+
+        Mỗi lượt gọi chỉ đi tiếp tới bước chưa xong rồi trả về; gọi lại an toàn. Bước hỏng hẳn (hết
+        ``max_retries`` của manifest, lỗi không thử lại được như thiếu disk hay xung đột dependency, quá hạn)
+        → ``provision_failed`` và destroy theo ``on_failure`` (G05, G07).
+        """
+        rental = self.rental(rental_id)
+        if rental.status != "provisioning":
+            return rental
+        if not rental.manifest_sha256:
+            self.store.add_gpu_event(rental_id, "provisioning", "no_manifest",
+                                     "rental tạo trước lát C, không có manifest; không kiểm được provisioning")
+            return rental
+        try:
+            try:
+                manifest = self._load_manifest(self.manifest(rental.manifest_sha256))
+            except (KeyError, GPUServiceError) as exc:
+                raise _Fail("host_boot", "manifest_invalid", str(exc)) from None
+            self._advance(rental, manifest)
+        except _Wait:
+            return self.rental(rental_id)
+        except _Fail as failure:
+            return self._fail_provisioning(rental, failure)
+        return self.rental(rental_id)
+
+    def _advance(self, rental: Rental, manifest: ProvisioningManifest) -> None:
+        rental_id = rental.rental_id
+        steps = {row["step_key"]: row for row in self.store.provision_steps(rental_id)}
+        if rental.provision_deadline and self.clock() > _aware(rental.provision_deadline):
+            current = next((k for k in STEP_KEYS if steps[k]["status"] not in ("done", "skipped")), "ready")
+            raise _Fail(current, "provision_timeout",
+                        f"quá {self.provision_timeout_s:g}s chưa ready (bước {current})")
+
+        # host_boot: provider báo máy chạy. Host running chưa phải ready.
+        self._start(steps, rental_id, "host_boot")
+        try:
+            instance = self.provider.get_instance(rental.provider_instance_id) if rental.provider_instance_id else None
+        except GPUError as exc:
+            self.store.add_gpu_event(rental_id, "provisioning", "lookup_failed", self._clean(str(exc)))
+            raise _Wait from None
+        if instance is None:
+            raise _Fail("host_boot", "instance_missing", f"provider không còn instance {rental.provider_instance_id}")
+        if instance.actual_status != "running":
+            if instance.actual_status in HOST_DOWN:
+                raise _Fail("host_boot", "host_not_running", f"instance ở trạng thái {instance.actual_status}")
+            raise _Wait
+        self._finish(steps, rental_id, "host_boot")
+
+        # transport_ready: portal và cổng ComfyUI từ chối request không token, nhận Bearer WEB_PASSWORD.
+        self._start(steps, rental_id, "transport_ready")
+        password = self._password(rental_id)
+        if not password:
+            raise _Fail("transport_ready", "secret_missing", f"thiếu {PASSWORD_FILE} của rental")
+        try:
+            probe = self.probe_factory(instance, password)
+            check = probe.transport()
+        except ProbeUnavailable:
+            raise _Wait from None
+        if not check.portal_auth_required or not check.comfyui_auth_required:
+            where = "Instance Portal" if not check.portal_auth_required else "cổng ComfyUI"
+            raise _Fail("transport_ready", "auth_open", f"{where} trả lời request không có token")
+        if not check.token_accepted:
+            raise _Fail("transport_ready", "auth_rejected", "Instance Portal không nhận WEB_PASSWORD của rental")
+        self._finish(steps, rental_id, "transport_ready")
+
+        # runtime_setup, custom_nodes, models: theo báo cáo của provisioner.
+        try:
+            report = probe.report()
+        except ProbeUnavailable:
+            raise _Wait from None
+        for key in PROVISION_STEPS:
+            self._sync_step(steps, rental_id, key, manifest, report)
+        if not report.complete:
+            raise _Wait                    # chưa có /.provisioning_complete
+
+        # health_smoke: /system_stats rồi một workflow smoke ra file.
+        self._start(steps, rental_id, "health_smoke")
+        try:
+            stats = probe.comfy.system_stats()
+        except comfy.ComfyUIAuthError as exc:
+            raise _Fail("health_smoke", "auth_rejected", str(exc)) from None
+        except comfy.ComfyUIError:
+            raise _Wait from None
+        smoke = self._smoke(rental_id, probe.comfy, manifest.on_failure.max_retries)
+        self._finish(steps, rental_id, "health_smoke")
+
+        system = stats.get("system") or {}
+        evidence = {"host": instance.actual_status, "auth": "không token → từ chối; Bearer WEB_PASSWORD → 200",
+                    "provisioning_complete": True, "comfyui_version": system.get("comfyui_version"),
+                    "devices": [d.get("name") for d in stats.get("devices") or [] if isinstance(d, dict)],
+                    "smoke": smoke, "manifest_sha256": manifest.sha256()}
+        self.store.add_gpu_event(rental_id, "ready_evidence", None, self._clean(json.dumps(evidence, ensure_ascii=False)))
+        self._finish(steps, rental_id, "ready")
+        if not self._move(self.rental(rental_id), "ready"):
+            raise _Wait
+
+    def _sync_step(self, steps: dict, rental_id: str, key: str, manifest: ProvisioningManifest,
+                   report: provisioning.ProvisioningReport) -> None:
+        """Chép trạng thái một bước provisioner vào ``gpu_provision_steps``; ``_Wait`` nếu chưa xong."""
+        step = report.steps.get(key)
+        empty = (key == "custom_nodes" and not manifest.custom_nodes) or (key == "models" and not manifest.downloads)
+        if empty:                          # manifest không có gì cho bước này
+            if steps[key]["status"] != "skipped":
+                self.store.set_provision_step(rental_id, key, "skipped")
+                steps[key] = {**steps[key], "status": "skipped"}
+            return
+        if step is None:
+            if report.complete:
+                self._finish(steps, rental_id, key)
+                return
+            raise _Wait
+        fields = {"attempt": max(step.attempt, 1)}
+        fields.update({k: v for k, v in (("bytes_done", step.bytes_done), ("bytes_total", step.bytes_total),
+                                          ("log_ref", report.log_ref)) if v is not None})
+        if step.status == "failed":
+            code = provisioning.classify(key, step)
+            detail = self._clean(step.error or code)
+            if code in NON_RETRYABLE or step.final or step.attempt >= 1 + manifest.on_failure.max_retries:
+                self.store.update_provision_step(rental_id, key, **fields)
+                raise _Fail(key, code, detail)
+            if steps[key]["attempt"] != step.attempt:        # provisioner sẽ thử lại; ghi một lần mỗi lượt
+                self.store.add_gpu_event(rental_id, f"{key}_retry", code,
+                                         f"lượt {step.attempt}/{1 + manifest.on_failure.max_retries}: {detail}")
+            self._running(steps, rental_id, key, fields)
+            raise _Wait
+        if key == "models" and step.status != "done" and report.disk_free_gb is not None:
+            remaining = manifest.download_bytes() - (step.bytes_done or 0)
+            if report.disk_free_gb * provisioning.GB < remaining:
+                raise _Fail(key, "disk_insufficient", f"còn {report.disk_free_gb:g} GB trống, model còn cần "
+                                                      f"{remaining / provisioning.GB:.2f} GB")
+        if step.status == "pending":
+            raise _Wait
+        if step.status == "running":
+            self._running(steps, rental_id, key, fields)
+            raise _Wait
+        if key == "models" and steps[key]["status"] != "done":
+            self._check_models(rental_id, manifest, report)
+        self._finish(steps, rental_id, key, **fields)
+
+    def _check_models(self, rental_id: str, manifest: ProvisioningManifest,
+                      report: provisioning.ProvisioningReport) -> None:
+        """SHA-256 instance báo phải khớp manifest; không có số liệu thì ghi ``checksum_unverified``, không đoán."""
+        unverified = []
+        for download in manifest.downloads:
+            remote = f"{provisioning.COMFYUI_DIR}/models/{download.dest}"
+            got = report.files.get(remote) or report.files.get(download.dest)
+            if got is None:
+                unverified.append(download.dest)
+            elif got.lower() != download.sha256:
+                raise _Fail("models", "checksum_mismatch", f"{download.dest}: SHA-256 {got[:12]}… ≠ {download.sha256[:12]}…")
+        if unverified:
+            self.store.add_gpu_event(rental_id, "models", "checksum_unverified",
+                                     "chưa có SHA-256 từ instance cho: " + ", ".join(unverified))
+
+    def _smoke(self, rental_id: str, runtime: comfy.ComfyUIRuntime, max_retries: int) -> dict:
+        """Workflow smoke ``EmptyImage → SaveImage`` với ``prompt_id`` ghi vào ``gpu_operations`` trước khi submit.
+
+        Không submit lại khi kết quả chưa rõ: tra ``/queue`` rồi ``/history/{prompt_id}``; chỉ khi không thấy ở cả
+        hai mới coi lượt đó mất và submit lượt mới (tối đa ``1 + max_retries``).
+        """
+        operations = [op for op in self.store.gpu_operations(rental_id, "smoke") if op["status"] != "not_sent"]
+        current = operations[-1] if operations and operations[-1]["status"] != "lost" else None
+        if current is None:
+            if len(operations) >= 1 + max_retries:
+                raise _Fail("health_smoke", "smoke_lost", f"{len(operations)} lượt smoke không có kết quả")
+            prompt_id = str(uuid.uuid4())
+            request_hash = hashlib.sha256(json.dumps(comfy.smoke_prompt(), sort_keys=True).encode()).hexdigest()
+            self.store.start_gpu_operation(prompt_id, rental_id, "smoke", request_hash)
+            try:
+                runtime.submit(comfy.smoke_prompt(), prompt_id)
+            except comfy.ComfyUIUnknown as exc:
+                self.store.finish_gpu_operation(prompt_id, "unknown")
+                self.store.add_gpu_event(rental_id, "smoke", "smoke_submit_unknown", self._clean(str(exc)))
+            except comfy.ComfyUIUnavailable:
+                self.store.finish_gpu_operation(prompt_id, "not_sent")
+                raise _Wait from None
+            except comfy.ComfyUIError as exc:
+                self.store.finish_gpu_operation(prompt_id, "rejected")
+                raise _Fail("health_smoke", "smoke_rejected", str(exc)) from None
+            else:
+                self.store.finish_gpu_operation(prompt_id, "accepted")
+            current = {"op_id": prompt_id, "status": self.store.gpu_operations(rental_id, "smoke")[-1]["status"]}
+        prompt_id = current["op_id"]
+        try:
+            queued = runtime.in_queue(prompt_id)        # hỏi queue trước history: không lọt lượt vừa chạy xong
+            entry = runtime.history(prompt_id)
+        except comfy.ComfyUIError:
+            raise _Wait from None
+        if entry is None:
+            if queued:
+                if current["status"] == "unknown":
+                    self.store.finish_gpu_operation(prompt_id, "accepted")
+                raise _Wait
+            self.store.finish_gpu_operation(prompt_id, "lost")
+            self.store.add_gpu_event(rental_id, "smoke", "smoke_lost",
+                                     f"prompt {prompt_id} không có trong /queue và /history")
+            raise _Wait
+        status = comfy.history_status(entry)
+        if status == "running":
+            raise _Wait
+        if status == "error":
+            self.store.finish_gpu_operation(prompt_id, "failed")
+            messages = json.dumps((entry.get("status") or {}).get("messages") or [], ensure_ascii=False)[:500]
+            raise _Fail("health_smoke", "smoke_failed", f"prompt {prompt_id}: {messages}")
+        files = comfy.output_files(entry)
+        if not files:
+            raise _Fail("health_smoke", "smoke_no_output", f"prompt {prompt_id} xong nhưng không có file output")
+        output = files[0]
+        try:
+            data = runtime.view(output["filename"], output["subfolder"], output["type"])
+        except comfy.ComfyUIRejected as exc:
+            raise _Fail("health_smoke", "smoke_no_output", str(exc)) from None
+        except comfy.ComfyUIError:
+            raise _Wait from None
+        if not data.startswith(PNG_MAGIC):
+            raise _Fail("health_smoke", "smoke_no_output", f"{output['filename']} không phải PNG ({len(data)} byte)")
+        if current["status"] != "confirmed":
+            self.store.finish_gpu_operation(prompt_id, "confirmed")
+        return {"prompt_id": prompt_id, "file": output["filename"], "bytes": len(data),
+                "sha256": hashlib.sha256(data).hexdigest()}
+
+    def _fail_provisioning(self, rental: Rental, failure: _Fail) -> Rental:
+        """Bước hỏng → ``provision_failed`` (ghi nguyên nhân), các bước sau ``skipped``, rồi destroy theo manifest.
+
+        Mọi manifest đã duyệt đều có ``on_failure.action = destroy``: instance hỏng không được để chạy tính phí.
+        """
+        rental_id = rental.rental_id
+        detail = self._clean(failure.detail)
+        self.store.set_provision_step(rental_id, failure.step, "failed", failure.code)
+        for key in STEP_KEYS[STEP_KEYS.index(failure.step) + 1:]:
+            row = next(r for r in self.store.provision_steps(rental_id) if r["step_key"] == key)
+            if row["status"] in ("pending", "running", "unknown"):
+                self.store.set_provision_step(rental_id, key, "skipped")
+        if not self._move(self.rental(rental_id), "provision_failed", error_code=failure.code,
+                          detail=f"{failure.step}: {detail}"):
+            return self.rental(rental_id)
+        log.warning("%s provision_failed ở %s (%s); destroy theo on_failure", rental_id, failure.step, failure.code)
+        try:
+            return self.destroy(rental_id)
+        except GPUServiceError as exc:
+            self.store.add_gpu_event(rental_id, "on_failure_destroy", "destroy_refused", self._clean(str(exc)))
+            return self.rental(rental_id)
+
+    def _start(self, steps: dict, rental_id: str, key: str) -> None:
+        if steps[key]["status"] == "pending":
+            self.store.set_provision_step(rental_id, key, "running")
+            steps[key] = {**steps[key], "status": "running", "attempt": steps[key]["attempt"] + 1}
+
+    def _running(self, steps: dict, rental_id: str, key: str, fields: dict) -> None:
+        if steps[key]["status"] != "running":
+            self.store.set_provision_step(rental_id, key, "running", **fields)
+        else:
+            self.store.update_provision_step(rental_id, key, **fields)
+        steps[key] = {**steps[key], "status": "running", **fields}
+
+    def _finish(self, steps: dict, rental_id: str, key: str, **fields) -> None:
+        if steps[key]["status"] != "done":
+            if steps[key]["status"] == "pending" and "attempt" not in fields:
+                fields["attempt"] = 1
+            self.store.set_provision_step(rental_id, key, "done", **fields)
+            steps[key] = {**steps[key], "status": "done", **fields}
 
     # ------------------------------------------------------------ chi phí ước tính
 
@@ -408,9 +819,12 @@ class GPUService:
             self._sample_cost(rental.rental_id)
         return moved
 
-    @staticmethod
-    def _clean(text: str) -> str:
-        return studio_config.redact(text)[:1000]
+    def _clean(self, text: str) -> str:
+        text = studio_config.redact(text)
+        for secret in self._secrets:
+            if secret and len(secret) >= 6:
+                text = text.replace(secret, "<WEB_PASSWORD>")
+        return text[:1000]
 
     # ------------------------------------------------------------ đọc
 
@@ -421,7 +835,14 @@ class GPUService:
         return [_rental(row) for row in self.store.rentals()]
 
     def timeline(self, rental_id: str) -> dict:
-        return {"rental": self.rental(rental_id),
+        rental = self.rental(rental_id)
+        record = None
+        if rental.manifest_sha256:
+            try:
+                record = self.manifest(rental.manifest_sha256)
+            except KeyError:
+                pass
+        return {"rental": rental, "manifest": record, "manifest_view": self.manifest_view(record) if record else None,
                 "steps": [ProvisionStep(**row) for row in self.store.provision_steps(rental_id)],
                 "events": [GPUEvent(**{k: row[k] for k in GPUEvent.model_fields}) for row in self.store.gpu_events(rental_id)],
                 "operations": self.store.gpu_operations(rental_id),
@@ -438,10 +859,24 @@ def _orphan(instance: Instance, reason: str) -> Orphan:
                   actual_status=instance.actual_status, dph_total=instance.dph_total, reason=reason)
 
 
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _onstart(yaml_text: str) -> str:
+    """Ghi manifest đã duyệt lên instance cho provisioner; base64 nên không có dấu nháy, không chèn được lệnh."""
+    encoded = base64.b64encode(yaml_text.encode()).decode()
+    target = provisioning.REMOTE_MANIFEST
+    return f"mkdir -p {os.path.dirname(target)} && printf '%s' '{encoded}' | base64 -d > {target}"
+
+
 def from_config(store: Store, config: dict) -> GPUService | None:
     """Service theo ``[gpu]``; ``provider = "none"`` (mặc định, D-05 chưa mở) trả None."""
     provider = adapters.get(config)
     if provider is None:
         return None
     gpu = config.get("gpu", {})
-    return GPUService(store, provider, image=gpu.get("image", ""), quote_ttl_s=float(gpu.get("quote_ttl_s", QUOTE_TTL_S)))
+    return GPUService(store, provider, image=gpu.get("image", ""), quote_ttl_s=float(gpu.get("quote_ttl_s", QUOTE_TTL_S)),
+                      data_dir=Path(config["data_dir"]) / "gpu" if config.get("data_dir") else None,
+                      portal=gpu.get("portal"),
+                      provision_timeout_s=float(gpu.get("provision_timeout_s", PROVISION_TIMEOUT_S)))

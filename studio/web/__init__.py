@@ -335,8 +335,10 @@ def create_app(config: dict | None = None) -> FastAPI:
     def gpu_page(request: Request):
         filters, offers, offer_error = gpu_offers(request.query_params)
         rentals = gpu.rentals() if gpu else []
+        manifest = gpu.approved_manifest() if gpu else None
         return page(request, "gpu.html", gpu=gpu, rentals=rentals, filters=filters, offers=offers,
-                    offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
+                    offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE, manifest=manifest,
+                    manifest_view=gpu.manifest_view(manifest) if manifest else None,
                     new_rental_id=gpu.new_rental_id if gpu else None, orphans=gpu.orphans if gpu else [])
 
     @app.get("/gpu/offers", response_class=HTMLResponse)
@@ -399,7 +401,9 @@ def create_app(config: dict | None = None) -> FastAPI:
     @app.get("/files/{relative:path}")
     def files(relative: str):
         path = safe_path(data_dir, relative)
-        if path is None:
+        # data/gpu/<rental_id>/ giữ WEB_PASSWORD từng rental (09 · s7.b2): không bao giờ phục vụ qua HTTP.
+        if path is None or os.path.commonpath([os.path.realpath(data_dir / "gpu"), str(path)]) == os.path.realpath(
+                data_dir / "gpu"):
             return Response(status_code=404)
         return FileResponse(path)
 
