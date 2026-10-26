@@ -97,10 +97,17 @@ def create_app(config: dict | None = None) -> FastAPI:
     # ------------------------------------------------------------ Tasks
 
     @app.get("/", response_class=HTMLResponse)
-    def tasks_page(request: Request):
+    def tasks_page(request: Request, q: str = "", status: str = "all"):
         tasks = [views.task_summary(store, data_dir, t) for t in store.tasks()]
         briefs = sorted((Path(config["root"]) / "briefs").glob("*.json"))
-        return page(request, "tasks.html", tasks=tasks, briefs=[b.name for b in briefs], series=list_series(data_dir))
+        groups = {"all": None, "review": {"waiting"}, "running": {"running", "pending"},
+                  "done": {"completed"}, "failed": {"failed"}}
+        status = status if status in groups else "all"
+        visible = [t for t in tasks if (groups[status] is None or t["status"] in groups[status])
+                   and q.casefold() in f"{t.get('title') or ''} {t['id']} {t.get('series') or ''}".casefold()]
+        return page(request, "tasks.html", tasks=visible, all_tasks=tasks, q=q, status=status,
+                    attention=[t for t in tasks if t["status"] in ("waiting", "failed")],
+                    briefs=[b.name for b in briefs], series=list_series(data_dir))
 
     @app.post("/tasks")
     def create_task(request: Request, brief_file: str = Form(""), brief_json: str = Form(""), series: str = Form(""),
@@ -127,7 +134,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         except KeyError:
             return Response("không có task", status_code=404)
         selected = scene or (data["scenes"][0]["scene"].id if data["scenes"] else None)
-        return page(request, "storyboard.html", **data, active=selected, views=VIEWS)
+        return page(request, "storyboard.html", **data, active=selected, views=VIEWS,
+                    summary=views.task_summary(store, data_dir, data["task"]))
 
     @app.get("/tasks/{task_id}/status", response_class=HTMLResponse)
     def status_partial(request: Request, task_id: str):

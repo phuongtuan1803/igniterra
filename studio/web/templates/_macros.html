@@ -1,6 +1,6 @@
 {% macro status_chip(task) -%}
 {%- set cls = {"completed": "ok", "waiting": "warn", "failed": "bad", "running": "", "pending": ""}[task.status] -%}
-<span class="chip {{ cls }}">{{ task.status }}{% if task.wait_reason %} · {{ task.wait_reason }}{% endif %}</span>
+<span class="chip {{ cls }} {{ task.status }}">{{ task.status }}{% if task.wait_reason %} · {{ task.wait_reason }}{% endif %}</span>
 {%- endmacro %}
 
 {% macro usd(value, missing) -%}
@@ -9,5 +9,13 @@
 
 {% macro rental_chip(status) -%}
 {%- set cls = "ok" if status == "ready" else ("bad" if status in ("create_unknown", "create_failed", "provision_failed", "destroy_unknown") else ("" if status in ("draft", "destroyed") else "warn")) -%}
-<span class="chip {{ cls }}">{{ status }}</span>
+<span class="chip {{ cls }} {{ status }}">{{ status }}</span>
+{%- endmacro %}
+
+{% macro icon(name) -%}
+<svg class="ico" aria-hidden="true" focusable="false"><use href="/static/icons.svg#ic-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro metric(caption, value, foot, tone='') -%}
+<div class="metric-card {{ 'important' if tone == 'warn' }}"><span class="eyebrow">{{ caption }}</span><strong class="{{ 'metric-warning' if tone == 'warn' }}">{{ value }}</strong><span>{{ foot }}</span></div>
 {%- endmacro %}

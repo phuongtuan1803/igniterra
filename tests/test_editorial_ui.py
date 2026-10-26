@@ -18,20 +18,7 @@ def test_web_templates_compile():
         loader=FileSystemLoader(TEMPLATE_DIR),
         autoescape=select_autoescape(["html"]),
     )
-    for name in (
-        "base.html",
-        "tasks.html",
-        "series_list.html",
-        "series.html",
-        "storyboard.html",
-        "detail.html",
-        "settings.html",
-        "_status.html",
-        "_macros.html",
-        "gpu.html",
-        "gpu_rental.html",
-        "_gpu_offers.html",
-    ):
+    for name in env.list_templates():
         assert env.get_template(name)
 
 
@@ -40,7 +27,7 @@ def test_editorial_navigation_and_form_contract(env):
 
     tasks = client.get("/")
     assert tasks.status_code == 200
-    assert "Your production desk" in tasks.text
+    assert "Không bỏ lỡ bước quan trọng" in tasks.text
     assert 'class="app-sidebar"' in tasks.text
     for field in ('name="brief_file"', 'name="brief_json"', 'name="series"', 'name="overrides"'):
         assert field in tasks.text
@@ -59,3 +46,20 @@ def test_editorial_navigation_and_form_contract(env):
     assert 'name="gate_keyframes"' in settings.text
     assert 'name="llm_model"' in settings.text
     assert 'name="image_model"' in settings.text
+
+
+def test_task_search_and_filters_preserve_workspace_totals(env):
+    first = env.new_task()
+    second = env.new_task(name="brief-01")
+    env.store.set_status(first, "waiting", "paused")
+    client = TestClient(create_app(env.config))
+    filtered = client.get("/", params={"status": "review", "q": first}).text
+    assert f'href="/tasks/{first}"' in filtered
+    assert f'href="/tasks/{second}"' not in filtered
+    assert "1 / 2 task" in filtered
+    assert 'value="review"' in filtered
+    empty = client.get("/", params={"q": "<script>alert(1)</script>"}).text
+    assert "Không tìm thấy task phù hợp." in empty
+    assert '<script>alert(1)</script>' not in empty
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in empty
+    assert "2 / 2 task" in client.get("/?status=invalid").text

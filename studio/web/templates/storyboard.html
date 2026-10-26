@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% from "_macros.html" import usd %}
+{% from "_macros.html" import usd, metric, icon %}
 {% block title %}{{ task.id }} · Storyboard{% endblock %}
 {% set locked = task.status == "running" %}
 {% set dis = "disabled" if locked else "" %}
 {% block body %}
 <div class="page-header">
   <div>
-    <p class="eyebrow">02 / STORYBOARD EDITOR</p>
+    <p class="eyebrow">TASKS / {{ task.id }}</p>
     <h1>{{ plan.title if plan else task.brief.title }}</h1>
     <div class="muted small">{{ task.id }} · {{ task.brief.id }} · ScenePlan rev {{ task.plan_rev }}{% if task.series %} · series <a href="/series/{{ task.series }}">{{ task.series }}</a>{% endif %}</div>
   </div>
-  <a href="/tasks/{{ task.id }}/detail">Task detail →</a>
+  <div class="row"><a class="button" href="/">← Danh sách</a><a class="button" href="/tasks/{{ task.id }}/detail">Log &amp; chi phí</a></div>
 </div>
 {% include "_status.html" %}
 
@@ -19,63 +19,25 @@
   <p class="eyebrow">APPROVAL CHECKPOINT</p><b>Gate keyframes</b> <span class="muted small">— duyệt ảnh selected của mọi scene trước khi dựng giọng và video</span>
   <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate" style="margin-top: 8px">
     <input type="text" name="note" placeholder="ghi chú (tùy chọn)" style="max-width: 420px">
-    <button class="primary" name="decision" value="approve" {{ dis }}>Duyệt</button>
+    <button class="primary" name="decision" value="approve" data-confirm="Duyệt gate này? Pipeline có thể tiếp tục thực hiện các bước có phí." {{ dis }}>Duyệt</button>
     <button name="decision" value="reject" {{ dis }}>Từ chối</button>
   </form>
 </div>
 {% endif %}
 
-{% if current_render %}
-<div class="card final-review-panel">
-  <p class="eyebrow">08 / FINAL VIDEO REVIEW</p>
-  <div class="row" style="align-items: flex-start">
-    <video controls preload="metadata" src="/files/tasks/{{ task.id }}/renders/{{ current_render }}/final_9x16.mp4"></video>
-    <div style="flex: 1; min-width: 320px">
-      <b>Bản render {{ current_render }}</b>
-      <span class="muted small">(ứng với lựa chọn hiện tại{% if renders|length > 1 %}; mọi bản: {{ renders|join(", ") }}{% endif %})</span>
-      {% if manifest %}<div class="small muted">đo được: {{ manifest.width }}×{{ manifest.height }} · {{ "%.2f"|format(manifest.duration_s) }} giây (trần {{ task.brief.max_s }}) · plan rev {{ manifest.plan_rev }}</div>{% endif %}
-      {% set mine = reviews|selectattr("render_rev", "equalto", current_render)|list %}
-      {% if mine %}<div class="small">Phiếu đã ghi: {% for r in mine %}<span class="chip {{ 'ok' if r.accepted else 'warn' }}">accepted={{ r.accepted == 1 }} · {{ r.active_minutes }} phút · {{ r.reviewer }}</span> {% endfor %}</div>{% endif %}
-      {% if task.status == "waiting" and task.wait_reason == "gate:final" %}
-      <form method="post" action="/tasks/{{ task.id }}/review" class="edit" id="review">
-        <table class="checklist">
-          <tr><th>Tiêu chí</th><th>Kết quả</th><th>Mốc</th><th>Ghi chú</th></tr>
-          {% for c in checklist %}
-          <tr><td><b>{{ c }}</b> {{ checklist_text[c] }}</td>
-            <td><select name="{{ c }}_result"><option>unknown</option><option>pass</option><option>fail</option></select></td>
-            <td><input type="text" name="{{ c }}_ts" placeholder="mm:ss" style="width: 70px"></td>
-            <td><input type="text" name="{{ c }}_note"></td></tr>
-          {% endfor %}
-        </table>
-        <div class="row">
-          <div><label>Phút chủ động</label><input type="number" step="0.5" min="0" name="active_minutes" id="minutes" style="width: 110px"></div>
-          <div><label>Người duyệt</label><input type="text" name="reviewer" value="Tuan" style="width: 140px"></div>
-          <div style="flex: 1"><label>Ghi chú</label><input type="text" name="note"></div>
-        </div>
-        <p class="small muted">Phút chủ động tự điền theo thời gian mở trang này; sửa lại nếu khác. accepted chỉ đúng khi cả 9 tiêu chí pass.</p>
-        <p><button {{ dis }}>Ghi phiếu duyệt</button></p>
-      </form>
-      <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate">
-        <input type="text" name="note" placeholder="ghi chú gate" style="max-width: 320px">
-        <button class="primary" name="decision" value="approve" {{ dis }}>Duyệt bản cuối</button>
-        <button name="decision" value="reject" {{ dis }}>Từ chối</button>
-      </form>
-      <script>
-        (() => { const t0 = Date.now(), m = document.getElementById("minutes");
-          const tick = () => { if (!m.dataset.touched) m.value = (Math.round((Date.now() - t0) / 30000) / 2).toFixed(1); };
-          m.addEventListener("input", () => m.dataset.touched = "1"); tick(); setInterval(tick, 15000); })();
-      </script>
-      {% endif %}
-    </div>
-  </div>
-</div>
-{% endif %}
-
+<section class="metrics" aria-label="Storyboard overview">
+  {{ metric('SCENE', scenes|length, 'Trong ScenePlan hiện tại') }}
+  {{ metric('PLAN REVISION', task.plan_rev or '—', 'Mọi thay đổi được ghi revision') }}
+  {{ metric('CHI PHÍ ĐÃ GHI', '$%.3f'|format(summary.usd), '%s lượt chưa có giá'|format(summary.unpriced)) }}
+</section>
+{% if current_render %}<p><a class="button" href="#final-review">{{ icon('play') }} Đến bước duyệt cuối</a></p>{% endif %}
 <div class="split storyboard-layout">
+  <div class="stack scene-gallery-panel">
+  <section class="card"><div class="section-heading"><div><h2>Storyboard · Chọn một scene</h2><p class="small muted" style="margin:5px 0 0">Ảnh được chọn và revision hiện tại của từng cảnh.</p></div><span class="chip neutral">{{ scenes|length }} scene</span></div>
   <div class="grid scene-grid">
     {% for s in scenes %}
-    <a class="scene {{ 'active' if s.scene.id == active }}" href="/tasks/{{ task.id }}?scene={{ s.scene.id }}">
-      {% if s.image %}<img loading="lazy" src="/files/tasks/{{ task.id }}/{{ s.image.path }}" alt="{{ s.scene.id }}">{% else %}<div class="thumb"></div>{% endif %}
+    <a class="scene {{ 'active' if s.scene.id == active }}" {% if s.scene.id == active %}aria-current="true"{% endif %} href="/tasks/{{ task.id }}?scene={{ s.scene.id }}">
+      {% if s.image %}<img loading="lazy" src="/files/tasks/{{ task.id }}/{{ s.image.path }}" alt="{{ s.scene.id }}">{% else %}<div class="thumb no-media">Chưa có ảnh</div>{% endif %}
       <div class="meta">
         <b>{{ s.scene.id }}</b> · {{ s.scene.mode }}
         {% if s.stale %}<span class="chip warn">lệch revision</span>{% endif %}
@@ -87,14 +49,57 @@
     {% else %}
     <p class="muted">Chưa có ScenePlan.</p>
     {% endfor %}
+  </div></section>
+{% if current_render %}
+<section class="card final-review-panel" id="final-review" aria-label="Duyệt video cuối">
+  <div class="review-heading"><h2>Duyệt video cuối</h2><span class="chip warn">C01–C09</span></div>
+  <div class="row" style="align-items: flex-start">
+    <video controls preload="metadata" src="/files/tasks/{{ task.id }}/renders/{{ current_render }}/final_9x16.mp4"></video>
+    <div class="review-fields">
+      <b>Bản render {{ current_render }}</b>
+      <span class="muted small">(ứng với lựa chọn hiện tại{% if renders|length > 1 %}; mọi bản: {{ renders|join(", ") }}{% endif %})</span>
+      {% if manifest %}<div class="small muted">đo được: {{ manifest.width }}×{{ manifest.height }} · {{ "%.2f"|format(manifest.duration_s) }} giây (trần {{ task.brief.max_s }}) · plan rev {{ manifest.plan_rev }}</div>{% endif %}
+      {% set mine = reviews|selectattr("render_rev", "equalto", current_render)|list %}
+      {% if mine %}<div class="small">Phiếu đã ghi: {% for r in mine %}<span class="chip {{ 'ok' if r.accepted else 'warn' }}">accepted={{ r.accepted == 1 }} · {{ r.active_minutes }} phút · {{ r.reviewer }}</span> {% endfor %}</div>{% endif %}
+      {% if task.status == "waiting" and task.wait_reason == "gate:final" %}
+      <form method="post" action="/tasks/{{ task.id }}/review" class="edit" id="review">
+        <div class="review-table" tabindex="0" role="region" aria-label="Tiêu chí review C01–C09"><table class="checklist">
+          <tr><th>Tiêu chí</th><th>Kết quả</th><th>Mốc</th><th>Ghi chú</th></tr>
+          {% for c in checklist %}
+          <tr><td><b>{{ c }}</b> {{ checklist_text[c] }}</td>
+            <td><select aria-label="{{ c }} kết quả" name="{{ c }}_result"><option>unknown</option><option>pass</option><option>fail</option></select></td>
+            <td><input type="text" aria-label="{{ c }} mốc thời gian" name="{{ c }}_ts" placeholder="mm:ss" style="width: 70px"></td>
+            <td><input type="text" aria-label="{{ c }} ghi chú" name="{{ c }}_note"></td></tr>
+          {% endfor %}
+        </table></div>
+        <div class="row">
+          <div><label>Phút chủ động</label><input type="number" step="0.5" min="0" name="active_minutes" id="minutes" style="width: 110px"></div>
+          <div><label>Người duyệt</label><input type="text" name="reviewer" value="Tuan" style="width: 140px"></div>
+          <div style="flex: 1"><label>Ghi chú</label><input type="text" name="note"></div>
+        </div>
+        <p class="small muted">Phút chủ động tự điền theo thời gian mở trang này; sửa lại nếu khác. accepted chỉ đúng khi cả 9 tiêu chí pass.</p>
+        <p><button {{ dis }}>Ghi phiếu duyệt</button></p>
+      </form>
+      <form class="row edit" method="post" action="/tasks/{{ task.id }}/gate">
+        <input type="text" name="note" placeholder="ghi chú gate" style="max-width: 320px">
+        <button class="primary" name="decision" value="approve" data-confirm="Duyệt gate này? Pipeline có thể tiếp tục thực hiện các bước có phí." {{ dis }}>Duyệt bản cuối</button>
+        <button name="decision" value="reject" {{ dis }}>Từ chối</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
   </div>
 
   {% for s in scenes if s.scene.id == active %}
   {% set sc = s.scene %}
   <div class="card scene-inspector">
     <p class="eyebrow">SCENE INSPECTOR</p>
-    <h2 style="margin-top: 0">Sửa {{ sc.id }}</h2>
-    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/edit" class="edit">
+    <h2>Scene {{ sc.id }} · {{ sc.mode }}</h2>
+    {% if s.image %}<img class="selected-preview" src="/files/tasks/{{ task.id }}/{{ s.image.path }}" alt="Ảnh được chọn cho {{ sc.id }}">{% else %}<div class="selected-preview no-media">Chưa có ảnh được chọn</div>{% endif %}
+    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/edit" class="edit" data-dirty-form data-locked="{{ 'true' if locked else 'false' }}">
       <label>narration</label><textarea name="narration" rows="4">{{ sc.narration }}</textarea>
       <label>visual</label><textarea name="visual" rows="3">{{ sc.visual }}</textarea>
       <div class="cols3">
@@ -109,7 +114,7 @@
         <div style="grid-column: span 2"><label>ghi chú revision</label><input type="text" name="note"></div>
       </div>
       <p class="small muted">nhân vật: {{ sc.characters|join(", ") or "—" }}</p>
-      <p><button class="primary" {{ dis }}>Lưu → revision mới</button></p>
+      <p><button class="primary" data-save {{ dis }}>Lưu → revision mới</button></p>
     </form>
 
     {% for kind, label in (("image", "Ảnh"), ("clip", "Clip"), ("voice", "Giọng")) %}
@@ -119,7 +124,7 @@
     <div class="strip">
       {% for c in slot.candidates %}
       <div class="cand {{ 'sel' if c.id == slot.selected }}">
-        {% if kind == "image" %}<a href="/files/tasks/{{ task.id }}/{{ c.path }}" target="_blank"><img loading="lazy" src="/files/tasks/{{ task.id }}/{{ c.path }}"></a>
+        {% if kind == "image" %}<a href="/files/tasks/{{ task.id }}/{{ c.path }}" target="_blank"><img loading="lazy" src="/files/tasks/{{ task.id }}/{{ c.path }}" alt="Ứng viên {{ c.id }}"></a>
         {% elif kind == "voice" %}<audio controls preload="none" src="/files/tasks/{{ task.id }}/{{ c.path }}" style="width: 92px"></audio>
         {% else %}<a href="/files/tasks/{{ task.id }}/{{ c.path }}" target="_blank">▶ clip</a>{% endif %}
         <div>{{ c.id }}{% if c.provider == "user" %} · user{% endif %}</div>
@@ -135,7 +140,7 @@
     {% endfor %}
 
     <h3 class="inspector-section-title">Chạy lại kèm ghi chú</h3>
-    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/rerun" class="row edit">
+    <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/rerun" class="row edit" data-confirm="Chạy lại scene có thể gọi model trả phí. Tiếp tục?">
       <select name="step" style="width: auto"><option>keyframes</option><option>voice</option></select>
       <input type="text" name="note" required placeholder="vd: hands out of frame" style="flex: 1">
       <button {{ dis }}>Chạy lại</button>
