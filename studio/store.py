@@ -1,6 +1,7 @@
-"""SQLite (WAL): tasks, step_runs, gate_decisions, reviews (04 · Lược đồ SQLite).
+"""SQLite (WAL): tasks, step_runs, gate_decisions, reviews (04 · Lược đồ SQLite); gpu_* (09 · Dữ liệu).
 
 Nội dung nằm trong thư mục task; bảng chỉ trỏ tới. Giao dịch ngắn, một kết nối mỗi lời gọi.
+Bảng gpu_* tách khỏi bảng core, mốc thời gian theo UTC (báo giá có hạn).
 """
 
 from __future__ import annotations
@@ -8,7 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -80,6 +81,49 @@ CREATE TABLE IF NOT EXISTS reviews (
     note TEXT,
     at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS gpu_rentals (
+    rental_id TEXT PRIMARY KEY,
+    provider_key TEXT NOT NULL,
+    provider_instance_id TEXT,
+    label TEXT NOT NULL UNIQUE,
+    offer_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    idle_deadline TEXT,
+    destroy_confirmed_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gpu_operations (
+    op_id TEXT PRIMARY KEY,
+    rental_id TEXT NOT NULL REFERENCES gpu_rentals(rental_id),
+    action TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    confirmed_at TEXT,
+    status TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gpu_provision_steps (
+    rental_id TEXT NOT NULL REFERENCES gpu_rentals(rental_id),
+    step_key TEXT NOT NULL,
+    attempt INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    error_code TEXT,
+    bytes_done INTEGER,
+    bytes_total INTEGER,
+    log_ref TEXT,
+    PRIMARY KEY (rental_id, step_key)
+);
+CREATE TABLE IF NOT EXISTS gpu_events (
+    id INTEGER PRIMARY KEY,
+    rental_id TEXT NOT NULL REFERENCES gpu_rentals(rental_id),
+    ts_utc TEXT NOT NULL,
+    transition TEXT NOT NULL,
+    error_code TEXT,
+    detail TEXT
+);
 """
 
 WAIT_REASONS = {"gate:keyframes", "gate:final", "unknown_call", "retries_exhausted", "duration_exceeded", "paused"}
@@ -87,6 +131,10 @@ WAIT_REASONS = {"gate:keyframes", "gate:final", "unknown_call", "retries_exhaust
 
 def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class Store:
@@ -341,3 +389,91 @@ class Store:
         for row in rows:
             row["checklist"] = json.loads(row["checklist"])
         return rows
+
+    # ------------------------------------------------------------ gpu_* (Gate 4; chỉ studio/gpu/service.py ghi)
+
+    def add_rental(self, rental_id: str, provider_key: str, label: str, offer_json: str, steps: tuple[str, ...]) -> None:
+        """Rental ``draft`` và các bước provisioning ``pending``; rental_id trùng → sqlite3.IntegrityError."""
+        stamp = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO gpu_rentals (rental_id, provider_key, label, offer_json, status, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (rental_id, provider_key, label, offer_json, "draft", stamp, stamp),
+            )
+            db.executemany("INSERT INTO gpu_provision_steps (rental_id, step_key, status) VALUES (?,?,?)",
+                           [(rental_id, key, "pending") for key in steps])
+            db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition) VALUES (?,?,?)", (rental_id, stamp, "draft"))
+
+    def rental(self, rental_id: str) -> dict:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM gpu_rentals WHERE rental_id=?", (rental_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"không có rental {rental_id}")
+        return dict(row)
+
+    def rentals(self) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM gpu_rentals ORDER BY created_at DESC, rental_id").fetchall()]
+
+    def transition_rental(self, rental_id: str, version: int, status: str, *, expect: str, error_code: str | None = None,
+                          detail: str | None = None, **fields) -> bool:
+        """CAS theo (``expect``, ``version``) trong một câu UPDATE; ghi sự kiện cùng giao dịch.
+
+        False: bên khác đã đổi trạng thái trước; người gọi đọc lại, không xử lý tiếp.
+        """
+        stamp = utc_now()
+        columns = "".join(f", {key}=?" for key in fields)
+        with self.connect() as db:
+            changed = db.execute(
+                f"UPDATE gpu_rentals SET status=?, version=version+1, updated_at=?{columns} "
+                "WHERE rental_id=? AND status=? AND version=?",
+                (status, stamp, *fields.values(), rental_id, expect, version),
+            ).rowcount
+            if changed:
+                db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
+                           (rental_id, stamp, f"{expect}→{status}", error_code, detail))
+        return bool(changed)
+
+    def add_gpu_event(self, rental_id: str, transition: str, error_code: str | None = None, detail: str | None = None) -> None:
+        with self.connect() as db:
+            db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
+                       (rental_id, utc_now(), transition, error_code, detail))
+
+    def gpu_events(self, rental_id: str) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM gpu_events WHERE rental_id=? ORDER BY id", (rental_id,)).fetchall()]
+
+    def start_gpu_operation(self, op_id: str, rental_id: str, action: str, request_hash: str) -> None:
+        """Ghi intent trước khi gọi API (``sent``); kết quả cập nhật bằng ``finish_gpu_operation``."""
+        with self.connect() as db:
+            db.execute("INSERT INTO gpu_operations (op_id, rental_id, action, request_hash, sent_at, status) VALUES (?,?,?,?,?,?)",
+                       (op_id, rental_id, action, request_hash, utc_now(), "sent"))
+
+    def finish_gpu_operation(self, op_id: str, status: str) -> None:
+        with self.connect() as db:
+            db.execute("UPDATE gpu_operations SET status=?, confirmed_at=? WHERE op_id=?",
+                       (status, utc_now() if status == "confirmed" else None, op_id))
+
+    def gpu_operations(self, rental_id: str, action: str | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM gpu_operations WHERE rental_id=?", [rental_id]
+        if action:
+            sql, args = sql + " AND action=?", args + [action]
+        with self.connect() as db:
+            return [dict(row) for row in db.execute(sql + " ORDER BY sent_at, op_id", args).fetchall()]
+
+    def provision_steps(self, rental_id: str) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM gpu_provision_steps WHERE rental_id=? ORDER BY rowid",
+                                                    (rental_id,)).fetchall()]
+
+    def set_provision_step(self, rental_id: str, step_key: str, status: str, error_code: str | None = None) -> None:
+        """``running`` tăng lượt thử và ghi started_at; trạng thái kết thúc ghi finished_at."""
+        stamp = utc_now()
+        with self.connect() as db:
+            if status == "running":
+                db.execute("UPDATE gpu_provision_steps SET status=?, attempt=attempt+1, started_at=?, finished_at=NULL, "
+                           "error_code=NULL WHERE rental_id=? AND step_key=?", (status, stamp, rental_id, step_key))
+            else:
+                db.execute("UPDATE gpu_provision_steps SET status=?, finished_at=?, error_code=? WHERE rental_id=? AND step_key=?",
+                           (status, stamp if status != "pending" else None, error_code, rental_id, step_key))

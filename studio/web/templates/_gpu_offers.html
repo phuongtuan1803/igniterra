@@ -1,0 +1,36 @@
+{% if offer_error %}<div class="flash err" role="alert">{{ offer_error }}</div>{% endif %}
+{% if offers is not none %}
+<div class="table-scroll">
+  <table class="offer-table">
+    <thead><tr><th>Offer / GPU</th><th>VRAM</th><th>Disk</th><th>Reliability</th><th>Giá ước tính</th><th><span class="sr-only">Thuê</span></th></tr></thead>
+    <tbody>
+      {% for o in offers %}
+      <tr>
+        <td><strong>{{ o.num_gpus }}× {{ o.gpu_name }}</strong><small class="cell-sub">#{{ o.offer_id }}{% if o.geolocation %} · {{ o.geolocation }}{% endif %}{% if o.verified %} · verified{% endif %}</small></td>
+        <td>{{ "%g"|format(o.gpu_ram_gb) }} GB</td>
+        <td>{{ "%g"|format(o.disk_space_gb) }} GB</td>
+        <td>{{ o.reliability if o.reliability is not none else "—" }}</td>
+        <td class="cost-cell">${{ "%.3f"|format(o.dph_total) }}/giờ{% if o.storage_cost is not none %}<small class="cell-sub">+ disk ${{ "%.2f"|format(o.storage_cost) }}/GB-tháng</small>{% endif %}<small class="cell-sub">báo giá {{ o.quoted_at.strftime("%H:%M:%S") }} UTC</small></td>
+        <td>
+          <form method="post" action="/gpu/instances" class="offer-rent">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="rental_id" value="{{ new_rental_id() }}">
+            <input type="hidden" name="offer_id" value="{{ o.offer_id }}">
+            <input type="hidden" name="dph_total" value="{{ o.dph_total }}">
+            <input type="hidden" name="quoted_at" value="{{ o.quoted_at.isoformat() }}">
+            <input type="hidden" name="min_gpu_ram_gb" value="{{ filters.min_gpu_ram_gb }}">
+            <input type="hidden" name="disk_gb" value="{{ filters.disk_gb }}">
+            {% if filters.max_dph is not none %}<input type="hidden" name="max_dph" value="{{ filters.max_dph }}">{% endif %}
+            <label class="checkbox-row" for="confirm_{{ o.offer_id }}"><input id="confirm_{{ o.offer_id }}" type="checkbox" name="confirm" required> Xác nhận ${{ "%.3f"|format(o.dph_total) }}/giờ</label>
+            <button class="primary button" type="submit">Thuê →</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6"><div class="empty-state"><strong>Không có offer phù hợp.</strong><p>Nới VRAM, disk hoặc giá tối đa rồi tìm lại.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="small muted">Giá là ước tính từ provider, không phải hóa đơn; disk và băng thông tính riêng. Báo giá chỉ dùng được trong thời hạn cho phép, quá hạn thì tìm lại.</p>
+{% endif %}

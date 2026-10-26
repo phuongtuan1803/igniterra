@@ -1,7 +1,8 @@
 """Trang review (Gate 3): FastAPI + Jinja2 + HTMX, server render, không bước build frontend.
 
 Web không gọi provider và không chạy bước: mọi hành động đi qua ``gates.Actions`` / ``series.SeriesActions``
-(cùng lớp CLI dùng), và bị từ chối khi task đang ``running``.
+(cùng lớp CLI dùng), và bị từ chối khi task đang ``running``. Trang GPU chỉ gọi ``studio.gpu.service``,
+không import adapter GPU; POST của trang GPU có CSRF token và rental_id sinh trước làm nonce.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from studio import config as studio_config
 from studio import costs, providers
 from studio.contracts import Brief, CheckItem, Review
 from studio.gates import ActionError, Actions
+from studio.gpu import service as gpu_service
+from studio.gpu.contracts import ATTENTION, BILLABLE, OfferFilters, Quote
 from studio.series import VIEWS, SeriesActions, SeriesDir, SeriesError, list_series
 from studio.store import Store
 from studio.web import views
@@ -301,6 +304,83 @@ def create_app(config: dict | None = None) -> FastAPI:
         studio_config.write_settings(settings_path, overlay)
         return back("/settings", msg="đã lưu; task mới và worker khởi động lại dùng cấu hình này", request=request)
 
+    # ------------------------------------------------------------ GPU Rentals (Gate 4, lát A)
+
+    gpu = gpu_service.from_config(store, config)       # một service mỗi app; None khi [gpu] provider = "none"
+    csrf = secrets.token_urlsafe(32)                    # theo process: giả định một uvicorn worker
+
+    def gpu_filters(params) -> OfferFilters:
+        """Bộ lọc từ query hoặc form; ô trống dùng mặc định của OfferFilters."""
+        fields = {key: float(params[key]) for key in ("min_gpu_ram_gb", "disk_gb", "max_dph") if params.get(key)}
+        return OfferFilters(**fields)
+
+    def gpu_offers(params) -> tuple[OfferFilters, list | None, str | None]:
+        try:
+            filters = gpu_filters(params)
+        except ValueError as exc:
+            return OfferFilters(), None, f"bộ lọc không hợp lệ: {str(exc)[:200]}"
+        if gpu is None or "search" not in params:
+            return filters, None, None
+        try:
+            return filters, gpu.search_offers(filters), None
+        except Exception as exc:  # noqa: BLE001 — lỗi provider hiện trên trang, không làm hỏng trang
+            return filters, None, studio_config.redact(str(exc))[:300]
+
+    def gpu_csrf_ok(form) -> bool:
+        return secrets.compare_digest(str(form.get("csrf", "")), csrf)
+
+    @app.get("/gpu", response_class=HTMLResponse)
+    def gpu_page(request: Request):
+        filters, offers, offer_error = gpu_offers(request.query_params)
+        rentals = gpu.rentals() if gpu else []
+        return page(request, "gpu.html", gpu=gpu, rentals=rentals, filters=filters, offers=offers,
+                    offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
+                    new_rental_id=gpu.new_rental_id if gpu else None)
+
+    @app.get("/gpu/offers", response_class=HTMLResponse)
+    def gpu_offers_partial(request: Request):
+        filters, offers, offer_error = gpu_offers({**request.query_params, "search": "1"})
+        return page(request, "_gpu_offers.html", gpu=gpu, filters=filters, offers=offers, offer_error=offer_error,
+                    csrf=csrf, new_rental_id=gpu.new_rental_id if gpu else None)
+
+    @app.post("/gpu/instances")
+    async def gpu_rent(request: Request):
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        if gpu is None:
+            return back("/gpu", err="GPU provider chưa bật", request=request)
+        rental_id = str(form.get("rental_id", ""))
+        try:
+            quote = Quote(offer_id=str(form.get("offer_id", "")), dph_total=float(form.get("dph_total", "")),
+                          quoted_at=str(form.get("quoted_at", "")), confirmed=form.get("confirm") == "on")
+            rental = gpu.rent(rental_id, quote, gpu_filters(form))
+        except (gpu_service.GPUServiceError, ValueError) as exc:
+            return back("/gpu", err=str(exc)[:500], request=request)
+        return back(f"/gpu/instances/{rental.rental_id}", msg=f"{rental.rental_id}: {rental.status}", request=request)
+
+    @app.get("/gpu/instances/{rental_id}", response_class=HTMLResponse)
+    def gpu_rental_page(request: Request, rental_id: str):
+        if gpu is None:
+            return Response("GPU provider chưa bật", status_code=404)
+        try:
+            data = gpu.timeline(rental_id)
+        except KeyError:
+            return Response("không có rental", status_code=404)
+        return page(request, "gpu_rental.html", **data, csrf=csrf, attention=ATTENTION, billable=BILLABLE)
+
+    @app.post("/gpu/instances/{rental_id}/reconcile")
+    async def gpu_reconcile(request: Request, rental_id: str):
+        if not gpu_csrf_ok(await request.form()):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        if gpu is None:
+            return Response(status_code=404)
+        url = f"/gpu/instances/{rental_id}"
+        try:
+            return back(url, msg=f"{rental_id}: {gpu.reconcile(rental_id).status}", request=request)
+        except (gpu_service.GPUServiceError, KeyError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+
     # ------------------------------------------------------------ files
 
     @app.get("/files/{relative:path}")
@@ -311,5 +391,6 @@ def create_app(config: dict | None = None) -> FastAPI:
         return FileResponse(path)
 
     app.state.store = store
+    app.state.gpu = gpu
     return app
 

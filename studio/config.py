@@ -34,6 +34,7 @@ DEFAULTS: dict = {
     "gates": {"keyframes": True},
     "render": {"width": 1080, "height": 1920, "fps": 30, "font": "Be Vietnam Pro", "font_size": 66},
     "worker": {"poll_s": 2.0},
+    "gpu": {"provider": "none", "image": "", "quote_ttl_s": 300},
 }
 
 SECRET_ENV = ("OMNIROUTE_API_KEY", "STUDIO_BASIC_AUTH")

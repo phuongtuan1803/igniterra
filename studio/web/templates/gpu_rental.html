@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import rental_chip %}
+{% block title %}{{ rental.rental_id }} · GPU{% endblock %}
+{% block body %}
+<div class="page-header">
+  <div><p class="eyebrow">07 / GPU RENTAL</p><h1>{{ rental.offer.num_gpus }}× {{ rental.offer.gpu_name }}</h1><div class="muted small">{{ rental.rental_id }} · {{ rental.provider_key }}{% if rental.provider_instance_id %} · instance {{ rental.provider_instance_id }}{% endif %} · label <code>{{ rental.label }}</code></div></div>
+  <a href="/gpu">← GPU Rentals</a>
+</div>
+<div class="status">
+  {{ rental_chip(rental.status) }}
+  <span class="small muted">${{ "%.3f"|format(rental.offer.dph_total) }}/giờ ước tính, không phải hóa đơn · cập nhật {{ rental.updated_at.strftime("%Y-%m-%d %H:%M:%S") }} UTC</span>
+  {% if rental.status in billable %}<span class="chip warn">Có thể đang tính phí</span>{% endif %}
+  {% if rental.status == "create_unknown" %}
+  <form method="post" action="/gpu/instances/{{ rental.rental_id }}/reconcile">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="button" type="submit">Reconcile theo label</button>
+  </form>
+  {% endif %}
+</div>
+{% if rental.status == "create_unknown" %}
+<p class="section-note">Create đã gửi nhưng không có response. Studio tìm instance theo label <code>{{ rental.label }}</code> và không tự tạo lại. Nếu chưa thấy, kiểm tra trên trang provider trước khi thuê offer khác.</p>
+{% endif %}
+<div class="panel-grid">
+  <section class="card">
+    <p class="eyebrow">PROVISIONING</p><h2>Timeline</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Bước</th><th>Trạng thái</th><th>Lượt</th><th>Kết thúc</th></tr></thead>
+      <tbody>
+        {% for s in steps %}
+        <tr><td>{{ s.step_key }}</td><td>{{ s.status }}{% if s.error_code %} · {{ s.error_code }}{% endif %}</td><td>{{ s.attempt }}</td><td class="small muted">{{ s.finished_at.strftime("%H:%M:%S") if s.finished_at else "—" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+  <section class="card">
+    <p class="eyebrow">AUDIT</p><h2>Events</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>UTC</th><th>Chuyển</th><th>Chi tiết</th></tr></thead>
+      <tbody>
+        {% for e in events %}
+        <tr><td class="small muted">{{ e.ts_utc.strftime("%H:%M:%S") }}</td><td>{{ e.transition }}{% if e.error_code %} <span class="chip bad">{{ e.error_code }}</span>{% endif %}</td><td class="small">{{ e.detail or "" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <h3>Operations</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Action</th><th>Status</th><th>Gửi lúc</th></tr></thead>
+      <tbody>
+        {% for op in operations %}
+        <tr><td>{{ op.action }}</td><td>{{ op.status }}</td><td class="small muted">{{ op.sent_at }}</td></tr>
+        {% else %}<tr><td colspan="3" class="muted small">Chưa có.</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+</div>
+{% endblock %}

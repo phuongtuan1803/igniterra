@@ -207,3 +207,11 @@ main>.card{margin-bottom:20px}
 .story-cell>.story-icon,.story-cell>span:last-child{display:inline-flex;vertical-align:middle}
 .story-cell>.story-icon{margin-right:12px}
 .story-cell>span:last-child{display:inline-block;max-width:calc(100% - 52px);overflow-wrap:anywhere}
+
+/* GPU Rentals */
+.offer-table td{vertical-align:top}
+.cell-sub{display:block;font-size:11px;color:var(--muted);margin-top:3px;font-weight:400}
+.offer-rent{display:grid;gap:8px;min-width:170px}
+.offer-rent .checkbox-row{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink);font-weight:500}
+.offer-rent .checkbox-row input{flex:none}
+.status form{margin:0}

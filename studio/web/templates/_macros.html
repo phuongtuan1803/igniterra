@@ -6,3 +6,8 @@
 {% macro usd(value, missing) -%}
 {%- if value %}${{ "%.3f"|format(value) }}{% endif %}{% if missing %}{% if value %} + {% endif %}{{ missing }} lượt chưa có giá{% endif %}{% if not value and not missing %}$0{% endif -%}
 {%- endmacro %}
+
+{% macro rental_chip(status) -%}
+{%- set cls = "ok" if status == "ready" else ("bad" if status in ("create_unknown", "create_failed", "provision_failed", "destroy_unknown") else ("" if status in ("draft", "destroyed") else "warn")) -%}
+<span class="chip {{ cls }}">{{ status }}</span>
+{%- endmacro %}
