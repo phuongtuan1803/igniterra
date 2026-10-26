@@ -1,51 +1,56 @@
+{% from "_macros.html" import icon %}
 <!doctype html>
 <html lang="vi">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f7f6f2">
 {% if auto_refresh %}<meta http-equiv="refresh" content="{{ auto_refresh }}">{% endif %}
 <title>{% block title %}Studio{% endblock %} · Igniterra</title>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/htmx.min.js" defer></script>
+<script src="/static/ui.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#main">Bỏ qua điều hướng</a>
 {% set here = request.url.path %}
+{% set group = 'series' if here.startswith('/series') else 'settings' if here.startswith('/settings') else 'gpu' if here.startswith('/gpu') else 'comfyui' if here.startswith('/comfyui') else 'monitor' if here.startswith('/monitor') else 'tasks' %}
+{% set labels = {'tasks':'Tasks', 'series':'Series Bible', 'gpu':'GPU Rentals', 'comfyui':'ComfyUI Workflows', 'monitor':'Monitor', 'settings':'Settings'} %}
 <div class="app-shell">
-  <aside class="app-sidebar" aria-label="Điều hướng">
+  <aside class="app-sidebar" id="sidebar" aria-label="Điều hướng">
+    <button type="button" class="nav-close" data-menu-close aria-label="Đóng điều hướng">{{ icon('close') }}</button>
     <a class="brand" href="/" aria-label="Igniterra studio — Tasks">
-      <span class="brand-symbol" aria-hidden="true"><span></span></span>
-      <span class="brand-wordmark">igniterra</span>
+      <span class="brand-symbol" aria-hidden="true"><span>i</span></span>
+      <span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span>
     </a>
-    <div class="brand-caption">THE CREATIVE WORKSPACE</div>
-    <div class="sidebar-divider"></div>
-    <div class="nav-caption">WORKSPACE</div>
-    <nav class="nav-menu">
-      {% set on_tasks = not here.startswith('/series') and not here.startswith('/settings') and not here.startswith('/gpu') and not here.startswith('/comfyui') and not here.startswith('/monitor') %}
-      <a href="/" class="nav-item {{ 'active' if on_tasks else '' }}" {% if on_tasks %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▦</span><span>Tasks</span></a>
-      <a href="/series" class="nav-item {{ 'active' if here.startswith('/series') else '' }}" {% if here.startswith('/series') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◇</span><span>Series</span></a>
-      <a href="/gpu" class="nav-item {{ 'active' if here.startswith('/gpu') else '' }}" {% if here.startswith('/gpu') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▣</span><span>GPU Rentals</span></a>
-      <a href="/monitor" class="nav-item {{ 'active' if here.startswith('/monitor') else '' }}" {% if here.startswith('/monitor') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◷</span><span>Monitor</span></a>
-      <a href="/comfyui/workflows" class="nav-item {{ 'active' if here.startswith('/comfyui') else '' }}" {% if here.startswith('/comfyui') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◈</span><span>ComfyUI</span></a>
-      <a href="/settings" class="nav-item {{ 'active' if here.startswith('/settings') else '' }}" {% if here.startswith('/settings') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span></a>
+    <nav class="nav-menu" aria-label="Workspace">
+      {% for caption, entries in [('PRODUCTION', [('tasks', '/', 'film'), ('series', '/series', 'stack')]), ('INFRASTRUCTURE', [('gpu', '/gpu', 'cpu'), ('comfyui', '/comfyui/workflows', 'flow'), ('monitor', '/monitor', 'monitor')]), ('', [('settings', '/settings', 'settings')])] %}
+      {% if caption %}<div class="nav-caption">{{ caption }}</div>{% else %}<div class="nav-divider"></div>{% endif %}
+      {% for key, href, glyph in entries %}
+      <a href="{{ href }}" class="nav-item {{ 'active' if group == key }}" {% if group == key %}aria-current="page"{% endif %}>{{ icon(glyph) }}<span>{{ labels[key] }}</span></a>
+      {% endfor %}
+      {% endfor %}
     </nav>
-    <div class="nav-caption nav-tools">PRODUCTION</div>
-    <div class="nav-hints" aria-label="Studio capabilities">
-      <span>Storyboard</span><span>Activity &amp; costs</span><span>Model providers</span>
-    </div>
-    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><strong>Local workspace</strong><small>No cloud sync required</small></div>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
   </aside>
+  <div class="scrim" data-menu-close></div>
   <div class="app-content">
-    <div class="utility-bar">
-      <span>Studio <span class="utility-slash">/</span> {% if here.startswith('/series') %}Series{% elif here.startswith('/settings') %}Settings{% elif here.startswith('/gpu') %}GPU Rentals{% elif here.startswith('/comfyui') %}ComfyUI{% elif here.startswith('/monitor') %}Monitor{% else %}Tasks{% endif %}</span>
-      <span class="utility-mode">Editorial Light <span aria-hidden="true">·</span> Local studio</span>
-    </div>
-    <main id="main" class="page-container">
+    <header class="utility-bar">
+      <div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng" aria-controls="sidebar" aria-expanded="false" data-menu-toggle>{{ icon('menu') }}</button><span>Studio <span class="utility-slash">/</span> <b>{{ labels[group] }}</b></span></div>
+      <span class="utility-mode">LOCAL STUDIO</span>
+    </header>
+    <main id="main" class="page-container" tabindex="-1">
       {% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
       {% if error %}<div class="flash err" role="alert">{{ error }}</div>{% endif %}
       {% block body %}{% endblock %}
     </main>
   </div>
 </div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh">
+  {% for key, href, glyph, label in [('tasks','/','film','Tasks'),('gpu','/gpu','cpu','GPU'),('comfyui','/comfyui/workflows','flow','ComfyUI'),('monitor','/monitor','monitor','Monitor')] %}
+  <a href="{{ href }}" class="{{ 'active' if group == key }}" {% if group == key %}aria-current="page"{% endif %}>{{ icon(glyph) }}{{ label }}</a>
+  {% endfor %}
+</nav>
+<noscript><style>@media(max-width:890px){.app-sidebar{position:static;transform:none;visibility:visible;width:auto;height:auto}.menu-button,.nav-close{display:none}}</style></noscript>
 </body>
 </html>

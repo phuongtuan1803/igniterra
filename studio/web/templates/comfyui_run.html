@@ -3,12 +3,12 @@
 {% block body %}
 <div class="page-header">
   <div><p class="eyebrow">08 / COMFYUI RUN</p><h1>{{ revision.name }} · rev {{ run.revision }}</h1><div class="muted small">{{ run.run_id }} · rental <a href="/gpu/instances/{{ run.rental_id }}">{{ run.rental_id }}</a>{% if rental %} ({{ rental.status }}){% endif %} · prompt_id <code>{{ run.prompt_id or "—" }}</code></div></div>
-  <a href="/comfyui/workflows/{{ run.workflow_id }}?revision={{ run.revision }}">← Workflow</a>
+  <div class="row"><a class="button" href="/comfyui/workflows/{{ run.workflow_id }}?revision={{ run.revision }}">← Workflow</a><a class="button" href="/monitor">Monitor</a></div>
 </div>
 {% if origin %}<p class="section-note">Keyframe cho <a href="/tasks/{{ origin.task_id }}?scene={{ origin.scene }}">{{ origin.task_id }} · {{ origin.scene }}</a>, attempt {{ origin.attempt }} · <a href="/monitor?task={{ origin.task_id }}">Monitor task</a>.</p>{% endif %}
 {% if auto_refresh %}<p class="small muted">Tự cập nhật mỗi 5 giây theo trạng thái worker đã ghi. Chưa có số đo node đang chạy nếu runtime chỉ trả queue.</p>{% endif %}
 <div class="status">
-  <span class="chip {{ 'ok' if run.status == 'succeeded' else ('bad' if run.status in ('failed', 'blocked', 'output_failed', 'abandoned') else 'warn') }}">{{ run.status }}</span>
+  <span class="chip {{ run.status }} {{ 'ok' if run.status == 'succeeded' else ('bad' if run.status in ('failed', 'blocked', 'output_failed', 'abandoned') else 'warn') }}">{{ run.status }}</span>
   {% if run.error_code %}<span class="chip bad">{{ run.error_code }}</span>{% endif %}
   <span class="small muted">Sự kiện cuối: {{ run.last_event or "—" }}{% if run.last_event_at %} lúc {{ run.last_event_at.strftime("%H:%M:%S") }} UTC{% endif %} · node: {{ run.current_node or "chưa biết (poll /queue không báo node đang chạy)" }}{% if run.queue_state %} · queue {{ run.queue_state }}{% endif %}</span>
   {% if run.status not in ("succeeded", "failed", "blocked", "abandoned", "output_failed") %}

@@ -1,15 +1,16 @@
 {% extends "base.html" %}
-{% from "_macros.html" import rental_chip %}
+{% from "_macros.html" import rental_chip, icon %}
 {% block title %}{{ rental.rental_id }} · GPU{% endblock %}
 {% block body %}
 <div class="page-header">
-  <div><p class="eyebrow">07 / GPU RENTAL</p><h1>{{ rental.offer.num_gpus }}× {{ rental.offer.gpu_name }}</h1><div class="muted small">{{ rental.rental_id }} · {{ rental.provider_key }}{% if rental.provider_instance_id %} · instance {{ rental.provider_instance_id }}{% endif %} · label <code>{{ rental.label }}</code></div></div>
-  <a href="/gpu">← GPU Rentals</a>
+  <div><p class="eyebrow">GPU RENTALS / {{ rental.rental_id }}</p><h1>{{ rental.offer.num_gpus }}× {{ rental.offer.gpu_name }}</h1><div class="muted small">{{ rental.rental_id }} · {{ rental.provider_key }}{% if rental.provider_instance_id %} · instance {{ rental.provider_instance_id }}{% endif %} · label <code>{{ rental.label }}</code></div></div>
+  <a class="button" href="/gpu">← Tất cả GPU</a>
 </div>
 <div class="status">
   {{ rental_chip(rental.status) }}
   <span class="small muted">${{ "%.3f"|format(rental.offer.dph_total) }}/giờ ước tính, không phải hóa đơn · cập nhật {{ rental.updated_at.strftime("%Y-%m-%d %H:%M:%S") }} UTC</span>
   {% if rental.status in billable %}<span class="chip warn">Có thể đang tính phí</span>{% endif %}
+  {% if rental.status == "ready" %}<a class="button" href="/comfyui/workflows">{{ icon("flow") }} Chạy workflow</a>{% endif %}
   {% if rental.status in ("create_unknown", "provisioning", "destroying", "destroy_unknown") or stop_unknown %}
   <form method="post" action="/gpu/instances/{{ rental.rental_id }}/reconcile">
     <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -98,14 +99,10 @@
 <div class="panel-grid">
   <section class="card">
     <p class="eyebrow">PROVISIONING</p><h2>Timeline</h2>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Bước</th><th>Trạng thái</th><th>Lượt</th><th>Kết thúc</th></tr></thead>
-      <tbody>
-        {% for s in steps %}
-        <tr><td>{{ s.step_key }}</td><td>{{ s.status }}{% if s.error_code %} · {{ s.error_code }}{% endif %}</td><td>{{ s.attempt }}</td><td class="small muted">{{ s.finished_at.strftime("%H:%M:%S") if s.finished_at else "—" }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
+    <ol class="provision-steps">
+      {% for s in steps %}<li><span class="step-num {{ 'done' if s.status == 'done' }}">{{ icon('check') if s.status == 'done' else loop.index }}</span><div><strong>{{ s.step_key }}</strong><p><span class="chip {{ 'ok' if s.status == 'done' else ('bad' if s.status == 'failed' else 'warn') }}">{{ s.status }}</span> · lượt {{ s.attempt }}{% if s.finished_at %} · {{ s.finished_at.strftime('%H:%M:%S') }} UTC{% endif %}</p>{% if s.error_code %}<p class="form-error">{{ s.error_code }}</p>{% endif %}</div></li>
+      {% else %}<li class="muted">Chưa có bằng chứng provisioning.</li>{% endfor %}
+    </ol>
   </section>
   <section class="card">
     <p class="eyebrow">AUDIT</p><h2>Events</h2>

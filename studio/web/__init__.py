@@ -79,10 +79,12 @@ def create_app(config: dict | None = None) -> FastAPI:
                                                           "error": request.query_params.get("err"), **context})
 
     def back(url: str, msg: str | None = None, err: str | None = None, request: Request | None = None) -> Response:
-        from urllib.parse import urlencode
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-        query = urlencode({k: v for k, v in (("msg", msg), ("err", err)) if v})
-        target = url + (("?" + query) if query else "")
+        parts = urlsplit(url)
+        query = urlencode([*parse_qsl(parts.query, keep_blank_values=True),
+                           *((k, v) for k, v in (("msg", msg), ("err", err)) if v)])
+        target = urlunsplit(parts._replace(query=query))
         if request is not None and request.headers.get("hx-request"):
             return Response(status_code=204, headers={"HX-Redirect": target})
         return RedirectResponse(target, status_code=303)
@@ -97,10 +99,17 @@ def create_app(config: dict | None = None) -> FastAPI:
     # ------------------------------------------------------------ Tasks
 
     @app.get("/", response_class=HTMLResponse)
-    def tasks_page(request: Request):
+    def tasks_page(request: Request, q: str = "", status: str = "all"):
         tasks = [views.task_summary(store, data_dir, t) for t in store.tasks()]
         briefs = sorted((Path(config["root"]) / "briefs").glob("*.json"))
-        return page(request, "tasks.html", tasks=tasks, briefs=[b.name for b in briefs], series=list_series(data_dir))
+        groups = {"all": None, "review": {"waiting"}, "running": {"running", "pending"},
+                  "done": {"completed"}, "failed": {"failed"}}
+        status = status if status in groups else "all"
+        visible = [t for t in tasks if (groups[status] is None or t["status"] in groups[status])
+                   and q.casefold() in f"{t.get('title') or ''} {t['id']} {t.get('series') or ''}".casefold()]
+        return page(request, "tasks.html", tasks=visible, all_tasks=tasks, q=q, status=status,
+                    attention=[t for t in tasks if t["status"] in ("waiting", "failed")],
+                    briefs=[b.name for b in briefs], series=list_series(data_dir))
 
     @app.post("/tasks")
     def create_task(request: Request, brief_file: str = Form(""), brief_json: str = Form(""), series: str = Form(""),
@@ -127,7 +136,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         except KeyError:
             return Response("không có task", status_code=404)
         selected = scene or (data["scenes"][0]["scene"].id if data["scenes"] else None)
-        return page(request, "storyboard.html", **data, active=selected, views=VIEWS)
+        return page(request, "storyboard.html", **data, active=selected, views=VIEWS,
+                    summary=views.task_summary(store, data_dir, data["task"]))
 
     @app.get("/tasks/{task_id}/status", response_class=HTMLResponse)
     def status_partial(request: Request, task_id: str):
@@ -346,7 +356,8 @@ def create_app(config: dict | None = None) -> FastAPI:
                     offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE, manifest=manifest,
                     manifest_view=gpu.manifest_view(manifest) if manifest else None,
                     new_rental_id=gpu.new_rental_id if gpu else None, orphans=gpu.orphans if gpu else [],
-                    limits=gpu.limits if gpu else None, over_limits=gpu.over_limits() if gpu else [])
+                    limits=gpu.limits if gpu else None, over_limits=gpu.over_limits() if gpu else [],
+                    rental_costs={r.rental_id: gpu.cost(r.rental_id) for r in rentals} if gpu else {})
 
     @app.get("/gpu/offers", response_class=HTMLResponse)
     def gpu_offers_partial(request: Request):
@@ -422,7 +433,10 @@ def create_app(config: dict | None = None) -> FastAPI:
             items.append({"run": run, "name": revision.name, "origin": origin})
         rentals = [{"rental": r, "cost": gpu.cost(r.rental_id), "breaches": gpu.breaches(r),
                     "unverified": gpu.unverified_runs(r.rental_id)} for r in gpu.rentals()] if gpu else []
-        return page(request, "monitor.html", items=items, rentals=rentals, auto_refresh=5, task_filter=task)
+        tasks = [views.task_summary(store, data_dir, t) for t in store.tasks() if not task or t["id"] == task]
+        return page(request, "monitor.html", items=items, rentals=rentals, tasks=tasks,
+                    attention_tasks=[t for t in tasks if t["status"] in ("waiting", "failed")],
+                    auto_refresh=None if request.query_params.get("refresh") == "off" else 5, task_filter=task)
 
     @app.post("/comfyui/image-profile")
     async def comfy_image_profile(request: Request):

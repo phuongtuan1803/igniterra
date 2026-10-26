@@ -33,8 +33,9 @@ def comfy_origin(note: str | None) -> dict | None:
 def task_summary(store: Store, data_dir: Path, task: dict) -> dict:
     td = TaskDir(data_dir, task["id"])
     usd, missing = costs.total(td.costs_path)
-    brief = store.task(task["id"])["brief"]
-    return {**task, "title": brief.get("title"), "brief_id": brief.get("id"), "usd": usd, "unpriced": missing,
+    details = store.task(task["id"])
+    brief = details["brief"]
+    return {**task, "series": details.get("series"), "title": brief.get("title"), "brief_id": brief.get("id"), "usd": usd, "unpriced": missing,
             "renders": td.render_revisions()}
 
 

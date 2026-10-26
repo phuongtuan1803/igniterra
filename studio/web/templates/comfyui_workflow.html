@@ -3,7 +3,7 @@
 {% block body %}
 <div class="page-header">
   <div><p class="eyebrow">08 / COMFYUI WORKFLOW</p><h1>{{ record.name }}</h1><div class="muted small">{{ record.workflow_id }} · revision {{ record.revision }} · {{ record.format }} · SHA-256 file gốc <code>{{ record.source_sha256 }}</code>{% if record.api_sha256 and record.format == "gui" %} · API <code>{{ record.api_sha256[:16] }}…</code>{% endif %}</div></div>
-  <a href="/comfyui/workflows">← Workflows</a>
+  <a class="button" href="/comfyui/workflows">← Thư viện</a>
 </div>
 <div class="status">
   <span class="chip {{ 'ok' if record.status == 'approved' else 'warn' }}">{{ record.status }}</span>
@@ -15,6 +15,7 @@
 {% elif record.status == "pending_review" %}
 <p class="section-note">Manifest <code>{{ record.manifest_sha256[:12] }}</code> ({{ record.manifest_source }}) chờ duyệt. Đọc kỹ bên dưới rồi <code>python -m studio comfyui manifest approve {{ record.manifest_sha256 }}</code>.</p>
 {% endif %}
+<div class="panel-grid workflow-layout">
 <section class="card" aria-label="Dependencies">
   <p class="eyebrow">DEPENDENCIES</p><h2>{% if manifest %}Manifest <code>{{ manifest.manifest_sha256[:12] }}</code> · {{ manifest.status }}{% else %}Bản trích (chưa có manifest){% endif %}</h2>
   <p class="small muted">Manifest là bản khai đã duyệt, không tự cài lên rental. Trước mỗi lần chạy, studio kiểm <code>/object_info</code> của rental: thiếu <code>class_type</code> hay model thì chặn, không submit.</p>
@@ -35,10 +36,10 @@
   {% if record.draft.hints %}<p class="small muted">Tên file giống model trong workflow (chỉ để đối chiếu): {{ record.draft.hints|join(", ") }}</p>{% endif %}
   <p class="small muted">class_type: {{ record.class_types|join(", ") }}</p>
 </section>
-{% if record.status == "approved" and record.runnable %}
 <section class="card" aria-label="Run workflow">
   <p class="eyebrow">RUN</p><h2>Chạy trên GPU ready</h2>
-  {% if not gpu_enabled %}<p class="section-note">GPU provider chưa bật.</p>
+  {% if record.status != "approved" or not record.runnable %}<p class="section-note">Chưa thể chạy: workflow phải được duyệt dependency và có API JSON. Làm theo hướng dẫn manifest ở trên.</p>
+  {% elif not gpu_enabled %}<p class="section-note">GPU provider chưa bật.</p>
   {% elif not rentals %}<p class="section-note">Không có rental <code>ready</code>. Thuê ở <a href="/gpu">GPU Rentals</a>.</p>
   {% else %}
   <form method="post" action="/comfyui/workflows/{{ record.workflow_id }}/runs" class="stack-form">
@@ -50,8 +51,7 @@
     <button class="button" type="submit">Chạy</button>
   </form>
   {% endif %}
-</section>
-{% endif %}
+</section></div>
 <div class="panel-grid">
   <section class="card">
     <p class="eyebrow">REVISIONS</p><h2>Lịch sử nhập</h2>

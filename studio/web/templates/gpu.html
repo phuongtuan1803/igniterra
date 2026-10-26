@@ -1,20 +1,65 @@
 {% extends "base.html" %}
-{% from "_macros.html" import rental_chip %}
+{% from "_macros.html" import rental_chip, metric, icon %}
 {% block title %}GPU Rentals{% endblock %}
 {% block body %}
 <div class="page-heading">
-  <div><p class="eyebrow">07 / GPU RENTALS</p><h1>Compute, on your terms.</h1><p class="page-subtitle">Find an offer, confirm the quote, follow every rental until it is destroyed.</p></div>
-  {% if gpu %}<span class="chip">Provider · {{ gpu.provider_key }}</span>{% else %}<span class="chip warn">Provider off</span>{% endif %}
+  <div><p class="eyebrow">INFRASTRUCTURE / GPU</p><h1>Kiểm soát GPU và chi phí</h1><p class="page-subtitle">Luôn biết máy nào có thể đang tính phí, trạng thái provisioning và hành động an toàn tiếp theo.</p></div>
+  {% if gpu %}<a class="button" href="/monitor">{{ icon("monitor") }} Mở Monitor</a>{% else %}<span class="chip warn">Provider off</span>{% endif %}
 </div>
 {% if not gpu %}
 <p class="section-note">GPU provider chưa bật. Đặt <code>[gpu] provider</code> trong studio.toml (D-05 chưa mở; <code>"fake"</code> để thử trang không tốn tiền) rồi khởi động lại web.</p>
 {% else %}
 <section class="metrics" aria-label="GPU overview">
-  <div class="metric-card"><span class="eyebrow">RENTALS</span><strong>{{ rentals|length }}</strong><span>Recorded in this workspace</span></div>
-  <div class="metric-card"><span class="eyebrow">MAY BE BILLING</span><strong class="metric-warning">{{ rentals|selectattr('status', 'in', billable)|list|length }}</strong><span>Not yet confirmed destroyed</span></div>
-  <div class="metric-card"><span class="eyebrow">NEEDS ATTENTION</span><strong>{{ rentals|selectattr('status', 'in', attention)|list|length }}</strong><span>Unknown outcome — reconcile first</span></div>
-  <div class="metric-card"><span class="eyebrow">ORPHANS</span><strong{% if orphans %} class="metric-warning"{% endif %}>{{ orphans|length }}</strong><span>{% if gpu.orphans_error %}Không kiểm được: {{ gpu.orphans_error }}{% elif gpu.orphans_checked_at %}Kiểm lúc {{ gpu.orphans_checked_at.strftime("%H:%M:%S") }} UTC{% else %}Chưa kiểm{% endif %}</span></div>
+  {{ metric('CÓ THỂ ĐANG TÍNH PHÍ', rentals|selectattr('status','in',billable)|list|length, 'Chưa được xác nhận destroyed', 'warn') }}
+  {{ metric('GPU SẴN SÀNG', rentals|selectattr('status','equalto','ready')|list|length, 'Đã qua health & smoke test') }}
+  {{ metric('CẦN ĐỐI SOÁT', rentals|selectattr('status','in',attention)|list|length, 'Không gửi lại lệnh khi chưa rõ') }}
+  {{ metric('CHI PHÍ ƯỚC TÍNH', '$%.3f'|format(rental_costs.values()|sum(attribute='accrued_est')), 'Không phải hóa đơn; chưa tính bandwidth') }}
 </section>
+{% set unresolved = rentals|selectattr('status','in',attention)|list %}
+{% if unresolved %}<div class="alert red">{{ icon('alert') }}<div><strong>{{ unresolved|length }} GPU cần đối soát</strong><p>Có thể còn phát sinh chi phí. Kiểm tra kết quả với provider trước khi gửi thao tác khác.</p></div><a class="button danger" href="/gpu/instances/{{ unresolved[0].rental_id }}">Mở máy cần xử lý</a></div>{% endif %}
+<section class="card" data-tabs data-initial-tab="{{ 'gpu-offers' if request.query_params.get('tab') == 'offers' or request.query_params.get('search') else 'gpu-rentals' }}">
+<nav class="tabs" aria-label="GPU views"><a href="#gpu-rentals" data-tab="gpu-rentals">Máy của tôi</a><a href="#gpu-offers" data-tab="gpu-offers">Tìm GPU</a></nav>
+<div id="gpu-rentals" data-tab-panel>
+  <section class="production-list">
+    <div class="section-heading"><div><p class="eyebrow">YOUR RENTALS</p><h2>Máy đã thuê</h2></div><span class="muted small">{{ rentals|length }} rental(s)</span></div>
+    <div class="table-scroll rental-table">
+      <table class="production-table">
+        <thead><tr><th>Rental / GPU</th><th>Trạng thái</th><th>Giá mỗi giờ</th><th>Ước tính đã dùng</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          {% for r in rentals %}
+          <tr>
+            <td class="story-cell"><span class="story-icon" aria-hidden="true">▣</span><span><a class="story-title" href="/gpu/instances/{{ r.rental_id }}">{{ r.offer.num_gpus }}× {{ r.offer.gpu_name }}</a><small>{{ r.rental_id }}{% if r.provider_instance_id %} · {{ r.provider_instance_id }}{% endif %}</small></span></td>
+            <td>{{ rental_chip(r.status) }}</td>
+            <td class="cost-cell">${{ "%.3f"|format(r.offer.dph_total) }}/giờ</td>
+            <td class="cost-cell">${{ "%.3f"|format(rental_costs[r.rental_id].accrued_est) }}</td>
+            <td><a class="text-link" href="/gpu/instances/{{ r.rental_id }}" aria-label="Chi tiết {{ r.rental_id }}">Chi tiết →</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5"><div class="empty-state"><strong>Chưa có GPU đã thuê.</strong><p>Chọn Tìm GPU để xem offer và xác nhận báo giá.</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  </div><div id="gpu-offers" data-tab-panel>
+  <section class="create-panel" id="find-offer">
+    <div class="section-heading"><div><p class="eyebrow">FIND AN OFFER</p><h2>Tìm cấu hình phù hợp</h2></div></div>
+    <form method="get" action="/gpu" class="stack-form" hx-get="/gpu/offers" hx-target="#offers" hx-swap="innerHTML" hx-indicator="#offer-loading">
+      <input type="hidden" name="search" value="1">
+      <label for="min_gpu_ram_gb">VRAM tối thiểu (GB)</label>
+      <input id="min_gpu_ram_gb" type="number" min="1" step="1" name="min_gpu_ram_gb" value="{{ "%g"|format(filters.min_gpu_ram_gb) }}">
+      <label for="disk_gb">Disk (GB)</label>
+      <input id="disk_gb" type="number" min="10" step="1" name="disk_gb" value="{{ "%g"|format(filters.disk_gb) }}">
+      <label for="max_dph">Giá tối đa USD/giờ (tùy chọn)</label>
+      <input id="max_dph" type="number" min="0" step="0.01" name="max_dph" value="{{ filters.max_dph if filters.max_dph is not none else '' }}">
+      <p class="small muted">Offer thiếu VRAM, disk hoặc chưa verified bị loại kể cả khi rẻ hơn.</p>
+      <button class="primary button block" type="submit">Tìm offer →</button><span class="loading-indicator" id="offer-loading" role="status">Đang tìm GPU…</span>
+    </form>
+  </section>
+<section aria-live="polite">
+  <div class="section-heading"><div><p class="eyebrow">OFFERS</p><h2>Offer từ provider</h2></div></div>
+  <div id="offers">{% if offers is none and not offer_error %}<p class="muted small">Search to see offers. Không tìm tự động để tránh gọi provider mỗi lần mở trang.</p>{% else %}{% include "_gpu_offers.html" %}{% endif %}</div>
+</section></div></section>
 {% include "_gpu_limits.html" %}
 {% if over_limits %}
 <section class="card" aria-label="Rentals vượt giới hạn" role="alert">
@@ -54,45 +99,7 @@
   </div>
 </section>
 {% endif %}
-<div class="dashboard-grid">
-  <section class="card production-list">
-    <div class="section-heading"><div><p class="eyebrow">YOUR RENTALS</p><h2>Instances</h2></div><span class="muted small">{{ rentals|length }} rental(s)</span></div>
-    <div class="table-scroll">
-      <table class="production-table">
-        <thead><tr><th>Rental / GPU</th><th>Status</th><th>Giá ước tính</th><th><span class="sr-only">Actions</span></th></tr></thead>
-        <tbody>
-          {% for r in rentals %}
-          <tr>
-            <td class="story-cell"><span class="story-icon" aria-hidden="true">▣</span><span><a class="story-title" href="/gpu/instances/{{ r.rental_id }}">{{ r.offer.num_gpus }}× {{ r.offer.gpu_name }}</a><small>{{ r.rental_id }}{% if r.provider_instance_id %} · {{ r.provider_instance_id }}{% endif %}</small></span></td>
-            <td>{{ rental_chip(r.status) }}</td>
-            <td class="cost-cell">${{ "%.3f"|format(r.offer.dph_total) }}/giờ</td>
-            <td><a class="text-link" href="/gpu/instances/{{ r.rental_id }}" aria-label="Chi tiết {{ r.rental_id }}">Details →</a></td>
-          </tr>
-          {% else %}
-          <tr><td colspan="4"><div class="empty-state"><strong>No GPU rented.</strong><p>Search offers to rent one on demand.</p></div></td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-  <section class="card create-panel" id="find-offer">
-    <div class="section-heading"><div><p class="eyebrow">FIND AN OFFER</p><h2>Requirements</h2></div></div>
-    <form method="get" action="/gpu" class="stack-form" hx-get="/gpu/offers" hx-target="#offers" hx-swap="innerHTML">
-      <input type="hidden" name="search" value="1">
-      <label for="min_gpu_ram_gb">Min VRAM (GB)</label>
-      <input id="min_gpu_ram_gb" type="number" min="1" step="1" name="min_gpu_ram_gb" value="{{ "%g"|format(filters.min_gpu_ram_gb) }}">
-      <label for="disk_gb">Disk (GB)</label>
-      <input id="disk_gb" type="number" min="10" step="1" name="disk_gb" value="{{ "%g"|format(filters.disk_gb) }}">
-      <label for="max_dph">Max USD/giờ (optional)</label>
-      <input id="max_dph" type="number" min="0" step="0.01" name="max_dph" value="{{ filters.max_dph if filters.max_dph is not none else '' }}">
-      <p class="small muted">Offer thiếu VRAM, disk hoặc chưa verified bị loại kể cả khi rẻ hơn.</p>
-      <button class="primary button block" type="submit">Search offers →</button>
-    </form>
-  </section>
-</div>
-<section class="card" aria-live="polite">
-  <div class="section-heading"><div><p class="eyebrow">OFFERS</p><h2>Available offers</h2></div></div>
-  <div id="offers">{% if offers is none and not offer_error %}<p class="muted small">Search to see offers. Không tìm tự động để tránh gọi provider mỗi lần mở trang.</p>{% else %}{% include "_gpu_offers.html" %}{% endif %}</div>
-</section>
+
+<p class="small muted">Provider · {{ gpu.provider_key }} · Kiểm orphan: {% if gpu.orphans_error %}Không kiểm được: {{ gpu.orphans_error }}{% elif gpu.orphans_checked_at %}{{ gpu.orphans_checked_at.strftime("%H:%M:%S") }} UTC{% else %}chưa kiểm{% endif %}</p>
 {% endif %}
 {% endblock %}
