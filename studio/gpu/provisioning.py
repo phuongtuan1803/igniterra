@@ -1,17 +1,19 @@
-"""Manifest provisioning đã duyệt và báo cáo tiến độ từ instance (09 · Provisioning trên instance).
+"""Manifest provisioning đã duyệt và báo cáo từ instance (09 · Provisioning trên instance).
 
-Manifest là đầu vào duy nhất của provisioning: không có shell tùy ý từ form. Nó khai báo theo provisioner của
-base-image (``PROVISIONING_MANIFEST``):
+Đầu vào khai báo gồm repo ghim commit, model Hugging Face ghim revision + SHA-256, disk và
+``on_failure: destroy``. Studio sinh YAML có lệnh cài requirements cố định và service ComfyUI sau Caddy;
+không nhận shell tùy ý từ form. Manifest chuẩn hóa được duyệt trong SQLite trước khi thuê, rồi ghi vào
+``data/gpu/<rental_id>/provisioning.yaml`` và chuyển lên instance bằng ``onstart``.
 
-- ``git_repos``: ComfyUI và custom node, ``ref`` là full commit SHA (branch trôi theo thời gian).
-- ``downloads``: model từ Hugging Face dạng ``/resolve/<commit>/<file>``, kèm dung lượng và SHA-256 (giá trị LFS)
-  để duyệt và kiểm disk trước khi trả tiền.
-- ``on_failure``: ``action: destroy``, ``max_retries`` nhỏ (mặc định của provisioner là ``continue``: instance
-  hỏng vẫn tính phí).
+Model chỉ được coi là đạt khi SHA-256 khớp manifest. Script cố định chờ ``/.provisioning_complete``, băm các
+đích đã kiểm và quote, rồi ghi ``output/igniterra/model_sha256.txt`` bằng file tạm + ``mv``. Worker dùng
+``ProvisioningReport.files`` nếu có, thiếu thì đọc file qua ``GET /view`` có TLS + Bearer đã kiểm. Hash thiếu
+thì chờ tới ``provision_timeout_s``; hash lệch thì fail và destroy.
 
-Manifest được lưu ở ``gpu_manifests`` (khóa SHA-256 của JSON chuẩn hóa), duyệt một lần rồi mới gắn vào rental;
-lúc thuê ghi ra ``data/gpu/<rental_id>/provisioning.yaml``. Tên khóa YAML theo mô tả ở 09 · s5.b2; kiểm lại với
-provisioner thật của base-image ở lát E.
+Studio không kết nối SSH: dùng lại kênh HTTPS đã xác thực tránh giữ thêm khóa và quản lý known_hosts. Cả hai
+kênh đều nhận hash do instance tính, không chứng minh host đáng tin. Chế độ launch của provider vẫn có thể mở
+cổng SSH; nếu bổ sung client SSH sau này phải ghim host key và giữ ``StrictHostKeyChecking=yes``. Quyết định,
+nguồn schema và giới hạn được ghi ở 09 · s5.b4–s5.b5 và runbook Slice E.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shlex
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -33,6 +36,13 @@ SAFE_DEST = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")
 WORKSPACE = "/workspace"
 COMFYUI_DIR = f"{WORKSPACE}/ComfyUI"
 REMOTE_MANIFEST = "/etc/igniterra/provisioning.yaml"
+REMOTE_CHECKSUM_SCRIPT = "/etc/igniterra/model_sha256.sh"
+PROVISIONING_COMPLETE = "/.provisioning_complete"
+CHECKSUM_SUBFOLDER = "igniterra"            # dưới ComfyUI/output/: đọc lại qua GET /view (type=output)
+CHECKSUM_FILE = "model_sha256.txt"
+CHECKSUM_MAX_BYTES = 256 * 1024
+PORTAL_CONFIG = "localhost:1111:11111:/:Instance Portal|localhost:8188:18188:/:ComfyUI"
+BOOT_COMMAND = "/opt/instance-tools/bin/entrypoint.sh --no-update-portal --no-update-vast"
 MAX_RETRIES_LIMIT = 3
 GB = 1_000_000_000
 
@@ -79,12 +89,19 @@ class ProvisioningManifest(BaseModel):
         return round(self.runtime_disk_gb + self.download_bytes() * 1.1 / GB, 2)
 
     def provisioner(self) -> dict:
-        """Dạng provisioner nhận: chỉ ``git_repos``, ``downloads``, ``on_failure`` với đường dẫn tuyệt đối."""
-        repos = [{"url": self.comfyui.url, "ref": self.comfyui.ref, "dest": COMFYUI_DIR}]
-        repos += [{"url": r.url, "ref": r.ref, "dest": f"{COMFYUI_DIR}/custom_nodes/{r.dest}"} for r in self.custom_nodes]
+        """Manifest provisioner với repo/model đã duyệt, lệnh cài cố định và service ComfyUI sau proxy."""
+        install = "uv pip install --python /venv/main/bin/python -r requirements.txt"
+        repos = [{"url": self.comfyui.url, "ref": self.comfyui.ref, "dest": COMFYUI_DIR,
+                  "post_commands": [install]}]
+        repos += [{"url": r.url, "ref": r.ref, "dest": f"{COMFYUI_DIR}/custom_nodes/{r.dest}",
+                   "post_commands": [f"if test -f requirements.txt; then {install}; fi"]} for r in self.custom_nodes]
         return {
+            "version": 1,
             "git_repos": repos,
             "downloads": [{"url": d.url, "dest": f"{COMFYUI_DIR}/models/{d.dest}"} for d in self.downloads],
+            "services": [{"name": "comfyui", "portal_search_term": "ComfyUI", "venv": "/venv/main",
+                          "workdir": COMFYUI_DIR, "skip_on_serverless": False,
+                          "command": "python main.py --listen 127.0.0.1 --port 18188 --disable-auto-launch"}],
             "on_failure": {"action": self.on_failure.action, "max_retries": self.on_failure.max_retries},
         }
 
@@ -178,6 +195,42 @@ def render(manifest: ProvisioningManifest, manifest_sha256: str) -> str:
     return header + to_yaml(manifest.provisioner()) + "\n"
 
 
+def checksum_script(manifest: ProvisioningManifest) -> str | None:
+    """Script sh tính SHA-256 các model của manifest sau khi provisioning xong (xem docstring đầu module).
+
+    None khi manifest không có model. Chỉ nhận manifest đã qua ``validate`` (đích theo ``dest_ok``); vẫn
+    ``shlex.quote`` từng đường dẫn, không ghép chuỗi thô vào lệnh.
+    """
+    if not manifest.downloads:
+        return None
+    for download in manifest.downloads:
+        if not dest_ok(download.dest):
+            raise ValueError(f"đích model lạ: {download.dest!r}")
+    paths = " ".join(shlex.quote(d.dest) for d in manifest.downloads)
+    out_dir = f"{COMFYUI_DIR}/output/{CHECKSUM_SUBFOLDER}"
+    target = f"{out_dir}/{CHECKSUM_FILE}"
+    return ("#!/bin/sh\n"
+            "# igniterra: SHA-256 model sau provisioning (provisioner không kiểm checksum; 09 · s5.b2)\n"
+            f"while [ ! -f {PROVISIONING_COMPLETE} ]; do sleep 15; done\n"
+            f"mkdir -p {out_dir} || exit 1\n"
+            f"cd {COMFYUI_DIR}/models || exit 1\n"
+            f"sha256sum -- {paths} > {target}.part\n"
+            f"mv -f {target}.part {target}\n")
+
+
+def parse_sha256sum(text: str) -> dict[str, str]:
+    """Dòng ``<64 hex>  <đường dẫn>`` (hoặc ``*<đường dẫn>`` chế độ nhị phân) của ``sha256sum`` → {đường dẫn: hash}.
+
+    Dòng lạ bị bỏ qua; đường dẫn không qua ``dest_ok`` cũng bỏ (không khớp được model nào trong manifest).
+    """
+    files = {}
+    for line in text.splitlines():
+        match = re.fullmatch(r"([0-9a-fA-F]{64}) [ *](.+)", line.strip())
+        if match and dest_ok(match.group(2)):
+            files[match.group(2)] = match.group(1).lower()
+    return files
+
+
 # ------------------------------------------------------------ báo cáo tiến độ từ instance
 
 PROVISION_STEPS = ("runtime_setup", "custom_nodes", "models")   # bước do provisioner chạy trên instance
@@ -198,7 +251,7 @@ class ProvisioningReport(BaseModel):
     """Trạng thái provisioning đọc qua Instance Portal (có xác thực).
 
     ``complete`` nghĩa là ``/.provisioning_complete`` đã có. ``files`` là SHA-256 instance tính cho model đã tải
-    (nếu có); thiếu thì bước models ghi ``checksum_unverified``.
+    (nếu có); thiếu thì đọc file do ``checksum_script`` ghi qua ComfyUI. Chưa có hash thì chưa ``ready``.
     """
 
     complete: bool = False

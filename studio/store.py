@@ -535,21 +535,35 @@ class Store:
                            (rental_id, stamp, f"{expect}→{status}", error_code, detail))
         return bool(changed)
 
-    def release_rental(self, rental_id: str, version: int, run_id: str, executing: tuple[str, ...]) -> bool:
+    def release_rental(self, rental_id: str, version: int, run_id: str, executing: tuple[str, ...],
+                       idle_deadline: str | None = None) -> bool:
         """``busy→ready`` (CAS theo version) chỉ khi không còn run nào khác của rental ở ``executing``; cùng một câu
-        UPDATE nên run mới vừa ghi mà chưa giành máy không bị nhả nhầm."""
+        UPDATE nên run mới vừa ghi mà chưa giành máy không bị nhả nhầm. Hạn idle TTL tính lại từ lúc nhả."""
         stamp = utc_now()
         marks = ",".join("?" * len(executing))
         with self.connect() as db:
             changed = db.execute(
-                "UPDATE gpu_rentals SET status='ready', version=version+1, updated_at=? "
+                "UPDATE gpu_rentals SET status='ready', version=version+1, updated_at=?, idle_deadline=? "
                 "WHERE rental_id=? AND status='busy' AND version=? AND NOT EXISTS "
                 f"(SELECT 1 FROM comfy_runs WHERE rental_id=? AND run_id<>? AND status IN ({marks}))",
-                (stamp, rental_id, version, rental_id, run_id, *executing)).rowcount
+                (stamp, idle_deadline, rental_id, version, rental_id, run_id, *executing)).rowcount
             if changed:
                 db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, detail) VALUES (?,?,?,?)",
                            (rental_id, stamp, "busy→ready", f"run {run_id} xong phần chạy trên GPU"))
         return bool(changed)
+
+    def touch_rental_idle(self, rental_id: str, idle_deadline: str) -> bool:
+        """Lùi hạn idle TTL khi có hoạt động (studio gọi runtime của rental). Không tăng ``version``: hoạt động không
+        đổi trạng thái, và không được làm CAS của bên khác thua. Chỉ lùi về sau, không bao giờ kéo hạn sớm lại.
+
+        Destroy do idle TTL kèm điều kiện ``idle_deadline <= now`` trong câu CAS (``begin_destroy``), nên một lần
+        chạm chen giữa lượt đọc và CAS làm destroy đó thua thay vì hủy máy vừa được dùng.
+        """
+        with self.connect() as db:
+            return bool(db.execute(
+                "UPDATE gpu_rentals SET idle_deadline=? WHERE rental_id=? AND status IN ('ready','busy') "
+                "AND (idle_deadline IS NULL OR julianday(idle_deadline) < julianday(?))",
+                (idle_deadline, rental_id, idle_deadline)).rowcount)
 
     def add_gpu_event(self, rental_id: str, transition: str, error_code: str | None = None, detail: str | None = None) -> None:
         with self.connect() as db:
@@ -785,13 +799,16 @@ class Store:
             return db.execute("SELECT download_attempts FROM comfy_runs WHERE run_id=?", (run_id,)).fetchone()[0]
 
     def begin_destroy(self, rental_id: str, version: int, *, expect: str, unresolved: tuple[str, ...],
-                      abandon_detail: str | None = None) -> list[str] | None:
+                      abandon_detail: str | None = None, idle_before: str | None = None,
+                      detail: str | None = None) -> list[str] | None:
         """``expect→destroying`` (CAS theo version) gắn với điều kiện run ComfyUI, tất cả trong một giao dịch (G11).
 
         ``abandon_detail`` là None: câu UPDATE kèm ``NOT EXISTS`` run của rental ở ``unresolved`` (như
         ``release_rental``), nên run vừa giành máy sau lượt đọc của người gọi làm CAS thua thay vì bị bỏ quên.
         Có ``abandon_detail`` (người vận hành đã xác nhận bỏ output): không chặn, và mọi run ``unresolved`` có tại
         lúc CAS thành công → ``abandoned`` ngay trong giao dịch đó, không dựa vào danh sách đọc trước.
+        ``idle_before`` (destroy do idle TTL): thêm điều kiện hạn idle đã qua ngay trong câu CAS. Hoạt động chạm hạn
+        idle không tăng ``version`` (``touch_rental_idle``), nên chỉ CAS theo version không thấy nó.
         Trả None khi CAS thua; ngược lại là danh sách run đã bỏ (rỗng nếu không có).
         """
         stamp = utc_now()
@@ -800,6 +817,9 @@ class Store:
         if abandon_detail is None:
             guard = f" AND NOT EXISTS (SELECT 1 FROM comfy_runs WHERE rental_id=? AND status IN ({marks}))"
             args = (rental_id, *unresolved)
+        if idle_before is not None:
+            guard += " AND (idle_deadline IS NULL OR julianday(idle_deadline) <= julianday(?))"
+            args = (*args, idle_before)
         abandoned: list[str] = []
         with self.connect() as db:
             changed = db.execute(
@@ -808,8 +828,8 @@ class Store:
                 (stamp, rental_id, expect, version, *args)).rowcount
             if not changed:
                 return None
-            db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition) VALUES (?,?,?)",
-                       (rental_id, stamp, f"{expect}→destroying"))
+            db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, detail) VALUES (?,?,?,?)",
+                       (rental_id, stamp, f"{expect}→destroying", detail))
             if abandon_detail is None:
                 return abandoned
             # Giao dịch đã giữ khóa ghi từ câu UPDATE trên: không run nào đổi trạng thái chen giữa lúc đọc và bỏ.

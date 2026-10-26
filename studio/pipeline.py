@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import time
 import traceback
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -383,17 +384,26 @@ def worker(store: Store, config: dict, once: bool = False, task_id: str | None =
     for requeued in store.requeue_running():
         log.info("%s: running → pending (worker khởi động lại)", requeued)
     series.recover_series_jobs(store, config)
-    while True:
-        job = None if task_id else store.claim_series_job()
-        if job:
-            log.info("series %s: ảnh tham chiếu %s/%s → %s", job["series"], job["character"], job["view"],
-                     series.run_series_job(store, config, job))
-            continue
-        claimed = (task_id if store.claim_one(task_id) else None) if task_id else store.claim()
-        if claimed:
-            status = run_task(store, config, claimed)
-            log.info("%s: %s", claimed, status)
-            continue
-        if once:
-            return
-        time.sleep(float(config["worker"]["poll_s"]))
+    from studio.gpu import service as gpu_service
+
+    guard_stop = threading.Event()
+    guard = gpu_service.start_guard(store, config, stop=guard_stop) if not once and not task_id else None
+    try:
+        while True:
+            job = None if task_id else store.claim_series_job()
+            if job:
+                log.info("series %s: ảnh tham chiếu %s/%s → %s", job["series"], job["character"], job["view"],
+                         series.run_series_job(store, config, job))
+                continue
+            claimed = (task_id if store.claim_one(task_id) else None) if task_id else store.claim()
+            if claimed:
+                status = run_task(store, config, claimed)
+                log.info("%s: %s", claimed, status)
+                continue
+            if once:
+                return
+            time.sleep(float(config["worker"]["poll_s"]))
+    finally:
+        guard_stop.set()
+        if guard is not None:
+            guard.join(timeout=1)

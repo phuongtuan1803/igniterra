@@ -1,0 +1,10 @@
+<section class="card" aria-label="Giới hạn GPU">
+  <p class="eyebrow">LIMITS</p><h2>Giới hạn GPU</h2>
+  <p>Idle TTL: <strong>{{ limits.idle_ttl_minutes if limits.idle_ttl_minutes is not none else "tắt" }}</strong> phút ·
+    Thời gian thuê tối đa: <strong>{{ limits.max_runtime_minutes if limits.max_runtime_minutes is not none else "tắt" }}</strong> phút ·
+    Giá tối đa: <strong>{{ limits.max_hourly_usd if limits.max_hourly_usd is not none else "tắt" }}</strong> USD/giờ ·
+    Ngân sách ước tính mỗi rental: <strong>{{ limits.budget_usd() if limits.budget_usd() is not none else "tắt" }}</strong> USD.</p>
+  <p class="small muted">Cần worker đang chạy để tự động thực thi giới hạn; worker dừng hoặc mất kết nối thì máy vẫn tính phí.
+    Busy không tính idle. Không tự destroy khi output chưa tải/kiểm; cần tải output hoặc xác nhận bỏ ở trang rental.
+    Máy stopped vẫn tính phí disk và cần destroy thủ công. Giới hạn dựa trên ước tính, chưa tính băng thông.</p>
+</section>

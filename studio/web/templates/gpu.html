@@ -15,6 +15,21 @@
   <div class="metric-card"><span class="eyebrow">NEEDS ATTENTION</span><strong>{{ rentals|selectattr('status', 'in', attention)|list|length }}</strong><span>Unknown outcome — reconcile first</span></div>
   <div class="metric-card"><span class="eyebrow">ORPHANS</span><strong{% if orphans %} class="metric-warning"{% endif %}>{{ orphans|length }}</strong><span>{% if gpu.orphans_error %}Không kiểm được: {{ gpu.orphans_error }}{% elif gpu.orphans_checked_at %}Kiểm lúc {{ gpu.orphans_checked_at.strftime("%H:%M:%S") }} UTC{% else %}Chưa kiểm{% endif %}</span></div>
 </section>
+{% include "_gpu_limits.html" %}
+{% if over_limits %}
+<section class="card" aria-label="Rentals vượt giới hạn" role="alert">
+  <p class="eyebrow">NEEDS ACTION</p><h2>Rental vượt giới hạn</h2>
+  <ul>
+    {% for item in over_limits %}
+    <li><a href="/gpu/instances/{{ item.rental.rental_id }}">{{ item.rental.rental_id }}</a>:
+      {% for breach in item.breaches %}{{ breach.detail }}{% if not loop.last %}; {% endif %}{% endfor %}.
+      {% if item.unverified_runs %}<strong>Không tự destroy: output chưa tải/kiểm. Máy vẫn tính phí.</strong>
+      Tải output ở trang run hoặc xác nhận bỏ output rồi destroy ở trang rental.
+      {% else %}Worker sẽ gửi destroy ở lượt guardrail tiếp theo. Có thể destroy ngay ở trang rental.{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 <section class="card" aria-label="Provisioning manifest">
   <p class="eyebrow">PROVISIONING MANIFEST</p>
   {% if manifest %}

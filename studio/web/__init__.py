@@ -340,7 +340,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         return page(request, "gpu.html", gpu=gpu, rentals=rentals, filters=filters, offers=offers,
                     offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE, manifest=manifest,
                     manifest_view=gpu.manifest_view(manifest) if manifest else None,
-                    new_rental_id=gpu.new_rental_id if gpu else None, orphans=gpu.orphans if gpu else [])
+                    new_rental_id=gpu.new_rental_id if gpu else None, orphans=gpu.orphans if gpu else [],
+                    limits=gpu.limits if gpu else None, over_limits=gpu.over_limits() if gpu else [])
 
     @app.get("/gpu/offers", response_class=HTMLResponse)
     def gpu_offers_partial(request: Request):

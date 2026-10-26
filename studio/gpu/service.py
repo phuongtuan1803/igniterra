@@ -10,7 +10,15 @@ provisioning đã duyệt (``gpu_manifests``), ``WEB_PASSWORD`` riêng mỗi ren
 ``ready`` có bằng chứng (host chạy, kết nối có xác thực, ``/.provisioning_complete``, ``/system_stats``, smoke ra
 file), ``provision_failed`` rồi destroy theo ``on_failure`` (G05, nửa disk/dependency của G07). Lát D: runtime
 ComfyUI của rental ``ready`` cho ``studio.comfyui.service`` (``comfy_runtime``), ``ready⇄busy`` một run mỗi instance,
-và destroy cảnh báo khi còn run có output chưa tải/kiểm (G11). Idle TTL do worker thực thi thuộc lát E.
+và destroy cảnh báo khi còn run có output chưa tải/kiểm (G11). Lát E: guardrail idle TTL, ``max_runtime_minutes``,
+``max_hourly_usd`` do worker thực thi (``enforce_limits``, ``tick``, ``start_guard``); SHA-256 model kiểm qua kênh
+ComfyUI có xác thực thay cho SSH (lý do ở docstring của ``studio.gpu.provisioning``).
+
+Guardrail không bao giờ vượt G11: destroy tự động gọi ``_destroy`` không có ``accept_unverified_output``. Rental vượt
+giới hạn mà còn run có output chưa tải/kiểm thì KHÔNG destroy; ghi sự kiện ``limit_blocked``, log ERROR mỗi lượt, và
+trang ``/gpu`` hiện nó ở mục "vượt giới hạn" (``over_limits``) để người vận hành tải output hoặc xác nhận bỏ rồi
+destroy. Máy vẫn tính phí trong lúc đó: đó là đánh đổi có chủ ý, mất output đã trả tiền cũng là mất tiền và không
+lấy lại được, còn phí chạy thêm thì người vận hành dừng được ngay khi thấy cảnh báo.
 """
 
 from __future__ import annotations
@@ -19,10 +27,12 @@ import base64
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import secrets
 import sqlite3
+import threading
 import uuid
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -33,7 +43,7 @@ from pydantic import ValidationError
 from studio import config as studio_config
 from studio.comfyui import runtime as comfy
 from studio.comfyui.contracts import RUN_EXECUTING, RUN_UNRESOLVED
-from studio.gpu import adapters, costs, provisioning
+from studio.gpu import adapters, costs, limits, provisioning
 from studio.gpu.adapters.base import GPUError, GPUProvider, GPUUnknown
 from studio.gpu.contracts import (
     STEP_KEYS,
@@ -51,12 +61,14 @@ from studio.gpu.contracts import (
     Rental,
     label_for,
 )
+from studio.gpu.limits import Breach, Enforcement, Limits
 from studio.gpu.probe import InstanceProbe, PortalProbe, ProbeUnavailable
 from studio.gpu.provisioning import NON_RETRYABLE, PROVISION_STEPS, ProvisioningManifest
 from studio.store import Store
 
 QUOTE_TTL_S = 300
 PROVISION_TIMEOUT_S = 3600             # quá hạn mà chưa ready → provision_failed, destroy
+GUARD_INTERVAL_S = 60                  # chu kỳ guardrail trong worker (poll + enforce_limits + reconcile destroy)
 PASSWORD_FILE = "web_password"
 MANIFEST_FILE = "provisioning.yaml"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -125,12 +137,13 @@ class GPUService:
     def __init__(self, store: Store, provider: GPUProvider, *, image: str = "", quote_ttl_s: float = QUOTE_TTL_S,
                  clock: Callable[[], datetime] = utc_now, data_dir: Path | None = None,
                  probe_factory: Callable[[Instance, str], InstanceProbe] | None = None, portal: dict | None = None,
-                 provision_timeout_s: float = PROVISION_TIMEOUT_S):
+                 provision_timeout_s: float = PROVISION_TIMEOUT_S, limits: Limits | None = None):
         self.store = store
         self.provider = provider
         self.image = image
         self.quote_ttl_s = quote_ttl_s
         self.clock = clock
+        self.limits = limits or Limits()
         # data/gpu/<rental_id>/: provisioning.yaml và web_password (quyền 600, không vào SQLite/HTML).
         self.data_dir = Path(data_dir) if data_dir else Path(store.path).parent / "gpu"
         self.probe_factory = probe_factory or (lambda instance, token: PortalProbe.for_instance(instance, token, portal))
@@ -190,6 +203,10 @@ class GPUService:
         if offer is None:
             raise GPUServiceError(f"offer {quote.offer_id} không còn hoặc không khớp yêu cầu")
         problems = check_offer(offer, filters) + self.check_quote(quote, offer)
+        hourly = costs.hourly(offer, filters.disk_gb)
+        if self.limits.max_hourly_usd is not None and hourly > self.limits.max_hourly_usd:
+            problems.append(f"giá ước tính ${hourly:.3f}/giờ (compute + disk) > max_hourly_usd "
+                            f"${self.limits.max_hourly_usd:.3f}")
         if problems:
             raise GPUServiceError(f"offer {offer.offer_id} bị loại: " + "; ".join(problems))
         record = self.manifest(manifest_sha256) if manifest_sha256 else self.approved_manifest()
@@ -203,8 +220,9 @@ class GPUService:
         password = secrets.token_urlsafe(24)
         try:
             spec = InstanceSpec(label=label_for(rental_id), image=self.image, disk_gb=filters.disk_gb,
-                                onstart=_onstart(yaml_text),
-                                env={"WEB_PASSWORD": password, "ENABLE_AUTH": "true",
+                                onstart=_onstart(yaml_text, provisioning.checksum_script(manifest)),
+                                env={"WEB_PASSWORD": password, "ENABLE_AUTH": "true", "ENABLE_HTTPS": "true",
+                                     "PORTAL_CONFIG": provisioning.PORTAL_CONFIG,
                                      "PROVISIONING_MANIFEST": provisioning.REMOTE_MANIFEST})
         except ValidationError as exc:
             raise GPUServiceError(f"cấu hình [gpu] image: {exc.errors()[0]['msg']}") from None
@@ -391,10 +409,25 @@ class GPUService:
         lượt kiểm đầu mà trước lượt đọc rental vẫn qua được CAS. Có xác nhận thì các run bị bỏ là đúng tập có lúc CAS,
         trong cùng giao dịch.
         """
+        return self._destroy(rental_id, accept_unverified_output=accept_unverified_output)
+
+    def _destroy(self, rental_id: str, *, accept_unverified_output: bool = False, idle_before: str | None = None,
+                 reason: str | None = None) -> Rental:
+        """Thân của ``destroy``. ``idle_before``/``reason`` chỉ guardrail dùng: điều kiện hạn idle đã qua nằm trong câu
+        CAS, và lý do ghi vào sự kiện ``→destroying``. Guardrail không bao giờ truyền ``accept_unverified_output``."""
         unresolved = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
         if unresolved and not accept_unverified_output:
             raise UnverifiedOutput(rental_id, unresolved)
         rental = self.rental(rental_id)
+        if reason is not None:
+            if rental.provider_key != self.provider_key or rental.label != label_for(rental_id):
+                raise GPUServiceError("guardrail: provider hoặc label của rental không khớp; cần người vận hành")
+            if idle_before is not None and rental.status != "ready":
+                raise GPUServiceError("guardrail: rental không còn idle")
+            if rental.provider_instance_id:
+                instance = self.provider.get_instance(rental.provider_instance_id)
+                if instance is not None and instance.label != rental.label:
+                    raise GPUServiceError("guardrail: label instance không khớp; không tự destroy")
         if rental.status == "destroy_unknown":
             operations = self.store.gpu_operations(rental_id, "destroy")
             # Không dựa vào thứ tự: còn bất kỳ lượt nào chưa rõ (unknown, accepted, sent) thì chỉ reconcile.
@@ -407,7 +440,8 @@ class GPUService:
         op_id = self._start_operation(rental_id, "destroy", rental.provider_instance_id)
         detail = "người vận hành xác nhận destroy, bỏ output chưa tải/kiểm" if accept_unverified_output else None
         if self.store.begin_destroy(rental_id, rental.version, expect=rental.status, unresolved=RUN_UNRESOLVED,
-                                    abandon_detail=detail) is None:
+                                    abandon_detail=detail, idle_before=idle_before,
+                                    detail=self._clean(reason) if reason else None) is None:
             self.store.finish_gpu_operation(op_id, "rejected")       # chưa gửi gì tới provider
             if not accept_unverified_output:
                 # CAS thua vì run mới chen vào (hoặc cùng lúc với đổi trạng thái): báo đúng run đang có, không danh
@@ -554,6 +588,11 @@ class GPUService:
     def _provision_deadline(self) -> str:
         return (self.clock() + timedelta(seconds=self.provision_timeout_s)).isoformat(timespec="seconds")
 
+    def _idle_deadline(self) -> str | None:
+        if self.limits.idle_ttl_minutes is None:
+            return None
+        return (self.clock() + timedelta(minutes=self.limits.idle_ttl_minutes)).isoformat(timespec="seconds")
+
     # ------------------------------------------------------------ provisioning → ready (lát C)
 
     def poll(self) -> list[Rental]:
@@ -647,6 +686,10 @@ class GPUService:
         if not report.complete:
             raise _Wait                    # chưa có /.provisioning_complete
 
+        # models: tải xong chưa đủ; SHA-256 từng file phải khớp manifest (không SSH, xem studio.gpu.provisioning).
+        if steps["models"]["status"] not in ("done", "skipped"):
+            self._verify_models(steps, rental_id, manifest, report, probe.comfy)
+
         # health_smoke: /system_stats rồi một workflow smoke ra file.
         self._start(steps, rental_id, "health_smoke")
         try:
@@ -680,7 +723,11 @@ class GPUService:
             return
         if step is None:
             if report.complete:
-                self._finish(steps, rental_id, key)
+                if key == "models":        # provisioner không báo bước models: vẫn phải kiểm SHA-256 sau đó
+                    if steps[key]["status"] not in ("running", "done"):
+                        self._running(steps, rental_id, key, {})
+                else:
+                    self._finish(steps, rental_id, key)
                 return
             raise _Wait
         fields = {"attempt": max(step.attempt, 1)}
@@ -707,24 +754,51 @@ class GPUService:
         if step.status == "running":
             self._running(steps, rental_id, key, fields)
             raise _Wait
-        if key == "models" and steps[key]["status"] != "done":
-            self._check_models(rental_id, manifest, report)
+        if key == "models":
+            # Provisioner tải xong; bước chỉ ``done`` khi SHA-256 đã kiểm (``_verify_models``, sau provisioning_complete).
+            if steps[key]["status"] != "done":
+                self._running(steps, rental_id, key, fields)
+            return
         self._finish(steps, rental_id, key, **fields)
 
-    def _check_models(self, rental_id: str, manifest: ProvisioningManifest,
-                      report: provisioning.ProvisioningReport) -> None:
-        """SHA-256 instance báo phải khớp manifest; không có số liệu thì ghi ``checksum_unverified``, không đoán."""
-        unverified = []
+    def _verify_models(self, steps: dict, rental_id: str, manifest: ProvisioningManifest,
+                       report: provisioning.ProvisioningReport, runtime: comfy.ComfyUIRuntime) -> None:
+        """SHA-256 từng model phải khớp manifest (giá trị LFS của Hugging Face) trước khi bước ``models`` xong.
+
+        Nguồn: ``report.files`` nếu portal có trả, không thì file ``sha256sum`` do ``checksum_script`` ghi, đọc qua
+        ``GET /view`` của cổng ComfyUI có xác thực. Lệch → ``_Fail``; thiếu → ``_Wait`` (script có thể đang băm file
+        lớn), ghi ``checksum_pending`` một lần; quá ``provision_timeout_s`` thì ``provision_timeout`` như mọi bước khác.
+        Không bao giờ coi model chưa kiểm là đạt.
+        """
+        def lookup(files: dict[str, str], dest: str) -> str | None:
+            got = files.get(f"{provisioning.COMFYUI_DIR}/models/{dest}") or files.get(dest)
+            return got.lower() if got else None
+
+        hashes = {d.dest: lookup(report.files, d.dest) for d in manifest.downloads}
+        if any(v is None for v in hashes.values()):
+            try:
+                data = runtime.view(provisioning.CHECKSUM_FILE, provisioning.CHECKSUM_SUBFOLDER, "output",
+                                    max_bytes=provisioning.CHECKSUM_MAX_BYTES)
+            except comfy.ComfyUIAuthError as exc:
+                raise _Fail("models", "auth_rejected", str(exc)) from None
+            except comfy.ComfyUIRejected:
+                data = b""                 # 404: script chưa ghi xong
+            except comfy.ComfyUIError:
+                raise _Wait from None
+            reported = provisioning.parse_sha256sum(data.decode("utf-8", "replace"))
+            hashes = {dest: got or lookup(reported, dest) for dest, got in hashes.items()}
         for download in manifest.downloads:
-            remote = f"{provisioning.COMFYUI_DIR}/models/{download.dest}"
-            got = report.files.get(remote) or report.files.get(download.dest)
-            if got is None:
-                unverified.append(download.dest)
-            elif got.lower() != download.sha256:
+            got = hashes[download.dest]
+            if got is not None and got != download.sha256:
                 raise _Fail("models", "checksum_mismatch", f"{download.dest}: SHA-256 {got[:12]}… ≠ {download.sha256[:12]}…")
-        if unverified:
-            self.store.add_gpu_event(rental_id, "models", "checksum_unverified",
-                                     "chưa có SHA-256 từ instance cho: " + ", ".join(unverified))
+        missing = sorted(dest for dest, got in hashes.items() if got is None)
+        if missing:
+            self._note_once(rental_id, "models", "checksum_pending",
+                            "chưa có SHA-256 từ instance cho: " + ", ".join(missing) + "; chưa ready")
+            raise _Wait
+        self.store.add_gpu_event(rental_id, "models", None,
+                                 f"SHA-256 khớp manifest: {len(hashes)} model ({', '.join(sorted(hashes))})")
+        self._finish(steps, rental_id, "models")
 
     def _smoke(self, rental_id: str, runtime: comfy.ComfyUIRuntime, max_retries: int) -> dict:
         """Workflow smoke ``EmptyImage → SaveImage`` với ``prompt_id`` ghi vào ``gpu_operations`` trước khi submit.
@@ -819,8 +893,8 @@ class GPUService:
             return self.rental(rental_id)
         log.warning("%s provision_failed ở %s (%s); destroy theo on_failure", rental_id, failure.step, failure.code)
         try:
-            return self.destroy(rental_id)
-        except GPUServiceError as exc:
+            return self._destroy(rental_id, reason=f"on_failure: {failure.code}")
+        except (GPUServiceError, GPUError) as exc:
             self.store.add_gpu_event(rental_id, "on_failure_destroy", "destroy_refused", self._clean(str(exc)))
             return self.rental(rental_id)
 
@@ -864,9 +938,13 @@ class GPUService:
         if instance is None:
             raise RentalUnreachable(f"provider không còn instance {rental.provider_instance_id}")
         try:
-            return self.probe_factory(instance, password).comfy
+            runtime = self.probe_factory(instance, password).comfy
         except ProbeUnavailable as exc:
             raise RentalUnreachable(f"{rental_id}: {exc}") from None
+        deadline = self._idle_deadline()
+        if deadline is not None:           # studio đang dùng rental (chạy, theo dõi, tải output): lùi hạn idle
+            self.store.touch_rental_idle(rental_id, deadline)
+        return runtime
 
     def claim_for_run(self, rental_id: str, run_id: str) -> bool:
         """``ready→busy`` bằng CAS: tối đa một run trên một instance. False khi rental không ``ready`` hoặc thua race."""
@@ -883,7 +961,8 @@ class GPUService:
         rental = self.rental(rental_id)
         if rental.status != "busy":
             return False
-        moved = self.store.release_rental(rental_id, rental.version, run_id, RUN_EXECUTING)
+        moved = self.store.release_rental(rental_id, rental.version, run_id, RUN_EXECUTING,
+                                          idle_deadline=self._idle_deadline())
         if moved:
             self._sample_cost(rental_id)
         return moved
@@ -896,11 +975,118 @@ class GPUService:
         """Che ``WEB_PASSWORD`` của mọi rental và khóa API trước khi ghi sự kiện hay hiện lỗi."""
         return self._clean(text)
 
+    # ------------------------------------------------------------ guardrail: idle TTL, thời gian thuê, chi phí (lát E)
+
+    def breaches(self, rental: Rental) -> list[Breach]:
+        """Giới hạn ``rental`` đang vượt theo đồng hồ và chi phí ước tính hiện tại (``studio.gpu.limits``)."""
+        return limits.check(rental, self.cost(rental.rental_id), self.limits, self.clock())
+
+    def over_limits(self) -> list[dict]:
+        """Rental đang vượt giới hạn, cho trang ``/gpu``. ``unverified_runs`` khác rỗng nghĩa là guardrail không tự
+        destroy được (G11): người vận hành phải tải output hoặc xác nhận bỏ rồi destroy, máy vẫn tính phí tới lúc đó."""
+        rows = []
+        for rental in self.rentals():
+            found = self.breaches(rental)
+            if found:
+                rows.append({"rental": rental, "breaches": found,
+                             "unverified_runs": self.unverified_runs(rental.rental_id)})
+        return rows
+
+    def enforce_limits(self) -> list[Enforcement]:
+        """Một lượt guardrail: rental ``provisioning``/``provision_failed``/``ready``/``busy`` vượt giới hạn thì destroy.
+
+        Destroy đi qua đúng đường của nút Destroy (operation ghi trước, CAS ``→destroying`` kèm điều kiện không còn
+        run chưa kiểm, ``destroy_unknown`` khi lỗi; G09, G11), không bao giờ kèm ``accept_unverified_output``. Rental
+        ``destroying``/``destroy_unknown`` không gửi destroy lần nữa (``tick`` reconcile chúng bằng GET). Một rental lỗi
+        không làm bỏ qua các rental khác.
+        """
+        results = []
+        for rental in self.rentals():
+            if rental.status not in limits.ENFORCED:
+                continue
+            try:
+                result = self._enforce(rental)
+            except (GPUServiceError, GPUError) as exc:
+                message = self._clean(str(exc))
+                log.warning("guardrail %s: %s", rental.rental_id, message)
+                self.store.add_gpu_event(rental.rental_id, "limit", "enforce_error", message)
+                continue
+            if result is not None:
+                results.append(result)
+        return results
+
+    def _enforce(self, rental: Rental) -> Enforcement | None:
+        found = self.breaches(rental)
+        if not found:
+            return None
+        rental_id = rental.rental_id
+        self._password(rental_id)  # rental có thể vừa được tạo bởi tiến trình web sau khi guard khởi động
+        kinds = ",".join(b.kind for b in found)
+        summary = self._clean("; ".join(b.detail for b in found))
+        # Chỉ vượt idle: điều kiện "hạn idle đã qua" đi cùng câu CAS, hoạt động chen giữa (không tăng version) làm
+        # destroy thua thay vì hủy máy vừa được dùng.
+        idle_only = all(b.kind == "idle_ttl" for b in found)
+        log.warning("GPU %s (%s) vượt giới hạn [%s]: %s; destroy", rental_id, rental.status, kinds, summary)
+        try:
+            self._destroy(rental_id, idle_before=self.clock().isoformat(timespec="seconds") if idle_only else None,
+                          reason=f"guardrail [{kinds}]: {summary}")
+        except GPUServiceError as exc:     # gồm UnverifiedOutput
+            error = exc
+        else:
+            current = self.rental(rental_id)
+            return Enforcement(rental_id=rental_id, status=current.status, breaches=found, outcome="destroy_sent")
+        # Destroy không đi. Đọc lại: bên khác đã đổi trạng thái (nút Destroy, run mới giành máy) thì không còn vượt.
+        current = self.rental(rental_id)
+        still = self.breaches(current)
+        if not still:
+            log.info("GPU %s: không còn vượt giới hạn sau khi đọc lại (%s)", rental_id, current.status)
+            return Enforcement(rental_id=rental_id, status=current.status, breaches=found, outcome="cleared")
+        summary = self._clean("; ".join(b.detail for b in still))
+        runs = [r["run_id"] for r in self.unverified_runs(rental_id)]
+        if runs:
+            log.error("GPU %s VƯỢT GIỚI HẠN nhưng KHÔNG tự destroy: còn %d run có output chưa tải/kiểm (%s); máy vẫn "
+                      "tính phí. Tải output hoặc xác nhận bỏ output rồi destroy trên /gpu/instances/%s. %s",
+                      rental_id, len(runs), ", ".join(runs), rental_id, summary)
+            self._note_once(rental_id, "limit_blocked", "unverified_output",
+                            f"{summary}; còn run có output chưa tải/kiểm: {', '.join(runs)}; không tự destroy (G11), "
+                            "cần người vận hành")
+            return Enforcement(rental_id=rental_id, status=current.status, breaches=still,
+                               outcome="blocked_unverified_output", runs=runs)
+        message = self._clean(str(error))[:300]
+        log.error("GPU %s VƯỢT GIỚI HẠN nhưng destroy bị từ chối: %s. %s", rental_id, message, summary)
+        self._note_once(rental_id, "limit_blocked", "destroy_refused", f"{summary}; destroy bị từ chối: {message}")
+        return Enforcement(rental_id=rental_id, status=current.status, breaches=still, outcome="refused", detail=message)
+
+    def tick(self) -> dict:
+        """Một lượt guardrail của worker (``start_guard``) và ``gpu poll``: poll provisioning, thực thi giới hạn, rồi
+        reconcile các destroy chưa xác nhận (chỉ GET, không gửi destroy lần nữa; G09)."""
+        for rental in self.rentals():
+            if rental.status == "create_unknown":
+                self.reconcile(rental.rental_id)
+        polled = self.poll()
+        enforced = self.enforce_limits()
+        for rental in self.rentals():
+            if rental.status in ("destroying", "destroy_unknown"):
+                try:
+                    self.reconcile(rental.rental_id)
+                except (GPUServiceError, GPUError) as exc:
+                    log.warning("reconcile %s: %s", rental.rental_id, self._clean(str(exc)))
+        return {"polled": polled, "enforced": enforced}
+
+    def _note_once(self, rental_id: str, transition: str, code: str, detail: str) -> None:
+        """Sự kiện lặp mỗi lượt poll (cùng ``transition`` và mã với sự kiện cuối) chỉ ghi một lần: ``gpu_events`` chỉ
+        thêm, không được phình theo số lượt worker."""
+        events = self.store.gpu_events(rental_id)
+        if events and (events[-1]["transition"], events[-1]["error_code"]) == (transition, code):
+            return
+        self.store.add_gpu_event(rental_id, transition, code, self._clean(detail))
+
     # ------------------------------------------------------------ chi phí ước tính
 
     def cost(self, rental_id: str) -> dict:
         """Chi phí ước tính tới hiện tại (không phải hóa đơn); giả định ghi ở ``studio.gpu.costs``."""
-        return costs.summary(self._cost_samples(rental_id), self.clock())
+        return {**costs.summary(self._cost_samples(rental_id), self.clock()),
+                "dph_total_includes_disk": self.rental(rental_id).offer.dph_total_includes_disk}
 
     def _cost_samples(self, rental_id: str) -> list[CostSample]:
         return [CostSample(**{k: row[k] for k in CostSample.model_fields}) for row in self.store.cost_samples(rental_id)]
@@ -924,6 +1110,8 @@ class GPUService:
         """CAS từ bản ghi đã đọc; False khi bên khác đã đổi trước. Chuyển trái TRANSITIONS là lỗi lập trình."""
         if status not in TRANSITIONS[rental.status]:
             raise GPUServiceError(f"chuyển trạng thái không hợp lệ: {rental.status}→{status}")
+        if status == "ready":
+            fields.setdefault("idle_deadline", self._idle_deadline())     # idle TTL tính từ lúc vào ready
         moved = self.store.transition_rental(rental.rental_id, rental.version, status, expect=rental.status,
                                              error_code=error_code, detail=self._clean(detail) if detail else None,
                                              **fields)
@@ -944,7 +1132,7 @@ class GPUService:
         return _rental(self.store.rental(rental_id))
 
     def rentals(self) -> list[Rental]:
-        return [_rental(row) for row in self.store.rentals()]
+        return [_rental(row) for row in self.store.rentals() if row["provider_key"] == self.provider_key]
 
     def timeline(self, rental_id: str) -> dict:
         rental = self.rental(rental_id)
@@ -959,7 +1147,10 @@ class GPUService:
                 "events": [GPUEvent(**{k: row[k] for k in GPUEvent.model_fields}) for row in self.store.gpu_events(rental_id)],
                 "operations": self.store.gpu_operations(rental_id),
                 "cost": self.cost(rental_id),
-                "unverified_runs": self.unverified_runs(rental_id)}
+                "unverified_runs": self.unverified_runs(rental_id),
+                "limits": self.limits, "breaches": self.breaches(rental),
+                "idle_deadline": limits.idle_deadline(rental, self.limits)
+                if rental.status in limits.IDLE_STATES else None}
 
 
 def _rental(row: dict) -> Rental:
@@ -976,11 +1167,21 @@ def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
-def _onstart(yaml_text: str) -> str:
-    """Ghi manifest đã duyệt lên instance cho provisioner; base64 nên không có dấu nháy, không chèn được lệnh."""
+def _onstart(yaml_text: str, checksum_script: str | None = None) -> str:
+    """Ghi manifest đã duyệt lên instance cho provisioner; base64 nên không có dấu nháy, không chèn được lệnh.
+
+    Có model thì ghi thêm script SHA-256 (``provisioning.checksum_script``, cũng base64) và chạy nền: nó chờ
+    ``/.provisioning_complete`` rồi mới tính, nên không chặn provisioner.
+    """
     encoded = base64.b64encode(yaml_text.encode()).decode()
     target = provisioning.REMOTE_MANIFEST
-    return f"mkdir -p {os.path.dirname(target)} && printf '%s' '{encoded}' | base64 -d > {target}"
+    command = f"mkdir -p {os.path.dirname(target)} && printf '%s' '{encoded}' | base64 -d > {target}"
+    if checksum_script:
+        script = provisioning.REMOTE_CHECKSUM_SCRIPT
+        encoded = base64.b64encode(checksum_script.encode()).decode()
+        command += (f" && printf '%s' '{encoded}' | base64 -d > {script} && chmod 700 {script}"
+                    f" && (nohup sh {script} >/dev/null 2>&1 &)")
+    return command + " && exec " + provisioning.BOOT_COMMAND
 
 
 def from_config(store: Store, config: dict) -> GPUService | None:
@@ -989,7 +1190,48 @@ def from_config(store: Store, config: dict) -> GPUService | None:
     if provider is None:
         return None
     gpu = config.get("gpu", {})
+    try:
+        guard = Limits(**gpu.get("limits", {}))
+    except ValidationError as exc:
+        raise GPUServiceError(f"cấu hình [gpu.limits]: {exc.errors()[0]['loc']} {exc.errors()[0]['msg']}") from None
     return GPUService(store, provider, image=gpu.get("image", ""), quote_ttl_s=float(gpu.get("quote_ttl_s", QUOTE_TTL_S)),
                       data_dir=Path(config["data_dir"]) / "gpu" if config.get("data_dir") else None,
                       portal=gpu.get("portal"),
-                      provision_timeout_s=float(gpu.get("provision_timeout_s", PROVISION_TIMEOUT_S)))
+                      provision_timeout_s=float(gpu.get("provision_timeout_s", PROVISION_TIMEOUT_S)), limits=guard)
+
+
+def start_guard(store: Store, config: dict, *, stop: threading.Event | None = None) -> threading.Thread | None:
+    """Luồng nền trong worker hiện có (không process mới; 09 · s2.b3): ``recover()`` một lần rồi ``tick()`` mỗi
+    ``[gpu] guard_interval_s`` giây. None khi ``[gpu] provider = "none"``.
+
+    Guardrail mềm: worker không chạy thì không có gì destroy máy vượt giới hạn; lưới cuối là số dư nạp trước nhỏ trên
+    tài khoản provider (09 · s4.b2).
+    """
+    gpu = from_config(store, config)
+    if gpu is None:
+        return None
+    try:
+        interval = float(config.get("gpu", {}).get("guard_interval_s", GUARD_INTERVAL_S))
+        if not math.isfinite(interval) or interval <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise GPUServiceError("[gpu] guard_interval_s phải là số hữu hạn > 0") from None
+    stop = stop or threading.Event()
+
+    def loop() -> None:
+        try:
+            gpu.recover()
+        except Exception as exc:  # noqa: BLE001 — guardrail không được chết vì lỗi lúc khởi động
+            log.error("guardrail GPU khi khởi động: %s", gpu.redact(str(exc)))
+        while not stop.is_set():
+            try:
+                gpu.tick()
+            except Exception as exc:  # noqa: BLE001 — một lượt lỗi không dừng guardrail
+                log.error("guardrail GPU: %s", gpu.redact(str(exc)))
+            if stop.wait(interval):
+                return
+
+    thread = threading.Thread(target=loop, name="gpu-guard", daemon=True)
+    thread.start()
+    log.info("guardrail GPU chạy mỗi %gs (%s)", interval, gpu.limits.model_dump())
+    return thread

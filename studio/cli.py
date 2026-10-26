@@ -181,8 +181,15 @@ def cmd_gpu(args, config, store):
         sys.exit("[gpu] provider = \"none\": bật provider trước")
     try:
         if args.gpu_command == "poll":
-            for rental in gpu.poll():
+            result = gpu.tick()            # provisioning + guardrail + reconcile destroy, như luồng guard của worker
+            for rental in result["polled"]:
                 print(f"{rental.rental_id}  {rental.status}")
+            _print_enforced(result["enforced"])
+        elif args.gpu_command == "enforce-limits":
+            enforced = gpu.enforce_limits()
+            _print_enforced(enforced)
+            if not enforced:
+                print(f"không rental nào vượt giới hạn ({gpu.limits.model_dump()})")
         elif args.manifest_command == "add":
             try:
                 manifest = ProvisioningManifest.model_validate_json(Path(args.file).read_text(encoding="utf-8"))
@@ -201,6 +208,15 @@ def cmd_gpu(args, config, store):
                 print(f"{record.manifest_sha256}  {record.status:<14} {record.note or ''}")
     except gpu_service.GPUServiceError as exc:
         sys.exit(f"lỗi: {exc}")
+
+
+def _print_enforced(enforced) -> None:
+    for item in enforced:
+        kinds = ",".join(b.kind for b in item.breaches)
+        line = f"{item.rental_id}  {item.status}  vượt [{kinds}] → {item.outcome}"
+        if item.runs:
+            line += f"  (run chưa kiểm output: {', '.join(item.runs)}; cần người vận hành)"
+        print(line)
 
 
 def cmd_comfyui(args, config, store):
@@ -366,7 +382,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     gpu = sub.add_parser("gpu", help="GPU thuê (Gate 4): manifest provisioning, poll").add_subparsers(
         dest="gpu_command", required=True)
-    gpu.add_parser("poll", help="kiểm các rental đang provisioning một lượt").set_defaults(func=cmd_gpu)
+    gpu.add_parser("poll", help="một lượt: kiểm provisioning, guardrail giới hạn, reconcile destroy").set_defaults(
+        func=cmd_gpu)
+    gpu.add_parser("enforce-limits", help="chỉ guardrail: destroy rental vượt idle TTL/thời gian/chi phí "
+                                          "(không destroy khi còn output chưa kiểm)").set_defaults(func=cmd_gpu)
     manifest = gpu.add_parser("manifest", help="manifest provisioning đã duyệt").add_subparsers(
         dest="manifest_command", required=True)
     m_add = manifest.add_parser("add", help="thêm manifest JSON (pending_review) và in YAML để đọc")

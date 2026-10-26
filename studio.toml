@@ -43,12 +43,20 @@ provider    = "none"            # "fake" cho thử trang /gpu; "vast" cần VAST
 image       = ""                # bắt buộc ghim digest: repo/image@sha256:...
 quote_ttl_s = 300               # báo giá quá hạn thì phải tìm offer lại
 provision_timeout_s = 3600      # chưa ready sau chừng này → provision_failed, destroy
+guard_interval_s    = 60        # worker chạy guardrail (poll + giới hạn + reconcile destroy) mỗi chừng này giây
+
+[gpu.limits]                    # guardrail mềm do worker thực thi (09 · s4.b2); worker tắt thì tiền vẫn chạy
+idle_ttl_minutes    = 30        # rental ready không hoạt động quá chừng này → destroy
+max_runtime_minutes = 240       # tính từ lúc gửi create → destroy
+max_hourly_usd      = 2.0       # compute + disk ước tính; offer đắt hơn bị chặn lúc thuê
+# max_total_usd     = 8.0       # mặc định = max_hourly_usd × max_runtime_minutes / 60
+# Còn run có output chưa tải/kiểm (G11) thì guardrail KHÔNG destroy: chỉ báo trên /gpu và log ERROR mỗi lượt.
 
 [gpu.portal]                    # Instance Portal của base-image; đường dẫn tiến độ chưa kiểm với bản thật (lát E)
 scheme       = "https"
 portal_port  = "1111/tcp"
 comfyui_port = "8188/tcp"
-status_path  = "/provisioning/status"
+status_path  = "/capabilities"
 timeout_s    = 15
 
 [gpu.vast]

@@ -21,6 +21,7 @@ import requests
 from conftest import approve_gpu_manifest
 from studio import config as studio_config
 from studio.gpu import adapters
+from studio.gpu import costs
 from studio.gpu.adapters.base import GPUError, GPUProvider, GPUUnknown
 from studio.gpu.adapters.vast import VastGPUProvider
 from studio.gpu.contracts import InstanceSpec, OfferFilters, Quote
@@ -267,6 +268,22 @@ def test_stop_and_destroy_requests(vast, state):
     vast.destroy_instance("9")
     assert len(seen(state, "DELETE", "/api/v0/instances/9/")) == 1
     assert vast.get_instance("9") is None and vast.list_owned_instances() == []
+
+
+def test_live_verified_price_includes_disk_once_and_stopped_keeps_disk(env, svc, vast):
+    offer = vast.search_offers(OfferFilters())[0]
+    assert offer.dph_total_includes_disk
+    assert costs.hourly(offer, 60) == offer.dph_total
+    rental = svc.rent(svc.new_rental_id(), Quote(offer_id=offer.offer_id, dph_total=offer.dph_total,
+                                               quoted_at=offer.quoted_at, confirmed=True), OfferFilters())
+    cost = svc.cost(rental.rental_id)
+    disk = offer.storage_cost * 60 / 720
+    assert cost["dph_total_includes_disk"]
+    assert cost["compute_per_h"] == pytest.approx(offer.dph_total - disk)
+    assert cost["compute_per_h"] + cost["disk_per_h"] == pytest.approx(offer.dph_total)
+    svc.stop(rental.rental_id)
+    assert svc.cost(rental.rental_id)["compute_per_h"] == 0
+    assert svc.cost(rental.rental_id)["disk_per_h"] == pytest.approx(disk)
 
 
 # ------------------------------------------------------------ ánh xạ lỗi: GPUError (chưa làm) / GPUUnknown (không rõ)

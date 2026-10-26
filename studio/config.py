@@ -38,7 +38,7 @@ DEFAULTS: dict = {
             "vast": {"base_url": "https://console.vast.ai/api/v0", "timeout_s": 30}},
 }
 
-SECRET_ENV = ("OMNIROUTE_API_KEY", "VAST_API_KEY", "STUDIO_BASIC_AUTH")
+SECRET_ENV = ("OMNIROUTE_API_KEY", "VAST_API_KEY", "HF_TOKEN", "STUDIO_BASIC_AUTH")
 SETTINGS_FILE = "settings.toml"
 
 

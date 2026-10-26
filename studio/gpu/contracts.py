@@ -80,7 +80,8 @@ class Offer(BaseModel):
     cuda_max_good: float | None = None
     verified: bool = False
     rentable: bool = True
-    dph_total: float                    # USD/giờ (compute; disk/băng thông tách riêng)
+    dph_total: float                    # USD/giờ theo báo giá; xem cờ gồm disk bên dưới, chưa gồm băng thông
+    dph_total_includes_disk: bool = False  # adapter xác nhận báo giá đã gồm disk; snapshot cũ giữ mặc định bảo thủ
     storage_cost: float | None = None   # USD/GB-tháng
     inet_up_cost: float | None = None   # USD/GB
     inet_down_cost: float | None = None

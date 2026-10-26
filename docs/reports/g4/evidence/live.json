@@ -1,0 +1,409 @@
+{
+  "authorized_cap_usd": 2,
+  "image": {
+    "tag": "2.9.1-cuda-12.8.1-py312-24.04-2026-10-23",
+    "image": "vastai/pytorch@sha256:3fc057381629c2afb6f86901e762b3753cc1d81e3f894352ad9f09e228bb06bf",
+    "comfyui_ref": "cdf272f3514353aab04dc2d9fceef57a260dc156"
+  },
+  "events": [
+    {
+      "elapsed_s": 3.59,
+      "kind": "selected",
+      "gpu": "Q RTX 5000",
+      "offer_id": "50606628",
+      "hourly": 0.11185185185185186,
+      "bandwidth_down": 0.0026041666666666665
+    },
+    {
+      "elapsed_s": 6.55,
+      "kind": "created",
+      "rental_id": "r_ff34c5af352e",
+      "instance_id": "57844652",
+      "status": "provisioning"
+    },
+    {
+      "elapsed_s": 7.72,
+      "kind": "provisioning",
+      "status": "provisioning",
+      "steps": [
+        [
+          "instance_create",
+          "done",
+          null
+        ],
+        [
+          "host_boot",
+          "done",
+          null
+        ],
+        [
+          "transport_ready",
+          "running",
+          null
+        ],
+        [
+          "runtime_setup",
+          "pending",
+          null
+        ],
+        [
+          "custom_nodes",
+          "pending",
+          null
+        ],
+        [
+          "models",
+          "pending",
+          null
+        ],
+        [
+          "health_smoke",
+          "pending",
+          null
+        ],
+        [
+          "ready",
+          "pending",
+          null
+        ]
+      ]
+    },
+    {
+      "elapsed_s": 8.84,
+      "kind": "spending",
+      "credit_delta_usd": 0.0,
+      "estimate_usd": 0.00018122517530864198
+    },
+    {
+      "elapsed_s": 48.4,
+      "kind": "provisioning",
+      "status": "provisioning",
+      "steps": [
+        [
+          "instance_create",
+          "done",
+          null
+        ],
+        [
+          "host_boot",
+          "done",
+          null
+        ],
+        [
+          "transport_ready",
+          "done",
+          null
+        ],
+        [
+          "runtime_setup",
+          "pending",
+          null
+        ],
+        [
+          "custom_nodes",
+          "pending",
+          null
+        ],
+        [
+          "models",
+          "pending",
+          null
+        ],
+        [
+          "health_smoke",
+          "pending",
+          null
+        ],
+        [
+          "ready",
+          "pending",
+          null
+        ]
+      ]
+    },
+    {
+      "elapsed_s": 64.53,
+      "kind": "spending",
+      "credit_delta_usd": 0.002480908000000781,
+      "estimate_usd": 0.002197883766255144
+    },
+    {
+      "elapsed_s": 80.15,
+      "kind": "provisioning",
+      "status": "provisioning",
+      "steps": [
+        [
+          "instance_create",
+          "done",
+          null
+        ],
+        [
+          "host_boot",
+          "done",
+          null
+        ],
+        [
+          "transport_ready",
+          "done",
+          null
+        ],
+        [
+          "runtime_setup",
+          "done",
+          null
+        ],
+        [
+          "custom_nodes",
+          "skipped",
+          null
+        ],
+        [
+          "models",
+          "skipped",
+          null
+        ],
+        [
+          "health_smoke",
+          "running",
+          null
+        ],
+        [
+          "ready",
+          "pending",
+          null
+        ]
+      ]
+    },
+    {
+      "elapsed_s": 99.56,
+      "kind": "provisioning",
+      "status": "ready",
+      "steps": [
+        [
+          "instance_create",
+          "done",
+          null
+        ],
+        [
+          "host_boot",
+          "done",
+          null
+        ],
+        [
+          "transport_ready",
+          "done",
+          null
+        ],
+        [
+          "runtime_setup",
+          "done",
+          null
+        ],
+        [
+          "custom_nodes",
+          "skipped",
+          null
+        ],
+        [
+          "models",
+          "skipped",
+          null
+        ],
+        [
+          "health_smoke",
+          "done",
+          null
+        ],
+        [
+          "ready",
+          "done",
+          null
+        ]
+      ]
+    },
+    {
+      "elapsed_s": 101.59,
+      "kind": "ready",
+      "devices": [
+        {
+          "name": "cuda:0 Quadro RTX 5000 : cudaMallocAsync",
+          "type": "cuda",
+          "vram_total": 16700997632
+        }
+      ]
+    },
+    {
+      "elapsed_s": 105.71,
+      "kind": "auth",
+      "portal_auth_required": true,
+      "comfyui_auth_required": true,
+      "token_accepted": true
+    },
+    {
+      "elapsed_s": 110.32,
+      "kind": "run_submitted",
+      "run_id": "cr_accb2304c131",
+      "prompt_id": "3e424000-18e0-4130-b6df-6a75c1c73e5e",
+      "status": "queued"
+    },
+    {
+      "elapsed_s": 114.46,
+      "kind": "download_failure_injected",
+      "status": "output_failed"
+    },
+    {
+      "elapsed_s": 121.48,
+      "kind": "g11_blocked",
+      "enforcement": [
+        {
+          "rental_id": "r_ff34c5af352e",
+          "status": "ready",
+          "breaches": [
+            {
+              "kind": "idle_ttl",
+              "detail": "không hoạt động ~0 phút ≥ idle TTL 0.1 phút"
+            }
+          ],
+          "outcome": "blocked_unverified_output",
+          "runs": [
+            "cr_accb2304c131"
+          ],
+          "detail": null
+        }
+      ]
+    },
+    {
+      "elapsed_s": 124.71,
+      "kind": "output_verified",
+      "status": "succeeded",
+      "outputs": [
+        {
+          "filename": "igniterra_slice_e_00001_.png",
+          "bytes": 319,
+          "sha256": "c36aa470d0d424b37e3aa08c67a13195c9f9ed91fa547f361a9a1e08df337dfb",
+          "media_type": "image/png",
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "elapsed_s": 140.62,
+      "kind": "g09_g10",
+      "status": "destroyed",
+      "destroy_requests": 1
+    },
+    {
+      "elapsed_s": 141.75,
+      "kind": "cleanup",
+      "status": "destroyed",
+      "remaining_owned": []
+    }
+  ],
+  "offer": {
+    "provider_key": "vast",
+    "offer_id": "50606628",
+    "gpu_name": "Q RTX 5000",
+    "num_gpus": 1,
+    "gpu_ram_gb": 16.384,
+    "disk_space_gb": 102.25,
+    "reliability": 0.9608293,
+    "cuda_max_good": 13.0,
+    "verified": true,
+    "rentable": true,
+    "dph_total": 0.11185185185185186,
+    "storage_cost": 0.2666666666666666,
+    "inet_up_cost": 0.00390625,
+    "inet_down_cost": 0.0026041666666666665,
+    "geolocation": "New York, US",
+    "quoted_at": "2026-10-26T16:59:42.408284Z"
+  },
+  "rental_id": "r_ff34c5af352e",
+  "passed": true,
+  "cleanup_confirmed": true,
+  "credit_delta_usd": 0.009693448000001936,
+  "elapsed_s": 142.93,
+  "recorded_at_utc": "2026-10-26T17:02:42+00:00",
+  "fault_injection": {
+    "download": "ComfyUIRuntime.download raises locally; real output remains on instance",
+    "destroy": "one real DELETE, then local GPUUnknown; no real provider failure claimed"
+  },
+  "prior_attempts": [
+    {
+      "rental_id": "r_cf1d0561624a",
+      "instance_id": null,
+      "result": "Offer no_such_ask; create rejected, no instance",
+      "credit_delta_usd": 0.0,
+      "remaining_owned": []
+    },
+    {
+      "rental_id": "r_9c0ccf40d81e",
+      "instance_id": "57844176",
+      "result": "Provisioning and output succeeded; G11 harness patched wrong method, so stopped and destroyed before repeating",
+      "credit_delta_usd": 0.0054544991000007315,
+      "remaining_owned": []
+    }
+  ],
+  "cumulative_credit_delta_usd": 0.016412857100002398,
+  "invoice_final": false,
+  "price_components": [
+    {
+      "id": 57550699,
+      "dlperf_per_dphtotal": 53.462965942000004,
+      "dph_base": 0.12119999999999999,
+      "dph_total": 0.13045925925925925,
+      "flops_per_dphtotal": 79.11987281399047,
+      "inet_down_cost": 0.0026041666666666665,
+      "inet_up_cost": 0.00390625,
+      "storage_cost": 0.1333333333333333,
+      "storage_total_cost": 0.009259259259259257,
+      "vram_costperhour": 0.008333333333333333,
+      "avail_vol_dph": 3.7037037037037037e-05,
+      "dph_total_adj": 0.1630113425925926,
+      "discounted_dph_total": 0.13045925925925925,
+      "internet_up_cost_per_tb": 4.0,
+      "internet_down_cost_per_tb": 2.6666666666666665
+    },
+    {
+      "id": 50606673,
+      "dlperf_per_dphtotal": 63.836965942,
+      "dph_base": 0.19999999999999998,
+      "dph_total": 0.2185185185185185,
+      "flops_per_dphtotal": 94.47181016949153,
+      "inet_down_cost": 0.0026041666666666665,
+      "inet_up_cost": 0.00390625,
+      "storage_cost": 0.2666666666666666,
+      "storage_total_cost": 0.018518518518518514,
+      "vram_costperhour": 0.0062499999999999995,
+      "avail_vol_dph": 0.0003703703703703703,
+      "dph_total_adj": 0.2510706018518518,
+      "discounted_dph_total": 0.2185185185185185,
+      "internet_up_cost_per_tb": 4.0,
+      "internet_down_cost_per_tb": 2.6666666666666665
+    },
+    {
+      "id": 50606674,
+      "dlperf_per_dphtotal": 65.66996594199999,
+      "dph_base": 0.39999999999999997,
+      "dph_total": 0.41851851851851846,
+      "flops_per_dphtotal": 98.65197876106197,
+      "inet_down_cost": 0.0026041666666666665,
+      "inet_up_cost": 0.00390625,
+      "storage_cost": 0.2666666666666666,
+      "storage_total_cost": 0.018518518518518514,
+      "vram_costperhour": 0.0062499999999999995,
+      "avail_vol_dph": 0.0003703703703703703,
+      "dph_total_adj": 0.45107060185185177,
+      "discounted_dph_total": 0.41851851851851846,
+      "internet_up_cost_per_tb": 4.0,
+      "internet_down_cost_per_tb": 2.6666666666666665
+    }
+  ],
+  "final_account_check": {
+    "checked_at_utc": "2026-10-26T17:04:40+00:00",
+    "account_instance_count": 0,
+    "remaining_app_instances": [],
+    "cumulative_credit_delta_usd": 0.016412857100002398,
+    "invoice_final": false
+  },
+  "credit_delta_at_end_of_attempts_usd": 0.015147947100002668
+}

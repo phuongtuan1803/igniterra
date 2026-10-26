@@ -4,8 +4,8 @@ Không dùng SSH ở lát C: s5.b2 cho phép đọc tiến độ qua Instance Po
 mọi bằng chứng ``ready`` đi qua một kênh HTTP có Bearer ``WEB_PASSWORD``: portal cho tiến độ và
 ``/.provisioning_complete``, cổng ComfyUI (sau Caddy) cho ``/system_stats`` và smoke.
 
-Đường dẫn trạng thái (``status_path``) và hình dạng JSON (``ProvisioningReport``) là giả định của studio, chưa
-kiểm với Instance Portal thật; cấu hình ở ``[gpu.portal]`` và kiểm ở lát E trước lượt thuê thật.
+Mặc định đọc ``/capabilities`` của base-image: ``provisioning.status`` xác nhận sentinel tổng thể, không có tiến
+độ từng bước. Báo cáo chi tiết ``ProvisioningReport`` vẫn được nhận nếu dùng endpoint riêng qua ``status_path``.
 """
 
 from __future__ import annotations
@@ -13,14 +13,14 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 import requests
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from studio.comfyui.runtime import ComfyUIAuthError, ComfyUIError, ComfyUIRuntime
 from studio.gpu.contracts import Instance
 from studio.gpu.provisioning import ProvisioningReport
 
 DEFAULTS = {"scheme": "https", "portal_port": "1111/tcp", "comfyui_port": "8188/tcp",
-            "status_path": "/provisioning/status", "timeout_s": 15, "verify_tls": True}
+            "status_path": "/capabilities", "timeout_s": 15, "verify_tls": True}
 
 
 class ProbeUnavailable(Exception):
@@ -107,6 +107,14 @@ class PortalProbe:
         if response.status_code != 200:
             raise ProbeUnavailable(f"Instance Portal HTTP {response.status_code} khi đọc tiến độ")
         try:
-            return ProvisioningReport.model_validate(response.json())
-        except (ValueError, ValidationError) as exc:
+            data = response.json()
+            if "provisioning" in data:
+                status = data["provisioning"]["status"]
+                data = {"complete": status == "complete", "steps": {
+                    "runtime_setup": {"status": "failed", "final": True, "error_code": "provision_failed",
+                                      "error": "Instance Portal báo provisioning failed"}
+                } if status == "failed" else {},
+                        "log_ref": data["provisioning"].get("log_file")}
+            return ProvisioningReport.model_validate(data)
+        except (ValueError, KeyError, TypeError) as exc:
             raise ProbeUnavailable(f"tiến độ provisioning không đọc được: {str(exc)[:300]}") from None
