@@ -42,6 +42,7 @@ class FakeGPUProvider:
         self.honor_filters = honor_filters      # False: provider trả cả offer không khớp bộ lọc
         self.prices = {row[0]: row[7] for row in OFFERS}
         self.instances: dict[str, Instance] = {}
+        self.specs: dict[str, InstanceSpec] = {}    # spec đã nhận (env có WEB_PASSWORD; chỉ test đọc)
         self.calls: list[tuple] = []
         self.fail: dict[str, str] = {}
         self._next_id = 1
@@ -73,6 +74,7 @@ class FakeGPUProvider:
                             dph_total=self.prices[offer.offer_id])
         self._next_id += 1
         self.instances[instance.provider_instance_id] = instance
+        self.specs[instance.provider_instance_id] = spec
         if mode == "timeout_after_send":
             raise GPUUnknown("timeout khi tạo instance")
         return instance
@@ -113,6 +115,13 @@ class FakeGPUProvider:
             raise GPUUnknown("timeout khi destroy instance")
 
     # ------------------------------------------------------------ chỉ dành cho test
+
+    def boot(self, instance_id: str, ports: dict[str, str] | None = None, status: str = "running") -> None:
+        """Host lên (``actual_status``) và có cổng ``"8188/tcp" → "host:port"`` như provider báo."""
+        update = {"actual_status": status}
+        if ports is not None:
+            update["ports"] = ports
+        self.instances[instance_id] = self.instances[instance_id].model_copy(update=update)
 
     def finish_destroying(self) -> None:
         """Instance ``destroying`` biến mất (provider hủy xong)."""

@@ -10,15 +10,19 @@
   {{ rental_chip(rental.status) }}
   <span class="small muted">${{ "%.3f"|format(rental.offer.dph_total) }}/giờ ước tính, không phải hóa đơn · cập nhật {{ rental.updated_at.strftime("%Y-%m-%d %H:%M:%S") }} UTC</span>
   {% if rental.status in billable %}<span class="chip warn">Có thể đang tính phí</span>{% endif %}
-  {% if rental.status in ("create_unknown", "destroying", "destroy_unknown") or stop_unknown %}
+  {% if rental.status in ("create_unknown", "provisioning", "destroying", "destroy_unknown") or stop_unknown %}
   <form method="post" action="/gpu/instances/{{ rental.rental_id }}/reconcile">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <button class="button" type="submit">Reconcile{% if rental.status == "create_unknown" %} theo label{% endif %}</button>
+    <button class="button" type="submit">{% if rental.status == "provisioning" %}Kiểm provisioning{% else %}Reconcile{% if rental.status == "create_unknown" %} theo label{% endif %}{% endif %}</button>
   </form>
   {% endif %}
 </div>
 {% if rental.status == "create_unknown" %}
 <p class="section-note">Create đã gửi nhưng không có response. Studio tìm instance theo label <code>{{ rental.label }}</code> và không tự tạo lại. Nếu chưa thấy, kiểm tra trên trang provider trước khi thuê offer khác.</p>
+{% elif rental.status == "provisioning" %}
+<p class="section-note">Host chạy chưa phải ready. Rental chỉ <code>ready</code> khi có đủ bằng chứng: host chạy, kết nối có xác thực, <code>/.provisioning_complete</code>, ComfyUI trả <code>/system_stats</code> và workflow smoke ra file. Bước hỏng quá <code>max_retries</code> → <code>provision_failed</code> và destroy.</p>
+{% elif rental.status == "provision_failed" %}
+<p class="section-note">Provisioning hỏng; nguyên nhân ở bảng bước và sự kiện. Manifest có <code>on_failure: destroy</code> nên studio đã gửi destroy; kiểm trạng thái bên dưới.</p>
 {% elif rental.status == "destroying" %}
 <p class="section-note">Provider đã nhận yêu cầu destroy. Rental chỉ thành <code>destroyed</code> khi instance không còn trong danh sách của provider; bấm Reconcile để kiểm lại.</p>
 {% elif rental.status == "destroy_unknown" %}
@@ -55,6 +59,20 @@
   <p><strong>${{ "%.4f"|format(cost.accrued_est) }}</strong> <span class="chip warn">{{ cost.label }}</span></p>
   <p class="small muted">Tốc độ hiện tại: compute ${{ "%.4f"|format(cost.compute_per_h) }}/giờ + disk ${{ "%.4f"|format(cost.disk_per_h) }}/giờ{% if rental.disk_gb %} ({{ "%g"|format(rental.disk_gb) }} GB){% endif %}. Chưa tính băng thông. Tạm coi giá theo giờ chưa gồm disk (chưa kiểm với hóa đơn); hóa đơn của provider là thực chi.</p>
 </section>
+{% if manifest %}
+<section class="card" aria-label="Provisioning manifest">
+  <p class="eyebrow">MANIFEST</p><h2>Provisioning <code>{{ manifest.manifest_sha256[:12] }}</code></h2>
+  <p class="small muted">{{ manifest.status }} · on_failure: {{ manifest_view.on_failure.action }} (max_retries {{ manifest_view.on_failure.max_retries }}) · cần ~{{ "%g"|format(manifest_view.required_disk_gb()) }} GB disk</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Loại</th><th>Nguồn</th><th>Commit / SHA-256</th></tr></thead>
+    <tbody>
+      <tr><td>ComfyUI</td><td class="small">{{ manifest_view.comfyui.url }}</td><td><code>{{ manifest_view.comfyui.ref }}</code></td></tr>
+      {% for n in manifest_view.custom_nodes %}<tr><td>custom node</td><td class="small">{{ n.url }}</td><td><code>{{ n.ref }}</code></td></tr>{% endfor %}
+      {% for d in manifest_view.downloads %}<tr><td>model · {{ d.dest }}</td><td class="small">{{ d.url }}</td><td><code>{{ d.sha256[:16] }}…</code></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
 <div class="panel-grid">
   <section class="card">
     <p class="eyebrow">PROVISIONING</p><h2>Timeline</h2>

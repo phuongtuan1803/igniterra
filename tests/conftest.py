@@ -132,3 +132,23 @@ def last_run_id(store: Store, task_id: str) -> int:
 
 def read_manifest(td: TaskDir, rev: str) -> dict:
     return json.loads((td.root / "renders" / rev / "manifest.json").read_text(encoding="utf-8"))
+
+
+# ------------------------------------------------------------ GPU (Gate 4): manifest provisioning đã duyệt
+
+COMFYUI_REF = "0123456789abcdef0123456789abcdef01234567"     # commit giả, đủ 40 hex
+
+
+def gpu_manifest(**kwargs):
+    from studio.gpu.provisioning import build_manifest
+
+    return build_manifest(kwargs.pop("comfyui_ref", COMFYUI_REF), **kwargs)
+
+
+def approve_gpu_manifest(store: Store, manifest=None) -> str:
+    """Manifest provisioning đã duyệt trong SQLite (lát C: không có manifest duyệt thì không thuê được)."""
+    manifest = manifest or gpu_manifest()
+    sha = manifest.sha256()
+    store.add_manifest(sha, manifest.canonical_json())
+    store.set_manifest_status(sha, "approved", expect="pending_review")
+    return sha

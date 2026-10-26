@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 import requests
 
+from conftest import approve_gpu_manifest
 from studio import config as studio_config
 from studio.gpu import adapters
 from studio.gpu.adapters.base import GPUError, GPUProvider, GPUUnknown
@@ -333,6 +334,7 @@ def test_get_404_means_gone(vast, state, monkeypatch):
 
 @pytest.fixture
 def svc(env, vast):
+    approve_gpu_manifest(env.store)
     return GPUService(env.store, vast, image=IMAGE, clock=lambda: NOW)
 
 
@@ -352,6 +354,26 @@ def test_g04_create_timeout_reconciles_by_label_against_rest(env, svc, vast, sta
     events = [e["transition"] for e in env.store.gpu_events(rental_id)]
     assert "creating→create_unknown" in events and "create_unknown→provisioning" in events
     assert len([r for r in state.requests if r["method"] == "PUT" and r["path"].startswith("/api/v0/asks/")]) == 1
+
+
+def test_rent_sends_auth_env_and_manifest_onstart_but_never_stores_password(env, svc, vast, state):
+    """Lát C: server REST thật sự nhận WEB_PASSWORD + ENABLE_AUTH, không AUTH_EXCLUDE; mật khẩu không vào SQLite."""
+    import base64
+    import sqlite3
+
+    rental_id = rent(svc, vast)
+    [request] = seen(state, "PUT", "/api/v0/asks/1002/")
+    sent_env = request["body"]["env"]
+    password = (env.store.path.parent / "gpu" / rental_id / "web_password").read_text(encoding="utf-8")
+    assert sent_env["WEB_PASSWORD"] == password and len(password) >= 24
+    assert sent_env["ENABLE_AUTH"] == "true" and "AUTH_EXCLUDE" not in sent_env
+    assert sent_env["PROVISIONING_MANIFEST"] == "/etc/igniterra/provisioning.yaml"
+    encoded = re.search(r"'([A-Za-z0-9+/=]+)' \| base64 -d", request["body"]["onstart"]).group(1)
+    yaml_text = (env.store.path.parent / "gpu" / rental_id / "provisioning.yaml").read_text(encoding="utf-8")
+    assert base64.b64decode(encoded).decode() == yaml_text and "action: \"destroy\"" in yaml_text
+    with sqlite3.connect(env.store.path) as db:
+        dump = "\n".join(db.iterdump())
+    assert password not in dump
 
 
 def test_g04_5xx_before_acting_stays_unknown_and_never_recreates(env, svc, vast, state):

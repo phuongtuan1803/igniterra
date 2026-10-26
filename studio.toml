@@ -42,6 +42,14 @@ font_size = 66
 provider    = "none"            # "fake" cho thử trang /gpu; "vast" cần VAST_API_KEY trong .env
 image       = ""                # bắt buộc ghim digest: repo/image@sha256:...
 quote_ttl_s = 300               # báo giá quá hạn thì phải tìm offer lại
+provision_timeout_s = 3600      # chưa ready sau chừng này → provision_failed, destroy
+
+[gpu.portal]                    # Instance Portal của base-image; đường dẫn tiến độ chưa kiểm với bản thật (lát E)
+scheme       = "https"
+portal_port  = "1111/tcp"
+comfyui_port = "8188/tcp"
+status_path  = "/provisioning/status"
+timeout_s    = 15
 
 [gpu.vast]
 base_url  = "https://console.vast.ai/api/v0"

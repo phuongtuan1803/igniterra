@@ -15,6 +15,14 @@
   <div class="metric-card"><span class="eyebrow">NEEDS ATTENTION</span><strong>{{ rentals|selectattr('status', 'in', attention)|list|length }}</strong><span>Unknown outcome — reconcile first</span></div>
   <div class="metric-card"><span class="eyebrow">ORPHANS</span><strong{% if orphans %} class="metric-warning"{% endif %}>{{ orphans|length }}</strong><span>{% if gpu.orphans_error %}Không kiểm được: {{ gpu.orphans_error }}{% elif gpu.orphans_checked_at %}Kiểm lúc {{ gpu.orphans_checked_at.strftime("%H:%M:%S") }} UTC{% else %}Chưa kiểm{% endif %}</span></div>
 </section>
+<section class="card" aria-label="Provisioning manifest">
+  <p class="eyebrow">PROVISIONING MANIFEST</p>
+  {% if manifest %}
+  <p>Manifest đã duyệt <code>{{ manifest.manifest_sha256[:12] }}</code>: ComfyUI <code>{{ manifest_view.comfyui.ref[:12] }}</code>, {{ manifest_view.custom_nodes|length }} custom node, {{ manifest_view.downloads|length }} model · cần ~{{ "%g"|format(manifest_view.required_disk_gb()) }} GB disk · on_failure: {{ manifest_view.on_failure.action }} (max_retries {{ manifest_view.on_failure.max_retries }}).</p>
+  {% else %}
+  <p class="section-note">Chưa có manifest provisioning đã duyệt: chưa thuê được. Thêm bằng <code>python -m studio gpu manifest add FILE.json</code>, đọc lại bằng <code>gpu manifest show</code>, rồi <code>gpu manifest approve SHA</code>.</p>
+  {% endif %}
+</section>
 {% if orphans %}
 <section class="card" aria-label="Orphan instances">
   <div class="section-heading"><div><p class="eyebrow">ORPHANS</p><h2>Instance mang label của app nhưng không khớp rental</h2></div></div>
