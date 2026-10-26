@@ -14,7 +14,7 @@
         <td>
           <form method="post" action="/gpu/instances" class="offer-rent">
             <input type="hidden" name="csrf" value="{{ csrf }}">
-            <input type="hidden" name="rental_id" value="{{ rental_id }}">
+            <input type="hidden" name="rental_id" value="{{ new_rental_id() }}">
             <input type="hidden" name="offer_id" value="{{ o.offer_id }}">
             <input type="hidden" name="dph_total" value="{{ o.dph_total }}">
             <input type="hidden" name="quoted_at" value="{{ o.quoted_at.isoformat() }}">

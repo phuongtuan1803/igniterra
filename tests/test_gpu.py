@@ -62,7 +62,10 @@ def gpu_web(env, provider: str = "fake") -> TestClient:
 
 def rent_form(client: TestClient, offer_id: str, **extra) -> dict:
     """Lấy form thuê như người dùng thấy trên trang (csrf, rental_id, báo giá)."""
-    html = client.get("/gpu/offers").text
+    return rent_form_from(client.get("/gpu/offers").text, offer_id, **extra)
+
+
+def rent_form_from(html: str, offer_id: str, **extra) -> dict:
     form = re.search(rf'<form method="post" action="/gpu/instances" class="offer-rent">(?:(?!</form>).)*'
                      rf'name="offer_id" value="{offer_id}"(?:(?!</form>).)*</form>', html, re.S).group(0)
     fields = dict(re.findall(r'type="hidden" name="(\w+)" value="([^"]*)"', form))
@@ -213,6 +216,18 @@ def test_g03_web_requires_confirmation_csrf_and_single_use_nonce(env):
     assert provider.created() == 1 and len(env.store.rentals()) == 1
 
 
+def test_each_offer_row_has_its_own_nonce(env):
+    """Thuê offer khác trên cùng trang đã render không bị báo nhầm là bấm hai lần."""
+    client = gpu_web(env)
+    html = client.get("/gpu/offers").text
+    nonces = re.findall(r'name="rental_id" value="(r_[0-9a-f]{12})"', html)
+    assert len(nonces) == 2 and len(set(nonces)) == 2
+    forms = {offer_id: rent_form_from(html, offer_id) for offer_id in ("1002", "1004")}
+    for form in forms.values():
+        assert client.post("/gpu/instances", data=form).headers["location"].startswith("/gpu/instances/r_")
+    assert client.app.state.gpu.provider.created() == 2
+
+
 # ------------------------------------------------------------ G04: create tới provider nhưng timeout
 
 
@@ -278,10 +293,62 @@ def test_create_rejected_is_final_without_retry(env, svc, fake_gpu):
     assert env.store.gpu_operations(rental_id)[0]["status"] == "rejected" and fake_gpu.created() == 1
 
 
-def test_rental_cas_rejects_stale_version(env, svc, fake_gpu):
+def test_rental_cas_checks_status_version_and_transition_table(env, svc, fake_gpu):
     rental = svc.rent(svc.new_rental_id(), quote(fake_gpu, "1002"), OfferFilters())
-    assert not env.store.transition_rental(rental.rental_id, rental.version - 1, "ready")
-    assert env.store.transition_rental(rental.rental_id, rental.version, "ready")
+    store = env.store
+    assert not store.transition_rental(rental.rental_id, rental.version - 1, "ready", expect="provisioning")
+    assert not store.transition_rental(rental.rental_id, rental.version, "ready", expect="create_unknown")
+    with pytest.raises(GPUServiceError, match="không hợp lệ"):
+        svc._move(rental, "creating")                         # provisioning→creating không có trong TRANSITIONS
+    assert store.transition_rental(rental.rental_id, rental.version, "ready", expect="provisioning")
+
+
+def unknown_rental(svc, fake_gpu) -> str:
+    fake_gpu.fail["create_instance"] = "timeout_before_send"
+    rental_id = svc.new_rental_id()
+    assert svc.rent(rental_id, quote(fake_gpu, "1002"), OfferFilters()).status == "create_unknown"
+    return rental_id
+
+
+def test_g04_duplicate_label_is_not_auto_attached(env, svc, fake_gpu):
+    rental_id = unknown_rental(svc, fake_gpu)
+    for instance_id in ("fake-8", "fake-3"):
+        fake_gpu.instances[instance_id] = Instance(provider_instance_id=instance_id, label=f"igniterra:{rental_id}",
+                                                   actual_status="running")
+    rental = svc.reconcile(rental_id)
+    assert rental.status == "create_unknown" and rental.provider_instance_id is None
+    [event] = [e for e in env.store.gpu_events(rental_id) if e["error_code"] == "duplicate_label"]
+    assert "fake-3, fake-8" in event["detail"]
+    assert fake_gpu.created() == 1 and env.store.gpu_operations(rental_id)[0]["status"] == "unknown"
+
+
+def test_g04_concurrent_reconcile_attaches_once(env, svc, fake_gpu, monkeypatch):
+    """Worker và nút Reconcile cùng đọc create_unknown trước khi bên nào ghi: chỉ một bên chuyển trạng thái."""
+    import threading
+
+    rental_id = unknown_rental(svc, fake_gpu)
+    fake_gpu.instances["fake-5"] = Instance(provider_instance_id="fake-5", label=f"igniterra:{rental_id}",
+                                            actual_status="running")
+    barrier = threading.Barrier(2)
+    original = fake_gpu.list_owned_instances
+
+    def both_read_then_list():
+        barrier.wait(timeout=5)                               # cả hai đã qua bước đọc status
+        return original()
+
+    monkeypatch.setattr(fake_gpu, "list_owned_instances", both_read_then_list)
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(svc.reconcile(rental_id))) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert [r.status for r in results] == ["provisioning", "provisioning"]
+    rental = svc.rental(rental_id)
+    assert rental.provider_instance_id == "fake-5"
+    moves = [t for t in transitions(env, rental_id) if t.endswith("→provisioning")]
+    assert moves == ["create_unknown→provisioning"]
+    assert rental.version == 3                                # draft→creating→create_unknown→provisioning
 
 
 def test_unpinned_image_is_refused_before_create(env, fake_gpu, clock):

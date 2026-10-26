@@ -24,7 +24,18 @@ from pydantic import ValidationError
 from studio import config as studio_config
 from studio.gpu import adapters
 from studio.gpu.adapters.base import GPUError, GPUProvider, GPUUnknown
-from studio.gpu.contracts import STEP_KEYS, GPUEvent, InstanceSpec, Offer, OfferFilters, ProvisionStep, Quote, Rental, label_for
+from studio.gpu.contracts import (
+    STEP_KEYS,
+    TRANSITIONS,
+    GPUEvent,
+    InstanceSpec,
+    Offer,
+    OfferFilters,
+    ProvisionStep,
+    Quote,
+    Rental,
+    label_for,
+)
 from studio.store import Store
 
 QUOTE_TTL_S = 300
@@ -124,7 +135,7 @@ class GPUService:
         request_hash = hashlib.sha256(json.dumps({"offer_id": offer.offer_id, "spec": spec.model_dump()},
                                                  sort_keys=True).encode()).hexdigest()
         self.store.start_gpu_operation(op_id, rental_id, "create", request_hash)
-        if not self.store.transition_rental(rental_id, 0, "creating"):
+        if not self._move(self.rental(rental_id), "creating"):
             raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
         self.store.set_provision_step(rental_id, "instance_create", "running")
         try:
@@ -132,22 +143,31 @@ class GPUService:
         except GPUUnknown as exc:
             self.store.finish_gpu_operation(op_id, "unknown")
             self.store.set_provision_step(rental_id, "instance_create", "unknown", "create_timeout")
-            self._move(rental_id, "create_unknown", error_code="create_timeout", detail=str(exc))
+            if not self._move(self.rental(rental_id), "create_unknown", error_code="create_timeout", detail=str(exc)):
+                raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác") from None
             return self.reconcile(rental_id)
         except GPUError as exc:
             self.store.finish_gpu_operation(op_id, "rejected")
             self.store.set_provision_step(rental_id, "instance_create", "failed", "create_rejected")
-            self._move(rental_id, "create_failed", error_code="create_rejected", detail=str(exc))
+            if not self._move(self.rental(rental_id), "create_failed", error_code="create_rejected", detail=str(exc)):
+                raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác") from None
             return self.rental(rental_id)
         if instance.label != spec.label:
             self.store.add_gpu_event(rental_id, "label_mismatch", "label_mismatch",
                                      f"provider trả label {instance.label!r}")
-        return self._attach(rental_id, instance.provider_instance_id, op_id)
+        rental = self.rental(rental_id)
+        if not self._move(rental, "provisioning", provider_instance_id=instance.provider_instance_id):
+            raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
+        self._confirm_create(rental_id, op_id)
+        return self.rental(rental_id)
 
     def reconcile(self, rental_id: str) -> Rental:
-        """Đối soát ``create_unknown`` bằng label (G04): thấy thì gắn instance, không thấy thì giữ nguyên.
+        """Đối soát ``create_unknown`` bằng label (G04): thấy đúng một instance thì gắn, không thấy thì giữ nguyên.
 
-        Không bao giờ gọi create ở đây. Đối soát các trạng thái khác (G09, G10) thuộc lát B.
+        Không bao giờ gọi create ở đây. Nhiều instance cùng label: không tự chọn, giữ ``create_unknown`` để người
+        vận hành xử lý (cả hai có thể đang tính phí). Chuyển trạng thái là CAS theo (status, version): worker và
+        nút Reconcile chạy cùng lúc thì chỉ một bên gắn instance, bên kia trả về bản ghi hiện tại.
+        Đối soát các trạng thái khác (G09, G10) thuộc lát B.
         """
         rental = self.rental(rental_id)
         if rental.status != "create_unknown":
@@ -162,24 +182,30 @@ class GPUService:
                                      f"chưa thấy instance có label {rental.label}; không tạo lại")
             return rental
         if len(matches) > 1:
+            ids = sorted(i.provider_instance_id for i in matches)
             self.store.add_gpu_event(rental_id, "reconcile", "duplicate_label",
-                                     "nhiều instance cùng label: " + ", ".join(i.provider_instance_id for i in matches))
+                                     f"{len(ids)} instance cùng label {rental.label}: {', '.join(ids)}; "
+                                     "không tự gắn, kiểm tra và hủy thủ công")
+            return rental
+        if not self._move(rental, "provisioning", provider_instance_id=matches[0].provider_instance_id):
+            return self.rental(rental_id)          # bên khác đã đổi trạng thái trước
         operations = self.store.gpu_operations(rental_id, "create")
-        return self._attach(rental_id, matches[0].provider_instance_id, operations[-1]["op_id"] if operations else None)
+        self._confirm_create(rental_id, operations[-1]["op_id"] if operations else None)
+        return self.rental(rental_id)
 
-    def _attach(self, rental_id: str, instance_id: str, op_id: str | None) -> Rental:
+    def _confirm_create(self, rental_id: str, op_id: str | None) -> None:
         if op_id:
             self.store.finish_gpu_operation(op_id, "confirmed")
         self.store.set_provision_step(rental_id, "instance_create", "done")
-        self._move(rental_id, "provisioning", provider_instance_id=instance_id)
-        return self.rental(rental_id)
 
-    def _move(self, rental_id: str, status: str, *, error_code: str | None = None, detail: str | None = None,
-              **fields) -> None:
-        current = self.store.rental(rental_id)
-        if not self.store.transition_rental(rental_id, current["version"], status, error_code=error_code,
-                                            detail=self._clean(detail) if detail else None, **fields):
-            raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
+    def _move(self, rental: Rental, status: str, *, error_code: str | None = None, detail: str | None = None,
+              **fields) -> bool:
+        """CAS từ bản ghi đã đọc; False khi bên khác đã đổi trước. Chuyển trái TRANSITIONS là lỗi lập trình."""
+        if status not in TRANSITIONS[rental.status]:
+            raise GPUServiceError(f"chuyển trạng thái không hợp lệ: {rental.status}→{status}")
+        return self.store.transition_rental(rental.rental_id, rental.version, status, expect=rental.status,
+                                            error_code=error_code, detail=self._clean(detail) if detail else None,
+                                            **fields)
 
     @staticmethod
     def _clean(text: str) -> str:

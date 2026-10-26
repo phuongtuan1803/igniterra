@@ -307,7 +307,7 @@ def create_app(config: dict | None = None) -> FastAPI:
     # ------------------------------------------------------------ GPU Rentals (Gate 4, lát A)
 
     gpu = gpu_service.from_config(store, config)       # một service mỗi app; None khi [gpu] provider = "none"
-    csrf = secrets.token_urlsafe(32)
+    csrf = secrets.token_urlsafe(32)                    # theo process: giả định một uvicorn worker
 
     def gpu_filters(params) -> OfferFilters:
         """Bộ lọc từ query hoặc form; ô trống dùng mặc định của OfferFilters."""
@@ -335,13 +335,13 @@ def create_app(config: dict | None = None) -> FastAPI:
         rentals = gpu.rentals() if gpu else []
         return page(request, "gpu.html", gpu=gpu, rentals=rentals, filters=filters, offers=offers,
                     offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
-                    rental_id=gpu.new_rental_id() if gpu else None)
+                    new_rental_id=gpu.new_rental_id if gpu else None)
 
     @app.get("/gpu/offers", response_class=HTMLResponse)
     def gpu_offers_partial(request: Request):
         filters, offers, offer_error = gpu_offers({**request.query_params, "search": "1"})
         return page(request, "_gpu_offers.html", gpu=gpu, filters=filters, offers=offers, offer_error=offer_error,
-                    csrf=csrf, rental_id=gpu.new_rental_id() if gpu else None)
+                    csrf=csrf, new_rental_id=gpu.new_rental_id if gpu else None)
 
     @app.post("/gpu/instances")
     async def gpu_rent(request: Request):

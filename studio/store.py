@@ -416,22 +416,23 @@ class Store:
         with self.connect() as db:
             return [dict(row) for row in db.execute("SELECT * FROM gpu_rentals ORDER BY created_at DESC, rental_id").fetchall()]
 
-    def transition_rental(self, rental_id: str, version: int, status: str, *, error_code: str | None = None,
+    def transition_rental(self, rental_id: str, version: int, status: str, *, expect: str, error_code: str | None = None,
                           detail: str | None = None, **fields) -> bool:
-        """CAS theo ``version``: chỉ đổi khi chưa ai đổi trước; ghi sự kiện cùng giao dịch."""
+        """CAS theo (``expect``, ``version``) trong một câu UPDATE; ghi sự kiện cùng giao dịch.
+
+        False: bên khác đã đổi trạng thái trước; người gọi đọc lại, không xử lý tiếp.
+        """
         stamp = utc_now()
         columns = "".join(f", {key}=?" for key in fields)
         with self.connect() as db:
-            row = db.execute("SELECT status FROM gpu_rentals WHERE rental_id=? AND version=?", (rental_id, version)).fetchone()
-            if row is None:
-                return False
             changed = db.execute(
-                f"UPDATE gpu_rentals SET status=?, version=version+1, updated_at=?{columns} WHERE rental_id=? AND version=?",
-                (status, stamp, *fields.values(), rental_id, version),
+                f"UPDATE gpu_rentals SET status=?, version=version+1, updated_at=?{columns} "
+                "WHERE rental_id=? AND status=? AND version=?",
+                (status, stamp, *fields.values(), rental_id, expect, version),
             ).rowcount
             if changed:
                 db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
-                           (rental_id, stamp, f"{row['status']}→{status}", error_code, detail))
+                           (rental_id, stamp, f"{expect}→{status}", error_code, detail))
         return bool(changed)
 
     def add_gpu_event(self, rental_id: str, transition: str, error_code: str | None = None, detail: str | None = None) -> None:
