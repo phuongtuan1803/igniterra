@@ -2,8 +2,8 @@
 {% block title %}Settings{% endblock %}
 {% block body %}
 <div class="page-heading">
- <div><p class="eyebrow">06 / STUDIO SETTINGS</p><h1>Your tools. Your process.</h1><p class="page-subtitle">Manage adapters, model selections, concurrency and review gates.</p></div>
- <span class="chip">Local configuration</span>
+ <div><p class="eyebrow">STUDIO / SETTINGS</p><h1>Công cụ và quy trình của bạn</h1><p class="page-subtitle">Chọn adapter, model, giới hạn song song và gate duyệt.</p></div>
+ <span class="chip">Cấu hình cục bộ</span>
 </div>
 <p class="section-note">Defaults for new tasks. Validated changes are saved to <code>{{ path }}</code>, not the committed studio.toml. The worker reads settings at startup. API keys are not displayed here.</p>
 <form method="post" action="/settings" class="settings-form">

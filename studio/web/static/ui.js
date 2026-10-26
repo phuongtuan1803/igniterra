@@ -97,3 +97,11 @@ document.querySelectorAll('[data-tabs]').forEach(group => {
   });
   activate(links.find(link => link.dataset.tab === location.hash.slice(1)) || links.find(link => link.dataset.tab === group.dataset.initialTab) || links[0]);
 });
+
+// A changed task state needs the matching gate/inspector markup from the server.
+let taskStatus = document.getElementById('status')?.dataset.taskStatus;
+document.body.addEventListener('htmx:afterSwap', e => {
+  if (e.detail.target?.id !== 'status') return;
+  const current = document.getElementById('status')?.dataset.taskStatus;
+  if (taskStatus && current && current !== taskStatus) location.reload();
+});

@@ -1,10 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Monitor{% endblock %}
+{% from "_macros.html" import metric, icon, status_chip %}
 {% block body %}
-<div class="page-heading"><div><p class="eyebrow">PRODUCTION / MONITOR</p><h1>GPU &amp; keyframes</h1>
-  <p class="page-subtitle">Tự cập nhật mỗi 5 giây từ SQLite. Cần worker đang chạy để cập nhật tiến độ; mở trang này không submit hay poll provider.</p></div>
-  <a href="/comfyui/workflows">Thư viện workflow →</a></div>
+<div class="page-heading"><div><p class="eyebrow">OPERATIONS / MONITOR</p><h1>Tình trạng toàn hệ thống</h1>
+  <p class="page-subtitle">Trạng thái từ SQLite; worker cập nhật tiến độ. Mở Monitor không submit hay poll provider.</p></div>
+  <div class="row"><a class="button" href="/monitor?{{ 'task=' ~ (task_filter|urlencode) ~ '&' if task_filter else '' }}refresh=off">{{ icon('refresh') }} Làm mới</a><a class="button" href="/comfyui/workflows">Thư viện workflow →</a></div></div>
+<p class="small muted">{% if auto_refresh %}Tự cập nhật mỗi 5 giây · <a href="?{{ 'task=' ~ (task_filter|urlencode) ~ '&' if task_filter else '' }}refresh=off">Tạm dừng cập nhật để thao tác</a>{% else %}Đã tạm dừng tự cập nhật · <a href="?{{ 'task=' ~ (task_filter|urlencode) if task_filter else '' }}">Bật lại</a>{% endif %}</p>
 {% if task_filter %}<p class="section-note">Đang lọc task {{ task_filter }} · <a href="/monitor">Xem tất cả</a></p>{% endif %}
+<section class="metrics" aria-label="Monitor overview">
+ {{ metric('TASK CẦN XỬ LÝ', attention_tasks|length, 'Đang chờ hoặc gặp lỗi', 'warn') }}
+ {{ metric('RUN ĐANG XỬ LÝ', items|map(attribute='run')|rejectattr('status','in',['succeeded','failed','blocked','abandoned','output_failed'])|list|length, 'Trong tối đa 100 run gần đây') }}
+ {{ metric('GPU CÓ THỂ TÍNH PHÍ', rentals|rejectattr('rental.status','equalto','destroyed')|list|length, 'Gồm cả trạng thái chưa rõ') }}
+ {{ metric('GPU CÒN OUTPUT CHƯA KIỂM', rentals|selectattr('unverified')|list|length, 'Mở run để tải và kiểm file') }}
+</section>
+<div class="dashboard-grid">
+<section class="card"><div class="section-heading"><div><h2>Cần chú ý</h2><p class="small muted" style="margin:5px 0 0">Task, run và GPU cần bạn can thiệp.</p></div></div>
+<div class="activity-list">
+ {% for t in attention_tasks %}<div class="activity-item"><span class="activity-icon">{{ icon('alert') }}</span><div><strong>{{ t.title or t.id }}</strong><p>{{ t.id }} · {{ t.wait_reason or t.status }}</p></div><a class="button" href="/tasks/{{ t.id }}{{ '/detail' if t.status == 'failed' or t.wait_reason == 'unknown_call' else '' }}">Xử lý</a></div>{% endfor %}
+ {% for item in rentals if item.breaches or item.unverified or item.rental.status in ['create_unknown','destroy_unknown','provision_failed'] %}<div class="activity-item"><span class="activity-icon">{{ icon('cpu') }}</span><div><strong>{{ item.rental.rental_id }} · {{ item.rental.status }}</strong><p>{% if item.unverified %}Output chưa tải/kiểm. {% endif %}{% for breach in item.breaches %}{{ breach.detail }} {% endfor %}Có thể vẫn tính phí.</p></div><a class="button" href="/gpu/instances/{{ item.rental.rental_id }}">Kiểm tra</a></div>{% endfor %}
+ {% for item in items if item.run.status in ['submit_unknown','failed','blocked','output_failed'] %}<div class="activity-item"><span class="activity-icon">{{ icon('flow') }}</span><div><strong>{{ item.run.run_id }}</strong><p>{{ item.run.status }} · {{ item.run.error_code or 'Kiểm tra sự kiện run' }}</p></div><a class="button" href="/comfyui/runs/{{ item.run.run_id }}">Xử lý</a></div>{% endfor %}
+</div>
+{% if not tasks and not items and not rentals %}<p class="muted">Chưa có hoạt động. <a href="/">Mở Tasks</a>.</p>{% endif %}
+</section>
+<section class="card"><h2>Task → Run → GPU</h2><p class="small muted">Mở công đoạn hiện tại để xem storyboard hoặc xử lý lỗi.</p>
+<div class="activity-list">{% for t in tasks[:10] %}<div class="activity-item"><span class="activity-icon">{{ icon('film') }}</span><div><strong><a href="/tasks/{{ t.id }}">{{ t.title or t.id }}</a></strong><p>{{ t.id }} · {{ t.current_step or 'Chưa chạy bước nào' }}</p>{{ status_chip(t) }}</div><a class="text-link" href="/tasks/{{ t.id }}/detail">Log →</a></div>{% else %}<p class="muted small">Chưa có task phù hợp.</p>{% endfor %}</div>
+</section></div>
 <section class="card"><p class="eyebrow">GPU RENTALS</p><h2>Máy và chi phí ước tính</h2>
   <div class="table-scroll"><table><thead><tr><th>Rental</th><th>Trạng thái</th><th>Ước tính</th><th>Cần xử lý</th></tr></thead><tbody>
   {% for item in rentals %}<tr><td><a href="/gpu/instances/{{ item.rental.rental_id }}">{{ item.rental.rental_id }}</a><br>{{ item.rental.offer.gpu_name }}</td>

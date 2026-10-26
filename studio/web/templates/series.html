@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% block title %}{{ name }} · Series{% endblock %}
 {% block body %}
-<div class="page-header"><div><p class="eyebrow">05 / SERIES BIBLE</p><h1>Series {{ name }}</h1>
-<p class="muted small">Sửa Series Bible làm các task của series sinh lại đúng phần phụ thuộc (prompt keyframe, ảnh tham chiếu, giọng) ở lần chạy sau.</p></div></div>
+<div class="page-header"><div><p class="eyebrow">PRODUCTION / SERIES BIBLE</p><h1>Series {{ name }}</h1>
+<p class="muted small">Sửa Series Bible làm các task của series sinh lại đúng phần phụ thuộc (prompt keyframe, ảnh tham chiếu, giọng) ở lần chạy sau.</p></div><a class="button" href="/series">← Tất cả series</a></div>
 
 <div class="panel-grid series-workspace">
 <form class="card" method="post" action="/series/{{ name }}/update">
-  <label>style</label><textarea name="style" rows="2">{{ bible.style }}</textarea>
-  <label>negative</label><input type="text" name="negative" value="{{ bible.negative }}">
+  <label for="series-field-1-{{ loop.index if loop is defined else 0 }}">style</label><textarea name="style" rows="2" id="series-field-1-{{ loop.index if loop is defined else 0 }}">{{ bible.style }}</textarea>
+  <label for="series-field-2-{{ loop.index if loop is defined else 0 }}">negative</label><input type="text" name="negative" value="{{ bible.negative }}" id="series-field-2-{{ loop.index if loop is defined else 0 }}">
   <div class="cols3">
-    <div><label>giọng</label><input type="text" name="voice_name" value="{{ bible.narrator.name }}"></div>
-    <div><label>tốc độ</label><input type="number" step="0.05" name="voice_rate" value="{{ bible.narrator.rate }}"></div>
-    <div><label>wps (từ/giây đo được)</label><input type="number" step="0.01" name="voice_wps" value="{{ bible.narrator.wps }}"></div>
+    <div><label for="series-field-3-{{ loop.index if loop is defined else 0 }}">giọng</label><input type="text" name="voice_name" value="{{ bible.narrator.name }}" id="series-field-3-{{ loop.index if loop is defined else 0 }}"></div>
+    <div><label for="series-field-4-{{ loop.index if loop is defined else 0 }}">tốc độ</label><input type="number" step="0.05" name="voice_rate" value="{{ bible.narrator.rate }}" id="series-field-4-{{ loop.index if loop is defined else 0 }}"></div>
+    <div><label for="series-field-5-{{ loop.index if loop is defined else 0 }}">wps (từ/giây đo được)</label><input type="number" step="0.01" name="voice_wps" value="{{ bible.narrator.wps }}" id="series-field-5-{{ loop.index if loop is defined else 0 }}"></div>
   </div>
-  <label>lexicon (mỗi dòng: chữ viết = cách đọc)</label>
-  <textarea name="lexicon" rows="3">{% for k, v in bible.lexicon.items() %}{{ k }} = {{ v }}
+  <label for="series-field-6-{{ loop.index if loop is defined else 0 }}">lexicon (mỗi dòng: chữ viết = cách đọc)</label>
+  <textarea name="lexicon" rows="3" id="series-field-6-{{ loop.index if loop is defined else 0 }}">{% for k, v in bible.lexicon.items() %}{{ k }} = {{ v }}
 {% endfor %}</textarea>
   <p><button class="primary">Lưu Series Bible</button></p>
 </form>
@@ -30,21 +30,21 @@
   </form>
   {% if ch.sheet %}
   <h3>Character sheet (gửi làm ảnh tham chiếu)</h3>
-  <a href="/files/series/{{ name }}/{{ ch.sheet }}" target="_blank"><img src="/files/series/{{ name }}/{{ ch.sheet }}" style="max-height: 260px; border-radius: 6px"></a>
+  <a href="/files/series/{{ name }}/{{ ch.sheet }}" target="_blank"><img alt="Character sheet {{ key }}" src="/files/series/{{ name }}/{{ ch.sheet }}" style="max-height: 260px; border-radius: 6px"></a>
   <div class="muted small">{{ ch.sheet }} · ghép từ {{ ch.refs|join(", ") }}</div>
   {% endif %}
   <h3>Ảnh tham chiếu ứng viên</h3>
   <form method="post" action="/series/{{ name }}/characters/{{ key }}/approve">
     <div class="strip">
       {% for c in candidates[key] %}
-      <label class="cand"><a href="/files/series/{{ name }}/{{ c }}" target="_blank"><img src="/files/series/{{ name }}/{{ c }}"></a>
+      <label class="cand"><a href="/files/series/{{ name }}/{{ c }}" target="_blank"><img alt="Ảnh tham chiếu {{ key }}: {{ c }}" src="/files/series/{{ name }}/{{ c }}"></a>
         <input type="checkbox" name="candidate" value="{{ c }}"> {{ c.split("/")[-1] }}</label>
       {% else %}<span class="muted small">Chưa có ứng viên.</span>{% endfor %}
     </div>
     {% if candidates[key] %}<p><button class="primary">Duyệt ảnh đã chọn → dựng sheet</button> <span class="muted small">chọn 2–3 góc nhìn</span></p>{% endif %}
   </form>
   <div class="row" style="margin-top: 8px">
-    <form method="post" action="/series/{{ name }}/characters/{{ key }}/ref" class="row">
+    <form method="post" action="/series/{{ name }}/characters/{{ key }}/ref" class="row" data-confirm="Tạo ảnh tham chiếu sẽ xếp hàng cho worker gọi model trả phí. Tiếp tục?">
       <select name="view" style="width: auto">{% for v in views %}<option>{{ v }}</option>{% endfor %}</select>
       <input type="text" name="note" placeholder="ghi chú (tùy chọn)">
       <button>Tạo ảnh tham chiếu (worker, trả phí)</button>
@@ -61,21 +61,21 @@
 
 <form class="card" method="post" action="/series/{{ name }}/characters">
   <b>Thêm nhân vật</b>
-  <div class="cols3"><div><label>khóa</label><input type="text" name="key" required></div>
-    <div style="grid-column: span 2"><label>mô tả tiếng Anh</label><input type="text" name="description" required></div></div>
+  <div class="cols3"><div><label for="series-field-7-{{ loop.index if loop is defined else 0 }}">khóa</label><input type="text" name="key" required id="series-field-7-{{ loop.index if loop is defined else 0 }}"></div>
+    <div style="grid-column: span 2"><label for="series-field-8-{{ loop.index if loop is defined else 0 }}">mô tả tiếng Anh</label><input type="text" name="description" required id="series-field-8-{{ loop.index if loop is defined else 0 }}"></div></div>
   <p><button>Thêm</button></p>
 </form>
 
 </div></div>
 <section class="card"><p class="eyebrow">REFERENCE JOBS</p><h2>Job ảnh tham chiếu</h2>
-<table class="small">
+<div class="table-scroll"><table class="small">
   <tr><th>#</th><th>nhân vật</th><th>góc</th><th>trạng thái</th><th>kết quả</th></tr>
   {% for j in jobs|reverse %}
   <tr><td>{{ j.id }}</td><td>{{ j.character }}</td><td>{{ j.view }}</td>
     <td><span class="chip {{ {'done':'ok','failed':'bad','unknown':'bad'}.get(j.status, '') }}">{{ j.status }}</span></td>
     <td>{{ j.output_path or "" }} <span class="muted">{{ j.error or "" }}</span></td></tr>
   {% else %}<tr><td colspan="5" class="muted">Chưa có job.</td></tr>{% endfor %}
-</table>
+</table></div>
 <p class="small muted">Chi phí series: {{ costs|selectattr("status", "equalto", "ok")|list|length }} ảnh có kết quả ({{ name }}/costs.jsonl).</p>
 </section>
 {% endblock %}

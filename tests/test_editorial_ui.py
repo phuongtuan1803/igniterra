@@ -35,13 +35,13 @@ def test_editorial_navigation_and_form_contract(env):
 
     series = client.get("/series")
     assert series.status_code == 200
-    assert "The worlds you return to." in series.text
+    assert "Nhất quán từ scene đầu đến cuối" in series.text
     assert 'action="/series"' in series.text
     assert 'name="from_task"' in series.text
 
     settings = client.get("/settings")
     assert settings.status_code == 200
-    assert "Your tools. Your process." in settings.text
+    assert "Công cụ và quy trình của bạn" in settings.text
     assert 'action="/settings"' in settings.text
     assert 'name="gate_keyframes"' in settings.text
     assert 'name="llm_model"' in settings.text

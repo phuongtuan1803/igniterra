@@ -431,7 +431,10 @@ def create_app(config: dict | None = None) -> FastAPI:
             items.append({"run": run, "name": revision.name, "origin": origin})
         rentals = [{"rental": r, "cost": gpu.cost(r.rental_id), "breaches": gpu.breaches(r),
                     "unverified": gpu.unverified_runs(r.rental_id)} for r in gpu.rentals()] if gpu else []
-        return page(request, "monitor.html", items=items, rentals=rentals, auto_refresh=5, task_filter=task)
+        tasks = [views.task_summary(store, data_dir, t) for t in store.tasks() if not task or t["id"] == task]
+        return page(request, "monitor.html", items=items, rentals=rentals, tasks=tasks,
+                    attention_tasks=[t for t in tasks if t["status"] in ("waiting", "failed")],
+                    auto_refresh=None if request.query_params.get("refresh") == "off" else 5, task_filter=task)
 
     @app.post("/comfyui/image-profile")
     async def comfy_image_profile(request: Request):

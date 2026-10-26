@@ -287,3 +287,7 @@ button,.button{gap:8px}
 .workflow-layout{grid-template-columns:repeat(2,minmax(0,1fr))}.workflow-layout>.card{margin-bottom:0}.create-panel{margin-bottom:22px}
 code,.data-trail{overflow-wrap:anywhere}th{white-space:nowrap}.table-scroll,.wide-table,.review-table{overscroll-behavior-inline:contain}
 @media(max-width:890px){.workflow-layout{grid-template-columns:minmax(0,1fr)}}
+.series-symbol{height:64px;display:flex;align-items:center;padding:18px;color:var(--accent);background:var(--chip);border-radius:8px}.series-symbol .ico{width:28px;height:28px}
+#find-offer .stack-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;align-items:end}
+#find-offer .stack-form>label{margin:0;grid-row:1}#find-offer .stack-form>input:not([type=hidden]){grid-row:2}#find-offer .stack-form>p{grid-column:1/-1;margin:0}#find-offer .stack-form>button{justify-self:start;width:auto}
+@media(max-width:620px){#find-offer .stack-form{display:block}#find-offer .stack-form>label{margin:16px 0 7px}#find-offer .stack-form>button{margin-top:12px}.cols3>div[style*="span 2"]{grid-column:auto!important}.series-workspace{grid-template-columns:minmax(0,1fr)}.row>input[type=file]{width:100%}}
