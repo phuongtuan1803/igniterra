@@ -19,6 +19,18 @@
     {% endfor %}
   </div>
  </section>
+ <section class="card">
+   <p class="eyebrow">COMFYUI IMAGE</p><h2>Keyframe trên GPU thuê</h2>
+   <p class="section-note">Chọn image = comfyui ở trên. Nhập profile FLUX tại ComfyUI, duyệt manifest và chọn rental ready.
+     Worker sinh tuần tự trên một rental; dùng character sheet làm ảnh tham chiếu. Thay đổi có hiệu lực sau khi khởi động lại worker.</p>
+   <div class="cols3">
+     <div><label for="comfy_rental">Rental ID</label><input id="comfy_rental" name="rental_id" value="{{ comfy_image.rental_id or '' }}" placeholder="r_…"></div>
+     <div><label for="comfy_workflow">Workflow text-to-image ID</label><input id="comfy_workflow" name="workflow_id" value="{{ comfy_image.workflow_id or '' }}" placeholder="wf_…"></div>
+     <div><label for="comfy_reference">Workflow reference ID</label><input id="comfy_reference" name="reference_workflow_id" value="{{ comfy_image.reference_workflow_id or '' }}" placeholder="wf_…"></div>
+   </div>
+   <p class="small muted">Revision mặc định 1; có thể ghim revision khác trong [comfyui.image] của file cấu hình.
+     <a href="/comfyui/workflows">Thư viện workflow</a> · <a href="/monitor">Monitor</a></p>
+ </section>
  <div class="panel-grid">
    <section class="card">
      <p class="eyebrow">PROVIDER ROUTING</p><h2>Model routing</h2>

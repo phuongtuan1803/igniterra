@@ -230,7 +230,11 @@ def cmd_comfyui(args, config, store):
     comfy = comfy_service.from_config(store, config, gpu_service.from_config(store, config))
     try:
         command = args.comfyui_command
-        if command == "import":
+        if command == "import-image-profile":
+            result = comfy.import_image_profile(Path(args.folder))
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            print("Manifest chờ duyệt; đọc manifest.json rồi: comfyui manifest approve SHA")
+        elif command == "import":
             record = comfy.import_workflow(args.name or Path(args.file).stem, Path(args.file).read_bytes(),
                                            api_raw=Path(args.api).read_bytes() if args.api else None,
                                            workflow_id=args.workflow_id, note=args.note)
@@ -399,6 +403,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     comfyui = sub.add_parser("comfyui", help="ComfyUI workflow (Gate 4): thư viện, manifest, chạy, poll").add_subparsers(
         dest="comfyui_command", required=True)
+    comfyui.add_parser("import-image-profile", help="nhập text2image/reference và manifest, giữ chờ duyệt").add_argument("folder")
     c_import = comfyui.add_parser("import", help="nhập workflow JSON thành revision mới")
     c_import.add_argument("file")
     c_import.add_argument("--api", help="bản Export (API) kèm theo khi FILE là GUI JSON")

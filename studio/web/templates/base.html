@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
+{% if auto_refresh %}<meta http-equiv="refresh" content="{{ auto_refresh }}">{% endif %}
 <title>{% block title %}Studio{% endblock %} · Igniterra</title>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/htmx.min.js" defer></script>
@@ -20,10 +21,11 @@
     <div class="sidebar-divider"></div>
     <div class="nav-caption">WORKSPACE</div>
     <nav class="nav-menu">
-      {% set on_tasks = not here.startswith('/series') and not here.startswith('/settings') and not here.startswith('/gpu') and not here.startswith('/comfyui') %}
+      {% set on_tasks = not here.startswith('/series') and not here.startswith('/settings') and not here.startswith('/gpu') and not here.startswith('/comfyui') and not here.startswith('/monitor') %}
       <a href="/" class="nav-item {{ 'active' if on_tasks else '' }}" {% if on_tasks %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▦</span><span>Tasks</span></a>
       <a href="/series" class="nav-item {{ 'active' if here.startswith('/series') else '' }}" {% if here.startswith('/series') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◇</span><span>Series</span></a>
       <a href="/gpu" class="nav-item {{ 'active' if here.startswith('/gpu') else '' }}" {% if here.startswith('/gpu') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▣</span><span>GPU Rentals</span></a>
+      <a href="/monitor" class="nav-item {{ 'active' if here.startswith('/monitor') else '' }}" {% if here.startswith('/monitor') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◷</span><span>Monitor</span></a>
       <a href="/comfyui/workflows" class="nav-item {{ 'active' if here.startswith('/comfyui') else '' }}" {% if here.startswith('/comfyui') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◈</span><span>ComfyUI</span></a>
       <a href="/settings" class="nav-item {{ 'active' if here.startswith('/settings') else '' }}" {% if here.startswith('/settings') %}aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span></a>
     </nav>
@@ -35,7 +37,7 @@
   </aside>
   <div class="app-content">
     <div class="utility-bar">
-      <span>Studio <span class="utility-slash">/</span> {% if here.startswith('/series') %}Series{% elif here.startswith('/settings') %}Settings{% elif here.startswith('/gpu') %}GPU Rentals{% elif here.startswith('/comfyui') %}ComfyUI{% else %}Tasks{% endif %}</span>
+      <span>Studio <span class="utility-slash">/</span> {% if here.startswith('/series') %}Series{% elif here.startswith('/settings') %}Settings{% elif here.startswith('/gpu') %}GPU Rentals{% elif here.startswith('/comfyui') %}ComfyUI{% elif here.startswith('/monitor') %}Monitor{% else %}Tasks{% endif %}</span>
       <span class="utility-mode">Editorial Light <span aria-hidden="true">·</span> Local studio</span>
     </div>
     <main id="main" class="page-container">

@@ -2,7 +2,7 @@
 id: IGN-MOD
 title: Igniterra — Provider, adapter và MoneyPrinterTurbo
 type: design
-ver: "2.8"
+ver: "2.9"
 status: draft
 date: 2026-10-26
 owner: Tuan
@@ -11,6 +11,7 @@ kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.2, 5, 9.2, 12"], [Thành phần,
 rev:
   - ["2.7", 2026-10-25, "Gate 3: 400 'could not generate an image' cũng là ContentRefused; FakeAltTTS cho T07; test adapter OmniRoute với server giả (lịch sử trước đó: git log)"]
   - ["2.8", 2026-10-26, "Soát theo code: bỏ phần dùng nguyên WebUI/CLI của MPT, chi phí Gate 2–3 thật thay ví dụ t_0042, VideoProvider chưa có adapter thật; GPUProvider tách khỏi content provider (09)"]
+  - ["2.9", 2026-10-27, "ComfyImage dùng workflow đã duyệt, run bền vững và character sheet trên rental ready; không tự thuê GPU, không phân bổ giả chi phí GPU vào từng ảnh"]
 ---
 
 <!-- id:s1 -->
@@ -197,6 +198,7 @@ Table: Bảng adapter
 | `SubtitleAligner` | MPT `subtitle.create(audio_file, subtitle_file)` rồi `subtitle.correct(subtitle_file, script)` | Dùng khi TTS không trả mốc từ | Gate 2 |
 | `LLMProvider` | `OmniRouteLLM` qua OmniRoute (mặc định); hoặc lớp kết nối trong `llm.py` của MPT | Prompt và schema do ta viết | Gate 2 |
 | `ImageProvider` (nhân vật) | `OmniRouteImage` qua OmniRoute (`openrouter/google/gemini-3.1-flash-image-preview`, cần ảnh tham chiếu) | Trả `AssetCandidate`; MPT không có khái niệm nhân vật | Gate 2 |
+| `ImageProvider` (ComfyUI) | `ComfyImage` → `ComfyService`, workflow/manifest đã duyệt trên rental ready | Ghi attempt vào run bền vững, text/seed/kích thước được bind theo whitelist; character sheet upload tên SHA-256; output đã kiểm → `AssetCandidate` có link run; timeout/output lỗi → `Unconfirmed`, không submit lại | Gate 4, đã có code; [profile FLUX](../../../workflows/flux2-klein-4b/README.md) |
 | `ImageProvider` (phụ) | MPT stock footage trong `material.py` | Trả ứng viên cho scene không cần nhân vật | Khi cần |
 | `VideoProvider` | MPT `generate_videos()` của từng provider, SDK Veo, hoặc ComfyUI (Wan 2.2) trên GPU thuê | `UnconfirmedTaskError` → `CostEvent unknown`, task `waiting` | Gate 4; chưa có adapter thật, registry chỉ có `FakeVideo` |
 | Renderer | `vendor/video_project.py` (bản copy tại `82bb4a7`) | `render(plan, assets)` → manifest (mỗi scene: clip selected dạng MP4, giọng selected, narration) → `create_revision`, `plan`, `render` | Gate 2 |

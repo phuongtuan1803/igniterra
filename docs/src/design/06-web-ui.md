@@ -2,7 +2,7 @@
 id: IGN-UI
 title: Igniterra — Giao diện review và CLI
 type: design
-ver: "2.4"
+ver: "2.5"
 status: draft
 date: 2026-10-26
 owner: Tuan
@@ -11,6 +11,7 @@ kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 8"], [Thành phần, "studio/cli.p
 rev:
   - ["2.3", 2026-10-25, "Gate 3 đã xây: route, phiếu duyệt trên Storyboard, job ảnh tham chiếu, Settings ghi lớp phủ, lệnh web và series (lịch sử trước đó: git log)"]
   - ["2.4", 2026-10-26, "Soát theo code: giao diện Editorial Light (sidebar, CSS thuần), bảng lệnh CLI đúng với cli.py, Task detail không có tải artifact hay chạy lại bước, Settings ghi data/settings.toml, chưa có CSRF; GPU Rentals và ComfyUI Workflows là thiết kế (09)"]
+  - ["2.5", 2026-10-27, "GPU/ComfyUI đã triển khai; Monitor read-only tự cập nhật, link task/scene-run-rental và preview output; Settings chọn ComfyImage, nhập profile có CSRF và chờ duyệt"]
 ---
 
 <!-- id:s1 -->
@@ -256,19 +257,23 @@ Table: Route của trang review (`studio/web/`)
 | `GET /files/{path}` | File trong `data/`, `realpath` + `commonpath`; symlink ra ngoài bị chặn |
 
 <!-- id:s8.b2 -->
-Giao diện "Editorial Light" (`studio/web/static/style.css`, CSS thuần, không bước build, không tải tài nguyên ngoài): sidebar cố định với Tasks, Series, Settings; Storyboard và Task detail mở từ Tasks. `tests/test_editorial_ui.py` giữ hợp đồng tên trường và `action` của các form POST, không kiểm pixel. Basic auth bật bằng biến `STUDIO_BASIC_AUTH=user:pass`.
+Giao diện "Editorial Light" (`studio/web/static/style.css`, CSS thuần, không bước build, không tải tài nguyên ngoài): sidebar có Tasks, Series, GPU Rentals, Monitor, ComfyUI và Settings; Storyboard và Task detail mở từ Tasks. `tests/test_editorial_ui.py` giữ hợp đồng tên trường và `action` của các form POST, không kiểm pixel. Basic auth bật bằng biến `STUDIO_BASIC_AUTH=user:pass`.
+
+<!-- id:s8.b3 -->
+`GET /monitor` (lọc tùy chọn `?task=t_0001`) đọc SQLite, tự tải lại mỗi 5 giây; không gọi provider, không submit. Nó hiện trạng thái và chi phí rental, run/task/scene, sự kiện cuối và cảnh báo output chưa kiểm; dữ liệu mới cần worker đang chạy. `GET /comfyui/runs/{id}` tự cập nhật khi run chưa kết thúc và preview ảnh đã kiểm. Storyboard có link về run của từng keyframe ComfyImage. `POST /comfyui/image-profile` có CSRF và xác nhận, chỉ nhập hai workflow FLUX + manifest chờ duyệt; không thuê hoặc tải model. CLI tương đương: `comfyui import-image-profile workflows/flux2-klein-4b`. Settings có adapter `image = comfyui` và ID rental/workflow; revision được ghim qua TOML.
 
 <!-- id:s9-2 -->
 ## Truy cập và bảo mật
 
 <!-- id:s8.b1 -->
-Giao diện chạy ở `127.0.0.1` hoặc sau Tailscale/basic auth; API key không hiển thị trên UI. Không có đa người dùng, phân quyền hay CSRF token; chấp nhận được khi chỉ một người dùng trên localhost, phải thêm CSRF trước khi có route tốn tiền như thuê GPU ([09](09-gpu-comfyui.md#s7)).
+Giao diện chạy ở `127.0.0.1` hoặc sau Tailscale/basic auth; API key không hiển thị trên UI. Không có đa người dùng hay phân quyền. POST GPU/ComfyUI có CSRF token theo process, thuê/chạy cần xác nhận; giữ một uvicorn worker. Các POST review/settings cũ chưa có CSRF đồng bộ; không mở thẳng ra Internet.
 
 <!-- id:s9 -->
 ## Nguyên tắc giữ UI nhỏ
 
 <!-- id:s9.b1 -->
-- Giữ 4 trang và Settings; mọi trang mới phải chứng minh nhu cầu bằng một lỗi đã thấy ở gate trước. Khi D-05 mở, thêm đúng hai mục sidebar GPU Rentals (`/gpu`) và ComfyUI Workflows (`/comfyui/workflows`) theo [09](09-gpu-comfyui.md#s7).
+- GPU Rentals (`/gpu`) và ComfyUI (`/comfyui/workflows`) đã có theo [09](09-gpu-comfyui.md#s7). `/monitor` giải quyết nhu cầu theo dõi keyframe ComfyImage cùng task/scene và rental, không cần đi lần lượt qua từng workflow.
+
 - Không dashboard thống kê: `costs.jsonl` và `jq` đủ cho báo cáo tháng.
 - Không workflow editor: danh sách bước là mã Python; ComfyUI workflow chỉ nhập, duyệt và chạy, sửa graph mở ComfyUI gốc.
 - Không thay trình dựng phim: chỉnh nhịp từng khung phải sửa dữ liệu rồi render lại, hoặc xuất timeline sang trình dựng ngoài.

@@ -2,16 +2,17 @@
 id: IGN-GPU
 title: Igniterra — GPU thuê và ComfyUI Workflows (Gate 4, thiết kế)
 type: design
-ver: "2.1"
+ver: "2.2"
 status: draft
-date: 2026-10-26
+date: 2026-10-27
 owner: Tuan
-sum: GPU thuê on-demand và ComfyUI workflow: contract, vòng đời thuê, provisioning đã duyệt, guardrail và bộ kiểm chứng G01–G12. Lát A–D đã triển khai; lát E bổ sung giới hạn, kiểm checksum và kiểm chứng tích hợp thật.
+sum: GPU thuê on-demand và ComfyUI workflow đã triển khai A–E; ComfyImage nối workflow đã duyệt với keyframe pipeline, profile FLUX.2 Klein có character sheet và Monitor theo dõi task/scene, run, rental.
 kv: [[Trạng thái, "Đã có code A–E; bằng chứng và giới hạn vận hành ở runbook"], [Module, "studio/gpu/, studio/comfyui/, studio/web/"], [Yêu cầu, "FR-19, FR-20, NFR-11, NFR-12, CON-09"]]
 rev:
   - ["1.1", 2026-10-26, "PR #9: 09 tổng quan, 10 GPU Rentals, 11 ComfyUI Workflows, 12 UX, 13 Verification"]
   - ["2.0", 2026-10-26, "Gộp 09–13 thành một tài liệu, bỏ phần lặp; soát lại cách áp dụng repo mã nguồn mở: không cài gói vastai (xung đột pillow với mpt), license Vast.ai Elastic của base-image, label chủ sở hữu, cancel_unavail, on_failure destroy, prompt_id do client sinh"]
   - ["2.1", 2026-10-26, "Lát E: guardrail worker, ưu tiên giữ output G11, SHA-256 qua ComfyUI có xác thực; sửa manifest khởi động ComfyUI và tiến độ /capabilities theo upstream; thêm runbook"]
+  - ["2.2", 2026-10-27, "ComfyImage và profile FLUX.2 Klein 4B đã ghim; upload character sheet, nối attempt với run bền vững, Monitor read-only"]
 ---
 
 <!-- id:s1 -->
@@ -24,7 +25,7 @@ rev:
 <!-- id:s1.b2 -->
 - **GPU Rentals**: tìm offer, thuê on-demand, theo dõi provisioning, chi phí ước tính, stop/destroy. Là module hạ tầng, không phải provider nội dung thứ sáu.
 - **ComfyUI Workflows**: nhập workflow JSON, duyệt dependency, chạy trên một GPU đã `ready`, tải và kiểm output. Không viết lại node editor.
-- **Video studio** giữ nguyên danh sách bước. Khi cần, adapter `providers/direct/comfyui.py` (`ImageProvider`/`VideoProvider`) chỉ nhận endpoint ComfyUI đã `ready`; pipeline không thuê GPU.
+- **Video studio** giữ nguyên danh sách bước. Adapter `providers/direct/comfyui.py` (`ImageProvider`) dùng rental đã `ready`; pipeline không thuê GPU. `VideoProvider` qua ComfyUI chưa triển khai.
 - MVP: on-demand, một người vận hành, một worker, một run mỗi instance, một provider (Vast.ai). Không bid/interruptible, serverless, autoscaling hay provider thứ hai (CON-09).
 
 <!-- id:s2 -->
@@ -67,7 +68,7 @@ Table: Module đề xuất
 | `studio/gpu/adapters/base.py`, `fake.py`, `vast.py` | `GPUProvider` Protocol, bản giả, adapter Vast.ai |
 | `studio/comfyui/workflows.py`, `manifest.py` | Nhập JSON, revision SHA-256, manifest dependency đã duyệt |
 | `studio/comfyui/runtime.py`, `runs.py` | Client HTTP ComfyUI; chạy, theo dõi, tải output |
-| `studio/providers/direct/comfyui.py` | Tùy chọn: `ImageProvider`/`VideoProvider` gọi một runtime đã `ready` |
+| `studio/providers/direct/comfyui.py` | `ComfyImage`: bind input vào workflow đã duyệt, nối attempt với run và trả một ảnh đã kiểm |
 
 <!-- id:s2.b3 -->
 Quy tắc: web chỉ gọi service, không import adapter; `studio/gpu` và `studio/comfyui` không import `app.*` của MPT (giữ NFR-01); worker hiện có làm poll và reconcile, không thêm process, broker hay dịch vụ riêng. Hai trang có state riêng, liên kết bằng `rental_id`; xóa workflow không hủy GPU, hủy GPU không xóa workflow.
@@ -178,8 +179,11 @@ Bước provisioning lưu ở `gpu_provision_steps`: `instance_create`, `host_bo
 - **Duyệt**: manifest liệt kê model (URL ghim commit, đích, dung lượng, SHA-256, license) và custom node (repo, commit, `requirements.txt`). Chỉ manifest đã duyệt mới được gắn vào một rental.
 - **Kiểm trước khi chạy**: `GET /object_info` của runtime phải có mọi `class_type` trong workflow dạng API; thiếu node thì chặn, không submit.
 - **Submit**: worker sinh UUID, ghi `comfy_runs.prompt_id` rồi mới `POST /prompt` kèm `prompt_id` đó (ComfyUI hiện hành nhận `prompt_id` do client đặt; ghim bản ComfyUI có tính năng này). Khi mất response, tra `GET /history/{prompt_id}` và `GET /queue`; không submit lại mù (G08).
-- **Theo dõi**: WebSocket `/ws` nếu có, nếu không thì poll `/queue` và `/history/{prompt_id}`; hiển thị node đang chạy và thời điểm sự kiện cuối.
+- **Theo dõi**: poll `/queue` và `/history/{prompt_id}`, lưu trạng thái và thời điểm sự kiện cuối. Chưa có WebSocket hay phần trăm tiến độ từng node.
 - **Output**: tải qua `GET /view`, kiểm SHA-256 và loại media, ghi vào `data/comfyui/runs/<run_id>/` qua kiểm `realpath`/`commonpath` như `safe_path` của web. Run chỉ `succeeded` khi output đã kiểm; output chưa tải thì cảnh báo trước khi destroy (G11).
+
+<!-- id:s6.b2 -->
+`ComfyImage` chọn template text-to-image hoặc reference theo refs, chỉ bind text, seed, kích thước, prefix output và tên ảnh; không thay model hay liên kết graph. Một attempt của task/scene gắn với một `run_id` bền vững và fingerprint input: mất response hoặc timeout phải đối soát run cũ, không tự submit lần hai. Adapter tuần tự hóa scene trên một rental. Profile [FLUX.2 Klein 4B](../../../workflows/flux2-klein-4b/README.md) có ba model Apache-2.0 ghim commit/SHA-256 và không có custom node. Upload character sheet dùng tên SHA-256 ở input root để tương thích danh sách file `LoadImage`; chỉ nhận một PNG/JPEG/WebP tối đa 64 MiB.
 
 <!-- id:s7 -->
 ## Dữ liệu, chi phí, bảo mật và route
@@ -197,7 +201,7 @@ Table: Bảng SQLite riêng của Gate 4 (không đổi 5 bảng core)
 | `comfy_runs` | `run_id`, `workflow_revision`, `manifest_sha256`, `rental_id`, `prompt_id`, `status`, đường dẫn output |
 
 <!-- id:s7.b2 -->
-- Chi phí GPU không ghi vào `costs.jsonl` của task: chưa có cách phân bổ giờ GPU cho từng asset. Hóa đơn Vast là thực chi.
+- `costs.jsonl` ghi lượt gọi ComfyImage và lượng ảnh, không gán USD/ảnh khi chưa phân bổ được giờ GPU. Rental ghi chi phí ước tính; pilot ghi chênh lệch tài khoản có độ trễ, hóa đơn Vast là thực chi.
 - Bí mật (`VAST_API_KEY`, `HF_TOKEN`, `WEB_PASSWORD` từng rental) chỉ ở `.env` hoặc `data/gpu/` quyền 600; không vào workflow JSON, manifest, `gpu_events`, HTML.
 - POST GPU và ComfyUI có CSRF token theo process; thuê/chạy cần xác nhận và ID sinh trước chống bấm hai lần. Giữ một uvicorn worker; Basic auth đặt qua `STUDIO_BASIC_AUTH`.
 
@@ -211,12 +215,14 @@ Table: Route đề xuất (kế thừa basic auth của `studio/web/`)
 | `POST /gpu/instances/{id}/reconcile\|stop\|destroy` | Đồng bộ với provider; stop, destroy có xác nhận |
 | `GET/POST /comfyui/workflows`, `GET /comfyui/workflows/{id}` | Thư viện, nhập, duyệt manifest |
 | `POST /comfyui/workflows/{id}/runs`, `GET /comfyui/runs/{id}` | Chạy trên GPU `ready`; tiến độ và output |
+| `POST /comfyui/image-profile` | Nhập profile FLUX ghim sẵn, chờ duyệt manifest; không thuê máy |
+| `GET /monitor?task={id}` | Đọc SQLite mỗi 5 giây; nối task/scene ↔ run ↔ rental, cảnh báo và chi phí; GET không poll provider |
 
 <!-- id:s8 -->
 ## Kiểm chứng G01–G12
 
 <!-- id:s8.b1 -->
-Test chạy với `FakeGPUProvider`, Vast REST giả và `FakeComfyUIRuntime` (mô phỏng `/system_stats`, `/object_info`, `/prompt`, `/queue`, `/history`, `/view`), 0 USD, trong `uv run pytest`. Lượt thuê thật chỉ ở lát E ([08](08-roadmap.md#s5)), chạy tay, có trần chi phí, kết thúc bằng xác nhận không còn instance có label `igniterra:`.
+Test chạy với `FakeGPUProvider`, Vast REST giả và HTTP runtime giả (mô phỏng `/system_stats`, `/object_info`, `/upload/image`, `/prompt`, `/queue`, `/history`, `/view`), 0 USD, trong `uv run pytest`. Lượt thuê thật có trần chi phí riêng, kết thúc bằng xác nhận không còn instance có label `igniterra:`. Bằng chứng Slice E ở [g4](../../reports/g4/README.md); pilot ComfyImage ghi chất lượng, thời gian và chi phí trên ảnh đạt, không so sánh OmniRoute.
 
 <!-- id:s8.b2 -->
 Table: Bộ test chấp nhận

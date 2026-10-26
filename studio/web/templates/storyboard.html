@@ -123,6 +123,7 @@
         {% elif kind == "voice" %}<audio controls preload="none" src="/files/tasks/{{ task.id }}/{{ c.path }}" style="width: 92px"></audio>
         {% else %}<a href="/files/tasks/{{ task.id }}/{{ c.path }}" target="_blank">▶ clip</a>{% endif %}
         <div>{{ c.id }}{% if c.provider == "user" %} · user{% endif %}</div>
+        {% if c.source and c.source.startswith('comfyui:cr_') %}<a href="/comfyui/runs/{{ c.source.split(':')[1] }}">ComfyUI run ↗</a>{% endif %}
         <div class="muted">rev {{ c.plan_rev }}{% if c.duration_s %} · {{ "%.1f"|format(c.duration_s) }}s{% endif %}</div>
         {% if c.id != slot.selected %}
         <form method="post" action="/tasks/{{ task.id }}/scenes/{{ sc.id }}/select" class="edit"><input type="hidden" name="candidate" value="{{ c.id }}"><button {{ dis }}>Chọn</button></form>

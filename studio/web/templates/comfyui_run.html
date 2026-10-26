@@ -5,6 +5,8 @@
   <div><p class="eyebrow">08 / COMFYUI RUN</p><h1>{{ revision.name }} · rev {{ run.revision }}</h1><div class="muted small">{{ run.run_id }} · rental <a href="/gpu/instances/{{ run.rental_id }}">{{ run.rental_id }}</a>{% if rental %} ({{ rental.status }}){% endif %} · prompt_id <code>{{ run.prompt_id or "—" }}</code></div></div>
   <a href="/comfyui/workflows/{{ run.workflow_id }}?revision={{ run.revision }}">← Workflow</a>
 </div>
+{% if origin %}<p class="section-note">Keyframe cho <a href="/tasks/{{ origin.task_id }}?scene={{ origin.scene }}">{{ origin.task_id }} · {{ origin.scene }}</a>, attempt {{ origin.attempt }} · <a href="/monitor?task={{ origin.task_id }}">Monitor task</a>.</p>{% endif %}
+{% if auto_refresh %}<p class="small muted">Tự cập nhật mỗi 5 giây theo trạng thái worker đã ghi. Chưa có số đo node đang chạy nếu runtime chỉ trả queue.</p>{% endif %}
 <div class="status">
   <span class="chip {{ 'ok' if run.status == 'succeeded' else ('bad' if run.status in ('failed', 'blocked', 'output_failed', 'abandoned') else 'warn') }}">{{ run.status }}</span>
   {% if run.error_code %}<span class="chip bad">{{ run.error_code }}</span>{% endif %}
@@ -34,6 +36,7 @@
       {% for o in outputs %}
       <tr><td>{% if o.status == "verified" and o.path %}<a href="/files/{{ o.path }}">{{ o.filename }}</a>{% else %}{{ o.filename }}{% endif %}<br><small class="muted">node {{ o.node }}{% if o.subfolder %} · {{ o.subfolder }}{% endif %}</small></td>
         <td>{{ o.status }}{% if o.error %}<br><small>{{ o.error }}</small>{% endif %}</td><td>{{ o.media_type or "—" }}</td><td>{{ o.bytes or "—" }}</td><td>{% if o.sha256 %}<code>{{ o.sha256[:16] }}…</code>{% else %}—{% endif %}</td></tr>
+      {% if o.status == "verified" and o.path and o.media_type and o.media_type.startswith('image/') %}<tr><td colspan="5"><a href="/files/{{ o.path }}"><img src="/files/{{ o.path }}" alt="{{ o.filename }}" loading="lazy" style="max-height:320px;max-width:100%"></a></td></tr>{% endif %}
       {% else %}<tr><td colspan="5" class="muted small">Chưa có output.</td></tr>{% endfor %}
     </tbody>
   </table></div>

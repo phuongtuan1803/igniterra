@@ -2,15 +2,16 @@
 id: IGN-PLAN
 title: Igniterra — Lộ trình theo decision gate
 type: plan
-ver: "3.0"
+ver: "3.1"
 status: draft
-date: 2026-10-26
+date: 2026-10-27
 owner: Tuan
-sum: Gate 2 (core, CLI) và Gate 3 (trang review, Series Bible) đã xây; Gate 4 mở từng hạng mục khi có số liệu. Kèm bộ test chấp nhận T01–T12, thứ tự triển khai GPU thuê/ComfyUI nếu D-05 mở, và các quyết định còn mở.
-kv: [[Trạng thái, "Gate 2, 3 đã xây; chờ phiếu duyệt và D-07"], [Chỉ số, "video được duyệt, phút công, chi phí trên video được duyệt"], [Bằng chứng, "reports/g2, reports/g3"]]
+sum: Gate 2 và Gate 3 đã xây; Gate 4 đã triển khai GPU/ComfyUI A–E, ComfyImage và Monitor. Pilot FLUX tạo 5 keyframe và MP4 53 giây; Codex chấm 2/5 ảnh đạt nội dung sơ bộ, chờ người duyệt cuối. Không so sánh OmniRoute.
+kv: [[Trạng thái, "ComfyImage có MP4 pilot; chờ duyệt nội dung"], [Chỉ số, "video được duyệt, phút công, chi phí trên video/ảnh được duyệt"], [Bằng chứng, "reports/g2, reports/g3, reports/g4-comfy-image"]]
 rev:
   - ["2.8", 2026-10-25, "Gate 3 bắt đầu trước D-07; phần xây xong, T09 đã đo (lịch sử trước đó: git log)"]
   - ["3.0", 2026-10-26, "Soát theo code: bỏ nội dung pilot trước Gate 2, ví dụ t_0042 minh họa và phụ lục rà soát v1.1; thêm thứ tự triển khai GPU thuê/ComfyUI (09)"]
+  - ["3.1", 2026-10-27, "PR #11–#15 hoàn tất GPU A–E; thêm ComfyImage, profile FLUX và Monitor; pilot theo yêu cầu Tuan, không so sánh OmniRoute"]
 ---
 
 <!-- id:s1 -->
@@ -46,7 +47,7 @@ Table: Cổng, đầu ra kiểm chứng và điều kiện
 | --- | --- | --- | --- | --- |
 | 2 — Core + adapter, CLI | Core (contract, StepRun, `costs.jsonl`), adapter thật, 5 brief trong `briefs/` ra MP4; test quét import | Đạt G-02 ([01](01-system-design.md#s3)): ít nhất 3/5 video đạt C01–C09, tối đa 15 phút chủ động mỗi video được duyệt, tổng chi trong 5 USD | Không đạt sau một vòng sửa | Đã xây; chờ phiếu duyệt ([g2](../../reports/g2/README.md)) |
 | 3 — Duyệt và sửa | Trang review, selected, rerun scene, Series Bible; T02–T07, T09 | Giảm số lần sinh lại hoặc phút sửa so với Gate 2 | Tính năng không giải quyết lỗi đã thấy | Đã xây; điều kiện ra chờ số đo Gate 2 ([g3](../../reports/g3/README.md)) |
-| 4 — Mở rộng | Một hạng mục mỗi lần (bảng ở mục Gate 4) | Có nhu cầu định lượng | — | Chưa mở; GPU thuê/ComfyUI mới có thiết kế ([09](09-gpu-comfyui.md)) |
+| 4 — Mở rộng | Một hạng mục mỗi lần (bảng ở mục Gate 4) | Có nhu cầu định lượng | — | GPU/ComfyUI A–E đã có code và thuê thật ([g4](../../reports/g4/README.md)); tiếp nối bằng ComfyImage + pilot FLUX theo tiêu chí tuyệt đối |
 
 <!-- id:s3 -->
 ## Gate 2: core + adapter, CLI
@@ -136,7 +137,7 @@ Table: Điều kiện mở từng hạng mục Gate 4
 | Đăng bài tự động | Audit YouTube/TikTok xong; cờ nội dung AI sẵn sàng | — |
 
 <!-- id:s5.b4 -->
-Nếu D-05 mở, làm theo thứ tự sau; mỗi lát chỉ bắt đầu khi lát trước đạt test ở [09 · Kiểm chứng](09-gpu-comfyui.md#s8). Thuê GPU thật chỉ ở lát E, chạy tay, có trần chi phí.
+A–E đã triển khai qua PR #11–#15, có test ở [09 · Kiểm chứng](09-gpu-comfyui.md#s8) và [lượt thuê thật Slice E](../../reports/g4/README.md). Mỗi lượt thuê thật tiếp theo vẫn cần trần chi phí và xác nhận destroy; việc đã có code không tự cho phép chi không giới hạn.
 
 <!-- id:s5.b5 -->
 Table: Thứ tự triển khai GPU thuê và ComfyUI
@@ -147,6 +148,12 @@ Table: Thứ tự triển khai GPU thuê và ComfyUI
 | C | Image ComfyUI ghim digest, provisioning manifest đã duyệt, health + smoke | G05–G07 |
 | D | Thư viện workflow, chạy bằng `prompt_id` do client sinh, tải và kiểm output | G06, G08, G11 |
 | E | Idle TTL, bảo mật, một lượt thuê thật có trần chi phí | G09–G12 + bằng chứng thật |
+
+<!-- id:s5.b6 -->
+Tiếp nối A–E theo yêu cầu Tuan ngày 27/10/2026: `ComfyImage` gọi workflow đã duyệt trên rental ready, profile FLUX.2 Klein 4B distilled có text-to-image và character sheet, và trang `/monitor` nối task/scene ↔ run ↔ rental. Không tự thuê GPU từ content adapter. Pilot dùng lại một kịch bản và Series Bible đã có, sinh keyframe qua FLUX rồi đi qua gate duyệt ảnh và render MP4; ghi thời gian, chất lượng/nhất quán, số lần thử, chi phí trên ảnh đạt và trạng thái dọn máy. Không chạy hoặc so sánh với OmniRoute. Giọng/phụ đề/render tiếp tục qua adapter hiện có; kết quả kỹ thuật không thay phiếu duyệt của người.
+
+<!-- id:s5.b7 -->
+[Pilot đã chạy](../../reports/g4-comfy-image/README.md): task `t_0011`, 5 PNG đã kiểm hash trên RTX 3090, MP4 1080×1920 dài 53,133 giây; cả hai lượt thuê đã destroy. Codex chấm nội dung sơ bộ 2/5 ảnh đạt; s01/s03/s05 còn lỗi, task chờ `gate:final`. Chi phí quan sát của riêng pilot 0,1245334693 USD (gồm lượt lỗi), khoảng 0,06227 USD/ảnh đạt sơ bộ; chưa phải hóa đơn hay kết quả người duyệt. Bước tiếp theo là người xem final và quyết định sửa nội dung trước khi mở batch lớn/model video.
 
 <!-- id:s7 -->
 ## Quyết định cần chốt
@@ -175,6 +182,6 @@ Table: Quyết định vận hành
 | D-02 | Thể loại video pilot | Đã chốt: Short sci-fi bí ẩn tiếng Việt, tối đa 60 giây (CON-08) |
 | D-03 | Mức chi tiêu tối đa của pilot | Đã chốt 5 USD, đặt ở tài khoản của từng provider trả phí (OpenRouter 5 USD) |
 | D-04 | Khi nào thêm image-to-video | Mở: khi Gate 3 cho thấy ảnh tĩnh không đủ |
-| D-05 | Khi nào thuê GPU (ComfyUI) | Mở: khi chi phí hoặc nhu cầu model mở chứng minh lợi ích; thiết kế sẵn ở [09](09-gpu-comfyui.md) |
+| D-05 | Khi nào thuê GPU (ComfyUI) | A–E đã triển khai và thuê thật; ComfyImage/FLUX được thực hiện theo yêu cầu Tuan với trần chi phiên 2 USD. Năng lực/model tiếp theo cần mục tiêu và trần riêng; xem [09](09-gpu-comfyui.md) |
 | D-06 | Khi nào làm audiobook | Mở: khi có workload thật |
 | D-07 | Điều kiện tiếp tục đầu tư | Mở: chờ phiếu duyệt và hóa đơn Gate 2, so với G-02 |

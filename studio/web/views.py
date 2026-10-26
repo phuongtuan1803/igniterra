@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from studio import costs, gates
@@ -22,6 +23,11 @@ CHECKLIST_TEXT = {
     "C08": "Không khung đen, lỗi hình nghiêm trọng, âm thanh vỡ",
     "C09": "Lưu nguồn/quyền tài sản; mô tả ghi truyện hư cấu, hình/giọng AI",
 }
+
+
+def comfy_origin(note: str | None) -> dict | None:
+    match = re.match(r"image_request:(t_[0-9]+):(s[0-9]{2}):keyframes:([0-9]+)(?:\n|$)", note or "")
+    return {"task_id": match[1], "scene": match[2], "attempt": int(match[3])} if match else None
 
 
 def task_summary(store: Store, data_dir: Path, task: dict) -> dict:
