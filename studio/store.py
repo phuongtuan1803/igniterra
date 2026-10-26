@@ -143,6 +143,79 @@ CREATE TABLE IF NOT EXISTS gpu_cost_samples (
     disk_per_h REAL NOT NULL,
     accrued_est REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS comfy_manifests (
+    manifest_sha256 TEXT PRIMARY KEY,
+    manifest_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    approved_at TEXT
+);
+CREATE TABLE IF NOT EXISTS comfy_workflows (
+    workflow_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    format TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    source_json TEXT NOT NULL,
+    api_sha256 TEXT,
+    api_json TEXT,
+    class_types TEXT NOT NULL,
+    draft_json TEXT NOT NULL,
+    manifest_sha256 TEXT REFERENCES comfy_manifests(manifest_sha256),
+    manifest_source TEXT,
+    version INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (workflow_id, revision)
+);
+CREATE TABLE IF NOT EXISTS comfy_runs (
+    run_id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    workflow_sha256 TEXT NOT NULL,
+    manifest_sha256 TEXT NOT NULL,
+    rental_id TEXT NOT NULL REFERENCES gpu_rentals(rental_id),
+    prompt_id TEXT UNIQUE,
+    status TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT,
+    detail TEXT,
+    queue_state TEXT,
+    current_node TEXT,
+    last_event TEXT,
+    last_event_at TEXT,
+    lookup_misses INTEGER NOT NULL DEFAULT 0,
+    download_attempts INTEGER NOT NULL DEFAULT 0,
+    submitted_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    finished_at TEXT,
+    FOREIGN KEY (workflow_id, revision) REFERENCES comfy_workflows(workflow_id, revision)
+);
+CREATE TABLE IF NOT EXISTS comfy_run_outputs (
+    run_id TEXT NOT NULL REFERENCES comfy_runs(run_id),
+    node TEXT NOT NULL,
+    subfolder TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    folder_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    path TEXT,
+    bytes INTEGER,
+    sha256 TEXT,
+    media_type TEXT,
+    error TEXT,
+    verified_at TEXT,
+    PRIMARY KEY (run_id, node, subfolder, filename)
+);
+CREATE TABLE IF NOT EXISTS comfy_run_events (
+    id INTEGER PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES comfy_runs(run_id),
+    ts_utc TEXT NOT NULL,
+    transition TEXT NOT NULL,
+    error_code TEXT,
+    detail TEXT
+);
 """
 
 # Cột thêm sau khi bảng đã phát hành (CREATE TABLE IF NOT EXISTS không sửa bảng cũ): (bảng, cột, kiểu).
@@ -462,6 +535,22 @@ class Store:
                            (rental_id, stamp, f"{expect}→{status}", error_code, detail))
         return bool(changed)
 
+    def release_rental(self, rental_id: str, version: int, run_id: str, executing: tuple[str, ...]) -> bool:
+        """``busy→ready`` (CAS theo version) chỉ khi không còn run nào khác của rental ở ``executing``; cùng một câu
+        UPDATE nên run mới vừa ghi mà chưa giành máy không bị nhả nhầm."""
+        stamp = utc_now()
+        marks = ",".join("?" * len(executing))
+        with self.connect() as db:
+            changed = db.execute(
+                "UPDATE gpu_rentals SET status='ready', version=version+1, updated_at=? "
+                "WHERE rental_id=? AND status='busy' AND version=? AND NOT EXISTS "
+                f"(SELECT 1 FROM comfy_runs WHERE rental_id=? AND run_id<>? AND status IN ({marks}))",
+                (stamp, rental_id, version, rental_id, run_id, *executing)).rowcount
+            if changed:
+                db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, detail) VALUES (?,?,?,?)",
+                           (rental_id, stamp, "busy→ready", f"run {run_id} xong phần chạy trên GPU"))
+        return bool(changed)
+
     def add_gpu_event(self, rental_id: str, transition: str, error_code: str | None = None, detail: str | None = None) -> None:
         with self.connect() as db:
             db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
@@ -563,3 +652,190 @@ class Store:
         with self.connect() as db:
             return [dict(row) for row in db.execute("SELECT * FROM gpu_cost_samples WHERE rental_id=? ORDER BY id",
                                                     (rental_id,)).fetchall()]
+
+    # ------------------------------------------------------------ comfy_* (Gate 4 lát D; chỉ studio/comfyui/service.py ghi)
+
+    def add_comfy_manifest(self, manifest_sha256: str, manifest_json: str, note: str | None = None) -> bool:
+        """Thêm manifest ``pending_review``; đã có (cùng SHA-256) thì giữ nguyên, trả False."""
+        with self.connect() as db:
+            return bool(db.execute("INSERT OR IGNORE INTO comfy_manifests (manifest_sha256, manifest_json, status, note, "
+                                   "created_at) VALUES (?,?,?,?,?)",
+                                   (manifest_sha256, manifest_json, "pending_review", note, utc_now())).rowcount)
+
+    def set_comfy_manifest_status(self, manifest_sha256: str, status: str, *, expect: str) -> bool:
+        with self.connect() as db:
+            return bool(db.execute("UPDATE comfy_manifests SET status=?, approved_at=? WHERE manifest_sha256=? AND status=?",
+                                   (status, utc_now() if status == "approved" else None, manifest_sha256,
+                                    expect)).rowcount)
+
+    def comfy_manifest(self, manifest_sha256: str) -> dict:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM comfy_manifests WHERE manifest_sha256=?", (manifest_sha256,)).fetchone()
+        if row is None:
+            raise KeyError(f"không có manifest workflow {manifest_sha256}")
+        return dict(row)
+
+    _REVISION = ("SELECT w.*, m.status AS manifest_status FROM comfy_workflows w "
+                 "LEFT JOIN comfy_manifests m ON m.manifest_sha256 = w.manifest_sha256")
+
+    def add_workflow_revision(self, workflow_id: str, name: str, fmt: str, source_sha256: str, source_json: str,
+                              api_sha256: str | None, api_json: str | None, class_types: str, draft_json: str,
+                              note: str | None = None) -> int:
+        """Revision mới = lớn nhất + 1, tính trong cùng câu INSERT (hai lượt nhập song song không trùng số)."""
+        with self.connect() as db:
+            cursor = db.execute(
+                "INSERT INTO comfy_workflows (workflow_id, revision, name, format, source_sha256, source_json, api_sha256, "
+                "api_json, class_types, draft_json, note, created_at) "
+                "SELECT ?, COALESCE(MAX(revision), 0) + 1, ?,?,?,?,?,?,?,?,?,? FROM comfy_workflows WHERE workflow_id=?",
+                (workflow_id, name, fmt, source_sha256, source_json, api_sha256, api_json, class_types, draft_json, note,
+                 utc_now(), workflow_id))
+            return db.execute("SELECT revision FROM comfy_workflows WHERE rowid=?", (cursor.lastrowid,)).fetchone()[0]
+
+    def workflow_revision(self, workflow_id: str, revision: int | None = None) -> dict:
+        sql, args = self._REVISION + " WHERE w.workflow_id=?", [workflow_id]
+        if revision is not None:
+            sql, args = sql + " AND w.revision=?", args + [revision]
+        with self.connect() as db:
+            row = db.execute(sql + " ORDER BY w.revision DESC LIMIT 1", args).fetchone()
+        if row is None:
+            raise KeyError(f"không có workflow {workflow_id}" + (f" revision {revision}" if revision else ""))
+        return dict(row)
+
+    def workflow_revisions(self, workflow_id: str | None = None) -> list[dict]:
+        sql, args = self._REVISION, []
+        if workflow_id:
+            sql, args = sql + " WHERE w.workflow_id=?", [workflow_id]
+        with self.connect() as db:
+            return [dict(row) for row in db.execute(sql + " ORDER BY w.created_at DESC, w.workflow_id, w.revision DESC",
+                                                    args).fetchall()]
+
+    def attach_comfy_manifest(self, workflow_id: str, revision: int, version: int, manifest_sha256: str,
+                              source: str) -> bool:
+        """Gắn manifest vào revision (CAS theo version). Revision đã gắn manifest đã duyệt thì không đổi được nữa:
+        điều kiện nằm trong cùng câu UPDATE, không đọc rồi ghi."""
+        with self.connect() as db:
+            return bool(db.execute(
+                "UPDATE comfy_workflows SET manifest_sha256=?, manifest_source=?, version=version+1 "
+                "WHERE workflow_id=? AND revision=? AND version=? AND (manifest_sha256 IS NULL OR manifest_sha256 NOT IN "
+                "(SELECT manifest_sha256 FROM comfy_manifests WHERE status='approved'))",
+                (manifest_sha256, source, workflow_id, revision, version)).rowcount)
+
+    def add_comfy_run(self, run_id: str, workflow_id: str, revision: int, workflow_sha256: str, manifest_sha256: str,
+                      rental_id: str) -> None:
+        """Run ``checking``; run_id trùng → sqlite3.IntegrityError."""
+        stamp = utc_now()
+        with self.connect() as db:
+            db.execute("INSERT INTO comfy_runs (run_id, workflow_id, revision, workflow_sha256, manifest_sha256, rental_id, "
+                       "status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                       (run_id, workflow_id, revision, workflow_sha256, manifest_sha256, rental_id, "checking", stamp,
+                        stamp))
+            db.execute("INSERT INTO comfy_run_events (run_id, ts_utc, transition) VALUES (?,?,?)",
+                       (run_id, stamp, "checking"))
+
+    def comfy_run(self, run_id: str) -> dict:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM comfy_runs WHERE run_id=?", (run_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"không có run {run_id}")
+        return dict(row)
+
+    def comfy_runs(self, *, workflow_id: str | None = None, rental_id: str | None = None,
+                   statuses: tuple[str, ...] | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM comfy_runs WHERE 1=1", []
+        if workflow_id:
+            sql, args = sql + " AND workflow_id=?", args + [workflow_id]
+        if rental_id:
+            sql, args = sql + " AND rental_id=?", args + [rental_id]
+        if statuses:
+            sql, args = sql + f" AND status IN ({','.join('?' * len(statuses))})", args + list(statuses)
+        with self.connect() as db:
+            return [dict(row) for row in db.execute(sql + " ORDER BY created_at DESC, rowid DESC", args).fetchall()]
+
+    RUN_FIELDS = frozenset({"prompt_id", "queue_state", "current_node", "last_event", "last_event_at",
+                            "lookup_misses", "download_attempts", "submitted_at", "finished_at"})
+
+    def transition_comfy_run(self, run_id: str, version: int, status: str, *, expect: str, error_code: str | None = None,
+                             detail: str | None = None, **fields) -> bool:
+        """CAS theo (``expect``, ``version``) trong một câu UPDATE; đổi trạng thái thì ghi sự kiện cùng giao dịch.
+
+        Cùng trạng thái (``expect == status``) là cập nhật tiến độ; vẫn tăng version nên lượt đọc cũ thua CAS.
+        """
+        unknown = set(fields) - self.RUN_FIELDS
+        if unknown:
+            raise ValueError(f"cột lạ: {sorted(unknown)}")
+        stamp = utc_now()
+        if status != expect:
+            fields = {"error_code": error_code, "detail": detail, **fields}
+        columns = "".join(f", {key}=?" for key in fields)
+        with self.connect() as db:
+            changed = db.execute(
+                f"UPDATE comfy_runs SET status=?, version=version+1, updated_at=?{columns} "
+                "WHERE run_id=? AND status=? AND version=?",
+                (status, stamp, *fields.values(), run_id, expect, version),
+            ).rowcount
+            if changed and status != expect:
+                db.execute("INSERT INTO comfy_run_events (run_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
+                           (run_id, stamp, f"{expect}→{status}", error_code, detail))
+        return bool(changed)
+
+    def bump_download_attempts(self, run_id: str) -> int:
+        """Tăng lượt tải trong SQL (hai lượt poll song song không mất lượt đếm); trả số mới."""
+        with self.connect() as db:
+            db.execute("UPDATE comfy_runs SET download_attempts=download_attempts+1 WHERE run_id=?", (run_id,))
+            return db.execute("SELECT download_attempts FROM comfy_runs WHERE run_id=?", (run_id,)).fetchone()[0]
+
+    def abandon_comfy_runs(self, rental_id: str, statuses: tuple[str, ...], detail: str) -> list[str]:
+        """Mọi run chưa xong của rental → ``abandoned`` trong một giao dịch (destroy đã xác nhận bỏ output)."""
+        stamp = utc_now()
+        marks = ",".join("?" * len(statuses))
+        abandoned = []
+        with self.connect() as db:
+            rows = db.execute(f"SELECT run_id, status FROM comfy_runs WHERE rental_id=? AND status IN ({marks})",
+                              (rental_id, *statuses)).fetchall()
+            for row in rows:
+                if db.execute("UPDATE comfy_runs SET status='abandoned', version=version+1, updated_at=?, finished_at=?, "
+                              "error_code='destroy_accepted', detail=? WHERE run_id=? AND status=?",
+                              (stamp, stamp, detail, row["run_id"], row["status"])).rowcount:
+                    db.execute("INSERT INTO comfy_run_events (run_id, ts_utc, transition, error_code, detail) "
+                               "VALUES (?,?,?,?,?)",
+                               (row["run_id"], stamp, f"{row['status']}→abandoned", "destroy_accepted", detail))
+                    abandoned.append(row["run_id"])
+        return abandoned
+
+    def add_comfy_event(self, run_id: str, transition: str, error_code: str | None = None,
+                        detail: str | None = None) -> None:
+        with self.connect() as db:
+            db.execute("INSERT INTO comfy_run_events (run_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
+                       (run_id, utc_now(), transition, error_code, detail))
+
+    def comfy_events(self, run_id: str) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM comfy_run_events WHERE run_id=? ORDER BY id",
+                                                    (run_id,)).fetchall()]
+
+    def add_run_outputs(self, run_id: str, outputs: list[dict]) -> None:
+        with self.connect() as db:
+            db.executemany("INSERT OR IGNORE INTO comfy_run_outputs (run_id, node, subfolder, filename, folder_type, "
+                           "status) VALUES (?,?,?,?,?,?)",
+                           [(run_id, o["node"], o["subfolder"], o["filename"], o["type"], "pending") for o in outputs])
+
+    def run_outputs(self, run_id: str) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM comfy_run_outputs WHERE run_id=? ORDER BY rowid",
+                                                    (run_id,)).fetchall()]
+
+    def set_run_output(self, run_id: str, node: str, subfolder: str, filename: str, status: str, **fields) -> None:
+        unknown = set(fields) - {"path", "bytes", "sha256", "media_type", "error"}
+        if unknown:
+            raise ValueError(f"cột lạ: {sorted(unknown)}")
+        extra = "".join(f", {key}=?" for key in fields)
+        with self.connect() as db:
+            db.execute(f"UPDATE comfy_run_outputs SET status=?, verified_at=?{extra} "
+                       "WHERE run_id=? AND node=? AND subfolder=? AND filename=?",
+                       (status, utc_now() if status == "verified" else None, *fields.values(), run_id, node, subfolder,
+                        filename))
+
+    def reset_failed_outputs(self, run_id: str) -> None:
+        with self.connect() as db:
+            db.execute("UPDATE comfy_run_outputs SET status='pending', error=NULL WHERE run_id=? AND status='failed'",
+                       (run_id,))

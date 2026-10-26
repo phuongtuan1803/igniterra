@@ -203,6 +203,57 @@ def cmd_gpu(args, config, store):
         sys.exit(f"lỗi: {exc}")
 
 
+def cmd_comfyui(args, config, store):
+    """Thư viện workflow (nhập, gắn và duyệt manifest), chạy, poll; chỉ gọi ``studio.comfyui.service``."""
+    from pydantic import ValidationError
+
+    from studio.comfyui import service as comfy_service
+    from studio.comfyui.manifest import WorkflowManifest
+    from studio.gpu import service as gpu_service
+
+    comfy = comfy_service.from_config(store, config, gpu_service.from_config(store, config))
+    try:
+        command = args.comfyui_command
+        if command == "import":
+            record = comfy.import_workflow(args.name or Path(args.file).stem, Path(args.file).read_bytes(),
+                                           api_raw=Path(args.api).read_bytes() if args.api else None,
+                                           workflow_id=args.workflow_id, note=args.note)
+            print(f"{record.workflow_id} rev {record.revision} {record.format} {record.status}")
+            for gap in record.draft.get("gaps", []):
+                print(f"  thiếu: {gap}")
+        elif command == "list":
+            for item in comfy.library():
+                w = item["latest"]
+                print(f"{w.workflow_id}  rev {w.revision}/{item['revisions']}  {w.status:<14} {w.format}  {w.name}")
+        elif command == "show":
+            record = comfy.revision(args.workflow_id, args.revision)
+            print(json.dumps({**record.model_dump(mode="json"), "status": record.status}, ensure_ascii=False, indent=2))
+            if record.manifest_sha256:
+                print(comfy.manifest(record.manifest_sha256).manifest_json)
+        elif command == "manifest" and args.manifest_command == "attach":
+            try:
+                manifest = WorkflowManifest.model_validate_json(Path(args.file).read_text(encoding="utf-8"))
+            except ValidationError as exc:
+                sys.exit(f"manifest sai dạng: {exc}")
+            record = comfy.attach_manifest(args.workflow_id, args.revision, manifest, args.note)
+            print(manifest.model_dump_json(indent=2))
+            print(f"# {record.manifest_sha256} {record.status}; đọc kỹ rồi: comfyui manifest approve {record.manifest_sha256}")
+        elif command == "manifest" and args.manifest_command == "approve":
+            record = comfy.approve_manifest(args.sha256, accept_licenses=args.accept_licenses)
+            print(f"{record.manifest_sha256} {record.status}")
+        elif command == "run":
+            run = comfy.start_run(comfy.new_run_id(), args.workflow_id, args.revision, args.rental_id)
+            print(f"{run.run_id}  {run.status}  {run.error_code or ''} {run.detail or ''}")
+        elif command == "poll":
+            for run in comfy.poll():
+                print(f"{run.run_id}  {run.status}  {run.error_code or ''}")
+        elif command == "retry-download":
+            run = comfy.retry_download(args.run_id)
+            print(f"{run.run_id}  {run.status}  {run.error_code or ''}")
+    except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError) as exc:
+        sys.exit(f"lỗi: {exc}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m studio")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -326,6 +377,37 @@ def build_parser() -> argparse.ArgumentParser:
     manifest.add_parser("list")
     for p in manifest.choices.values():
         p.set_defaults(func=cmd_gpu)
+
+    comfyui = sub.add_parser("comfyui", help="ComfyUI workflow (Gate 4): thư viện, manifest, chạy, poll").add_subparsers(
+        dest="comfyui_command", required=True)
+    c_import = comfyui.add_parser("import", help="nhập workflow JSON thành revision mới")
+    c_import.add_argument("file")
+    c_import.add_argument("--api", help="bản Export (API) kèm theo khi FILE là GUI JSON")
+    c_import.add_argument("--name")
+    c_import.add_argument("--workflow-id", help="thêm revision cho workflow đã có")
+    c_import.add_argument("--note")
+    comfyui.add_parser("list")
+    c_show = comfyui.add_parser("show")
+    c_show.add_argument("workflow_id")
+    c_show.add_argument("--revision", type=int)
+    c_run = comfyui.add_parser("run", help="chạy revision đã duyệt trên rental ready (GPU đang tính phí)")
+    c_run.add_argument("workflow_id")
+    c_run.add_argument("revision", type=int)
+    c_run.add_argument("rental_id")
+    comfyui.add_parser("poll", help="theo dõi các run chưa xong một lượt")
+    comfyui.add_parser("retry-download").add_argument("run_id")
+    c_manifest = comfyui.add_parser("manifest", help="manifest dependency của workflow").add_subparsers(
+        dest="manifest_command", required=True)
+    c_attach = c_manifest.add_parser("attach", help="gắn manifest JSON (pending_review) vào một revision")
+    c_attach.add_argument("workflow_id")
+    c_attach.add_argument("revision", type=int)
+    c_attach.add_argument("file")
+    c_attach.add_argument("--note")
+    c_approve = c_manifest.add_parser("approve")
+    c_approve.add_argument("sha256")
+    c_approve.add_argument("--accept-licenses", action="store_true", help="xác nhận license ngoài danh sách thương mại")
+    for p in [*comfyui.choices.values(), *c_manifest.choices.values()]:
+        p.set_defaults(func=cmd_comfyui)
 
     run_step = sub.add_parser("run-step", help="chạy một bước khi debug")
     run_step.add_argument("step", choices=sorted(pipeline.STEPS))

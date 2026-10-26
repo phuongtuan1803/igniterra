@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}ComfyUI Workflows{% endblock %}
+{% block body %}
+<div class="page-heading">
+  <div><p class="eyebrow">08 / COMFYUI WORKFLOWS</p><h1>Workflows, reviewed before they run.</h1><p class="page-subtitle">Import a workflow, approve what it depends on, run it on a ready GPU, keep only verified output.</p></div>
+  {% if gpu_enabled %}<span class="chip">GPU provider on</span>{% else %}<span class="chip warn">GPU provider off · library only</span>{% endif %}
+</div>
+<section class="card" aria-label="Import workflow">
+  <p class="eyebrow">IMPORT</p><h2>Nhập workflow</h2>
+  <p class="section-note">GUI JSON (<em>Save</em>) cho phép trích dependency; API JSON (<em>Export (API)</em>) là bản chạy được nhưng không có metadata model/node, nên luôn <code>needs_review</code> tới khi có manifest khai tay và đã duyệt. Mỗi lần nhập là một revision bất biến.</p>
+  <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Tên <input name="name" maxlength="200"></label>
+    <label>Workflow JSON (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
+    <label>Kèm bản Export (API) nếu file trên là GUI <input type="file" name="api_file" accept=".json,application/json"></label>
+    <button class="button" type="submit">Nhập</button>
+  </form>
+</section>
+<section class="card" aria-label="Workflow library">
+  <div class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>Thư viện</h2></div><span class="muted small">{{ library|length }} workflow</span></div>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Workflow</th><th>Revision</th><th>Dạng</th><th>Trạng thái</th><th>SHA-256 file gốc</th></tr></thead>
+    <tbody>
+      {% for item in library %}{% set w = item.latest %}
+      <tr><td><a href="/comfyui/workflows/{{ w.workflow_id }}">{{ w.name }}</a><br><small class="muted">{{ w.workflow_id }}</small></td>
+        <td>{{ w.revision }} / {{ item.revisions }}</td><td>{{ w.format }}{% if w.runnable %} · chạy được{% endif %}</td>
+        <td><span class="chip {{ 'ok' if w.status == 'approved' else 'warn' }}">{{ w.status }}</span></td><td><code>{{ w.source_sha256[:16] }}…</code></td></tr>
+      {% else %}<tr><td colspan="5" class="muted small">Chưa có workflow.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+<section class="card" aria-label="Recent runs">
+  <p class="eyebrow">RUNS</p><h2>Lượt chạy gần đây</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Run</th><th>Workflow</th><th>Rental</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr><td><a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a></td><td>{{ r.workflow_id }} rev {{ r.revision }}</td><td><a href="/gpu/instances/{{ r.rental_id }}">{{ r.rental_id }}</a></td><td>{{ r.status }}{% if r.error_code %} · {{ r.error_code }}{% endif %}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted small">Chưa có.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

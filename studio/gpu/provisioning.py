@@ -99,7 +99,7 @@ def build_manifest(comfyui_ref: str, *, custom_nodes: list[dict] | None = None, 
                                 on_failure=OnFailure(max_retries=max_retries), runtime_disk_gb=runtime_disk_gb)
 
 
-def _dest_ok(dest: str) -> bool:
+def dest_ok(dest: str) -> bool:
     return bool(SAFE_DEST.fullmatch(dest)) and not any(part in (".", "..") for part in dest.split("/"))
 
 
@@ -124,7 +124,7 @@ def validate(manifest: ProvisioningManifest) -> list[str]:
         parsed = urlparse(download.url)
         if not HF_RESOLVE.fullmatch(download.url) or parsed.query or parsed.fragment:
             problems.append(f"model phải tải từ huggingface.co/<org>/<repo>/resolve/<commit 40 hex>/<file>: {download.url}")
-        if not _dest_ok(download.dest) or "/" not in download.dest:
+        if not dest_ok(download.dest) or "/" not in download.dest:
             problems.append(f"đích model phải là <thư mục>/<file> dưới models/: {download.dest!r}")
         if not SHA256.fullmatch(download.sha256):
             problems.append(f"{download.dest}: thiếu SHA-256 (64 hex) để kiểm sau khi tải")

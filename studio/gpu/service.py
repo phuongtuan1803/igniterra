@@ -8,8 +8,9 @@ Lát A: kiểm offer và báo giá, create, ``create_unknown`` → tìm theo lab
 ``destroy_unknown`` (G09), đối soát khi khởi động lại và báo orphan (G10), chi phí ước tính. Lát C: manifest
 provisioning đã duyệt (``gpu_manifests``), ``WEB_PASSWORD`` riêng mỗi rental, theo dõi các bước provisioning tới
 ``ready`` có bằng chứng (host chạy, kết nối có xác thực, ``/.provisioning_complete``, ``/system_stats``, smoke ra
-file), ``provision_failed`` rồi destroy theo ``on_failure`` (G05, nửa disk/dependency của G07). Idle TTL do
-worker thực thi thuộc lát E.
+file), ``provision_failed`` rồi destroy theo ``on_failure`` (G05, nửa disk/dependency của G07). Lát D: runtime
+ComfyUI của rental ``ready`` cho ``studio.comfyui.service`` (``comfy_runtime``), ``ready⇄busy`` một run mỗi instance,
+và destroy cảnh báo khi còn run có output chưa tải/kiểm (G11). Idle TTL do worker thực thi thuộc lát E.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from pydantic import ValidationError
 
 from studio import config as studio_config
 from studio.comfyui import runtime as comfy
+from studio.comfyui.contracts import RUN_EXECUTING, RUN_UNRESOLVED
 from studio.gpu import adapters, costs, provisioning
 from studio.gpu.adapters.base import GPUError, GPUProvider, GPUUnknown
 from studio.gpu.contracts import (
@@ -66,6 +68,21 @@ log = logging.getLogger("studio.gpu")
 
 class GPUServiceError(Exception):
     """Từ chối trước khi gọi mutation của provider (offer không đạt, báo giá hết hạn, rental_id trùng…)."""
+
+
+class UnverifiedOutput(GPUServiceError):
+    """Destroy bị giữ lại: rental còn run có output chưa tải và kiểm (G11). Gọi lại với ``accept_unverified_output``
+    sau khi người vận hành xác nhận bỏ output đó."""
+
+    def __init__(self, rental_id: str, runs: list[dict]):
+        self.rental_id, self.runs = rental_id, runs
+        listed = ", ".join(f"{r['run_id']} ({r['status']})" for r in runs)
+        super().__init__(f"{rental_id} còn {len(runs)} run có output chưa tải/kiểm: {listed}. Destroy sẽ mất output "
+                         "trên máy; tải output trước, hoặc xác nhận bỏ output rồi destroy")
+
+
+class RentalUnreachable(GPUServiceError):
+    """Chưa tới được runtime ComfyUI của rental (chưa có cổng, kết nối lỗi). GET thử lại ở lượt sau."""
 
 
 class _Wait(Exception):
@@ -356,13 +373,22 @@ class GPUService:
                                      "instance đã stop nhưng rental đổi trạng thái ở nơi khác; reconcile")
         return self.rental(rental_id)
 
-    def destroy(self, rental_id: str) -> Rental:
+    def destroy(self, rental_id: str, *, accept_unverified_output: bool = False) -> Rental:
         """Hủy instance (G09). Ghi operation và chuyển ``destroying`` trước khi gọi provider.
 
         Provider chỉ nhận yêu cầu; ``destroyed`` chỉ khi reconcile không còn thấy instance. Lỗi hoặc timeout →
         ``destroy_unknown``, giữ record, reconcile. Từ ``destroy_unknown`` chỉ gửi destroy lại khi lượt trước bị
         provider từ chối chắc chắn (``GPUError``, không phải ``GPUUnknown``); kết quả không rõ thì chỉ reconcile.
+
+        G11: rental còn run ComfyUI có output chưa tải và kiểm (``RUN_UNRESOLVED``) thì từ chối bằng
+        ``UnverifiedOutput`` trước khi ghi gì; chỉ đi tiếp khi người vận hành xác nhận bỏ output
+        (``accept_unverified_output``), lúc đó các run đó thành ``abandoned``. Không đường tự động nào (on_failure,
+        idle TTL ở lát E) truyền cờ này. Run mới chỉ bắt đầu được bằng CAS ``ready→busy``, nên giữa lúc kiểm ở đây và
+        CAS ``→destroying`` bên dưới không lọt run mới: CAS đó thua và destroy dừng.
         """
+        unresolved = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
+        if unresolved and not accept_unverified_output:
+            raise UnverifiedOutput(rental_id, unresolved)
         rental = self.rental(rental_id)
         if rental.status == "destroy_unknown":
             operations = self.store.gpu_operations(rental_id, "destroy")
@@ -377,6 +403,12 @@ class GPUService:
         if not self._move(rental, "destroying"):
             self.store.finish_gpu_operation(op_id, "rejected")       # chưa gửi gì tới provider
             raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
+        if unresolved:
+            abandoned = self.store.abandon_comfy_runs(rental_id, RUN_UNRESOLVED,
+                                                      "người vận hành xác nhận destroy, bỏ output chưa tải/kiểm")
+            if abandoned:
+                self.store.add_gpu_event(rental_id, "destroy", "unverified_output_accepted",
+                                         "bỏ output chưa kiểm của run: " + ", ".join(abandoned))
         try:
             self.provider.destroy_instance(rental.provider_instance_id)
         except GPUError as exc:
@@ -804,6 +836,58 @@ class GPUService:
             self.store.set_provision_step(rental_id, key, "done", **fields)
             steps[key] = {**steps[key], "status": "done", **fields}
 
+    # ------------------------------------------------------------ chạy workflow trên rental ready (lát D)
+
+    def comfy_runtime(self, rental_id: str) -> comfy.ComfyUIRuntime:
+        """Client ComfyUI của rental ``ready``/``busy``, qua cổng có xác thực (Bearer ``WEB_PASSWORD`` của rental).
+
+        ``studio.comfyui.service`` gọi hàm này; web không bao giờ cầm runtime trực tiếp.
+        """
+        rental = self.rental(rental_id)
+        if rental.status not in ("ready", "busy"):
+            raise GPUServiceError(f"{rental_id} đang {rental.status}, không phải ready/busy")
+        password = self._password(rental_id)
+        if not password or not rental.provider_instance_id:
+            raise GPUServiceError(f"{rental_id} thiếu instance hoặc {PASSWORD_FILE}")
+        try:
+            instance = self.provider.get_instance(rental.provider_instance_id)
+        except GPUError as exc:
+            raise RentalUnreachable(f"{rental_id}: {self._clean(str(exc))[:300]}") from None
+        if instance is None:
+            raise RentalUnreachable(f"provider không còn instance {rental.provider_instance_id}")
+        try:
+            return self.probe_factory(instance, password).comfy
+        except ProbeUnavailable as exc:
+            raise RentalUnreachable(f"{rental_id}: {exc}") from None
+
+    def claim_for_run(self, rental_id: str, run_id: str) -> bool:
+        """``ready→busy`` bằng CAS: tối đa một run trên một instance. False khi rental không ``ready`` hoặc thua race."""
+        rental = self.rental(rental_id)
+        return rental.status == "ready" and self._move(rental, "busy", detail=f"run {run_id}")
+
+    def release_after_run(self, rental_id: str, run_id: str) -> bool:
+        """``busy→ready`` khi run đã xong phần chạy trên GPU.
+
+        Điều kiện "không còn run nào khác của rental đang chạy" nằm trong cùng câu UPDATE với CAS (status, version):
+        run vừa ghi ``checking`` mà chưa kịp giành máy không bị nhả nhầm, và lượt nhả muộn của run cũ không nhả máy
+        đang giữ cho run mới.
+        """
+        rental = self.rental(rental_id)
+        if rental.status != "busy":
+            return False
+        moved = self.store.release_rental(rental_id, rental.version, run_id, RUN_EXECUTING)
+        if moved:
+            self._sample_cost(rental_id)
+        return moved
+
+    def unverified_runs(self, rental_id: str) -> list[dict]:
+        """Run ComfyUI của rental còn output chưa tải/kiểm: trang rental cảnh báo trước khi destroy (G11)."""
+        return self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
+
+    def redact(self, text: str) -> str:
+        """Che ``WEB_PASSWORD`` của mọi rental và khóa API trước khi ghi sự kiện hay hiện lỗi."""
+        return self._clean(text)
+
     # ------------------------------------------------------------ chi phí ước tính
 
     def cost(self, rental_id: str) -> dict:
@@ -866,7 +950,8 @@ class GPUService:
                 "steps": [ProvisionStep(**row) for row in self.store.provision_steps(rental_id)],
                 "events": [GPUEvent(**{k: row[k] for k in GPUEvent.model_fields}) for row in self.store.gpu_events(rental_id)],
                 "operations": self.store.gpu_operations(rental_id),
-                "cost": self.cost(rental_id)}
+                "cost": self.cost(rental_id),
+                "unverified_runs": self.unverified_runs(rental_id)}
 
 
 def _rental(row: dict) -> Rental:
