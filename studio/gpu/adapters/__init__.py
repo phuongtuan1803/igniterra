@@ -8,6 +8,7 @@ from studio.gpu.adapters.base import GPUError, GPUProvider
 
 REGISTRY: dict[str, str] = {
     "fake": "studio.gpu.adapters.fake:FakeGPUProvider",
+    "vast": "studio.gpu.adapters.vast:VastGPUProvider",
 }
 
 

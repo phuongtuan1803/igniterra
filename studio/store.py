@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS gpu_rentals (
     offer_json TEXT NOT NULL,
     status TEXT NOT NULL,
     version INTEGER NOT NULL DEFAULT 0,
+    disk_gb REAL,
     idle_deadline TEXT,
     destroy_confirmed_at TEXT,
     created_at TEXT NOT NULL,
@@ -124,7 +125,18 @@ CREATE TABLE IF NOT EXISTS gpu_events (
     error_code TEXT,
     detail TEXT
 );
+CREATE TABLE IF NOT EXISTS gpu_cost_samples (
+    id INTEGER PRIMARY KEY,
+    rental_id TEXT NOT NULL REFERENCES gpu_rentals(rental_id),
+    ts TEXT NOT NULL,
+    compute_per_h REAL NOT NULL,
+    disk_per_h REAL NOT NULL,
+    accrued_est REAL NOT NULL
+);
 """
+
+# Cột thêm sau khi bảng đã phát hành (CREATE TABLE IF NOT EXISTS không sửa bảng cũ): (bảng, cột, kiểu).
+ADDED_COLUMNS = (("gpu_rentals", "disk_gb", "REAL"),)
 
 WAIT_REASONS = {"gate:keyframes", "gate:final", "unknown_call", "retries_exhausted", "duration_exceeded", "paused"}
 
@@ -143,6 +155,9 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript(SCHEMA)
+            for table, column, kind in ADDED_COLUMNS:
+                if column not in {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}:
+                    db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
@@ -392,14 +407,15 @@ class Store:
 
     # ------------------------------------------------------------ gpu_* (Gate 4; chỉ studio/gpu/service.py ghi)
 
-    def add_rental(self, rental_id: str, provider_key: str, label: str, offer_json: str, steps: tuple[str, ...]) -> None:
+    def add_rental(self, rental_id: str, provider_key: str, label: str, offer_json: str, steps: tuple[str, ...],
+                   disk_gb: float | None = None) -> None:
         """Rental ``draft`` và các bước provisioning ``pending``; rental_id trùng → sqlite3.IntegrityError."""
         stamp = utc_now()
         with self.connect() as db:
             db.execute(
-                "INSERT INTO gpu_rentals (rental_id, provider_key, label, offer_json, status, created_at, updated_at) "
-                "VALUES (?,?,?,?,?,?,?)",
-                (rental_id, provider_key, label, offer_json, "draft", stamp, stamp),
+                "INSERT INTO gpu_rentals (rental_id, provider_key, label, offer_json, status, disk_gb, created_at, "
+                "updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                (rental_id, provider_key, label, offer_json, "draft", disk_gb, stamp, stamp),
             )
             db.executemany("INSERT INTO gpu_provision_steps (rental_id, step_key, status) VALUES (?,?,?)",
                            [(rental_id, key, "pending") for key in steps])
@@ -460,7 +476,8 @@ class Store:
         if action:
             sql, args = sql + " AND action=?", args + [action]
         with self.connect() as db:
-            return [dict(row) for row in db.execute(sql + " ORDER BY sent_at, op_id", args).fetchall()]
+            # Thứ tự ghi thật (rowid): sent_at chỉ tới giây, op_id ngẫu nhiên nên không xếp được hai lượt cùng giây.
+            return [dict(row) for row in db.execute(sql + " ORDER BY rowid", args).fetchall()]
 
     def provision_steps(self, rental_id: str) -> list[dict]:
         with self.connect() as db:
@@ -477,3 +494,14 @@ class Store:
             else:
                 db.execute("UPDATE gpu_provision_steps SET status=?, finished_at=?, error_code=? WHERE rental_id=? AND step_key=?",
                            (status, stamp if status != "pending" else None, error_code, rental_id, step_key))
+
+    def add_cost_sample(self, rental_id: str, ts: str, compute_per_h: float, disk_per_h: float,
+                        accrued_est: float) -> None:
+        with self.connect() as db:
+            db.execute("INSERT INTO gpu_cost_samples (rental_id, ts, compute_per_h, disk_per_h, accrued_est) "
+                       "VALUES (?,?,?,?,?)", (rental_id, ts, compute_per_h, disk_per_h, accrued_est))
+
+    def cost_samples(self, rental_id: str) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM gpu_cost_samples WHERE rental_id=? ORDER BY id",
+                                                    (rental_id,)).fetchall()]

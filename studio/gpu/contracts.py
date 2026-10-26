@@ -14,25 +14,31 @@ from pydantic import BaseModel, Field, field_validator
 LABEL_PREFIX = "igniterra:"
 
 RentalStatus = Literal["draft", "creating", "create_unknown", "create_failed", "provisioning", "provision_failed",
-                       "ready", "busy", "destroying", "destroy_unknown", "destroyed"]
+                       "ready", "busy", "stopped", "destroying", "destroy_unknown", "destroyed"]
 # Chuyển trạng thái hợp lệ (sơ đồ s4.b1). ``create_failed``: provider từ chối chắc chắn, không có instance.
+# Lát B thêm ngoài sơ đồ: ``stopped`` (route stop của s7.b3; vẫn tính phí storage, chỉ còn đường destroy),
+# ``provisioning→destroying`` (hủy khi provisioning treo; lát C chưa có thì rental dừng ở provisioning) và
+# ``destroy_unknown→destroying`` (chỉ khi provider đã từ chối chắc chắn lượt destroy trước; service kiểm).
 TRANSITIONS: dict[str, set[str]] = {
     "draft": {"creating"},
     "creating": {"provisioning", "create_unknown", "create_failed"},
     "create_unknown": {"provisioning", "create_failed"},
-    "provisioning": {"ready", "provision_failed"},
-    "ready": {"busy", "destroying"},
+    "provisioning": {"ready", "provision_failed", "stopped", "destroying"},
+    "ready": {"busy", "stopped", "destroying"},
     "busy": {"ready"},
-    "provision_failed": {"destroying"},
+    "provision_failed": {"stopped", "destroying"},
+    "stopped": {"destroying"},
     "destroying": {"destroyed", "destroy_unknown"},
-    "destroy_unknown": {"destroyed"},
+    "destroy_unknown": {"destroyed", "destroying"},
     "create_failed": set(),
     "destroyed": set(),
 }
 # Trạng thái có thể đang tính phí hoặc chưa rõ: trang GPU báo cần chú ý.
 ATTENTION = ("create_unknown", "provision_failed", "destroy_unknown")
-BILLABLE = ("creating", "create_unknown", "provisioning", "provision_failed", "ready", "busy", "destroying",
-            "destroy_unknown")
+BILLABLE = ("creating", "create_unknown", "provisioning", "provision_failed", "ready", "busy", "stopped",
+            "destroying", "destroy_unknown")
+# Đang chạy máy (tính cả compute); ``stopped`` chỉ còn disk.
+COMPUTE_BILLABLE = tuple(s for s in BILLABLE if s != "stopped")
 
 STEP_KEYS = ("instance_create", "host_boot", "transport_ready", "runtime_setup", "custom_nodes", "models",
              "health_smoke", "ready")
@@ -114,6 +120,26 @@ class Instance(BaseModel):
     ports: dict[str, str] = Field(default_factory=dict)
 
 
+class Orphan(BaseModel):
+    """Instance có label ``igniterra:`` mà không khớp rental nào còn sống (G10). Chỉ báo, không tự xóa."""
+
+    provider_instance_id: str
+    label: str | None = None
+    actual_status: str
+    dph_total: float | None = None
+    reason: str
+
+
+class CostSample(BaseModel):
+    """Mẫu chi phí ước tính (không phải hóa đơn): tốc độ tính từ ``ts`` và tổng ước tính tới ``ts``."""
+
+    rental_id: str
+    ts: datetime
+    compute_per_h: float
+    disk_per_h: float
+    accrued_est: float
+
+
 class Rental(BaseModel):
     rental_id: str
     provider_key: str
@@ -122,6 +148,7 @@ class Rental(BaseModel):
     offer: Offer
     status: RentalStatus
     version: int = 0
+    disk_gb: float | None = None        # dung lượng đã yêu cầu lúc create (tính chi phí disk)
     idle_deadline: datetime | None = None
     destroy_confirmed_at: datetime | None = None
     created_at: datetime

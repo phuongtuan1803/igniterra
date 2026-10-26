@@ -39,6 +39,10 @@ font      = "Be Vietnam Pro"
 font_size = 66
 
 [gpu]                           # Gate 4 (09 · GPU thuê); "none" đến khi D-05 mở
-provider    = "none"            # "fake" cho thử trang /gpu; adapter thật thêm ở lát B
+provider    = "none"            # "fake" cho thử trang /gpu; "vast" cần VAST_API_KEY trong .env
 image       = ""                # bắt buộc ghim digest: repo/image@sha256:...
 quote_ttl_s = 300               # báo giá quá hạn thì phải tìm offer lại
+
+[gpu.vast]
+base_url  = "https://console.vast.ai/api/v0"
+timeout_s = 30                  # quá hạn sau khi gửi → kết quả không rõ, reconcile theo label

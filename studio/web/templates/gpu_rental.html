@@ -10,16 +10,51 @@
   {{ rental_chip(rental.status) }}
   <span class="small muted">${{ "%.3f"|format(rental.offer.dph_total) }}/giờ ước tính, không phải hóa đơn · cập nhật {{ rental.updated_at.strftime("%Y-%m-%d %H:%M:%S") }} UTC</span>
   {% if rental.status in billable %}<span class="chip warn">Có thể đang tính phí</span>{% endif %}
-  {% if rental.status == "create_unknown" %}
+  {% if rental.status in ("create_unknown", "destroying", "destroy_unknown") or stop_unknown %}
   <form method="post" action="/gpu/instances/{{ rental.rental_id }}/reconcile">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <button class="button" type="submit">Reconcile theo label</button>
+    <button class="button" type="submit">Reconcile{% if rental.status == "create_unknown" %} theo label{% endif %}</button>
   </form>
   {% endif %}
 </div>
 {% if rental.status == "create_unknown" %}
 <p class="section-note">Create đã gửi nhưng không có response. Studio tìm instance theo label <code>{{ rental.label }}</code> và không tự tạo lại. Nếu chưa thấy, kiểm tra trên trang provider trước khi thuê offer khác.</p>
+{% elif rental.status == "destroying" %}
+<p class="section-note">Provider đã nhận yêu cầu destroy. Rental chỉ thành <code>destroyed</code> khi instance không còn trong danh sách của provider; bấm Reconcile để kiểm lại.</p>
+{% elif rental.status == "destroy_unknown" %}
+<p class="section-note">Destroy lỗi hoặc không có response: instance có thể vẫn tính phí. Studio giữ record và chỉ reconcile{% if last_destroy and last_destroy.status == "rejected" %}; provider đã từ chối chắc chắn nên được gửi destroy lại{% else %}, không gửi destroy lần nữa khi chưa rõ kết quả{% endif %}.</p>
 {% endif %}
+{% if stop_unknown %}
+<p class="section-note">Stop không có response: kết quả chưa rõ. Reconcile để xem trạng thái máy; không gửi stop lần nữa.</p>
+{% endif %}
+{% set can_stop = supports_stop and rental.provider_instance_id and "stopped" in transitions[rental.status] and not stop_unknown %}
+{% set can_destroy = rental.provider_instance_id and ("destroying" in transitions[rental.status]) and (rental.status != "destroy_unknown" or (last_destroy and last_destroy.status == "rejected")) %}
+{% if can_stop or can_destroy %}
+<section class="card" aria-label="Rental actions">
+  <p class="eyebrow">ACTIONS</p><h2>Stop / destroy</h2>
+  <div class="panel-grid">
+    {% if can_stop %}
+    <form method="post" action="/gpu/instances/{{ rental.rental_id }}/stop" class="stack-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label><input type="checkbox" name="confirm"> Xác nhận stop instance {{ rental.provider_instance_id }} (vẫn tính phí storage)</label>
+      <button class="button" type="submit">Stop</button>
+    </form>
+    {% endif %}
+    {% if can_destroy %}
+    <form method="post" action="/gpu/instances/{{ rental.rental_id }}/destroy" class="stack-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label><input type="checkbox" name="confirm"> Xác nhận destroy instance {{ rental.provider_instance_id }} (mất mọi dữ liệu trên máy)</label>
+      <button class="button danger" type="submit">Destroy</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+<section class="card" aria-label="Estimated cost">
+  <p class="eyebrow">COST</p><h2>Chi phí ước tính</h2>
+  <p><strong>${{ "%.4f"|format(cost.accrued_est) }}</strong> <span class="chip warn">{{ cost.label }}</span></p>
+  <p class="small muted">Tốc độ hiện tại: compute ${{ "%.4f"|format(cost.compute_per_h) }}/giờ + disk ${{ "%.4f"|format(cost.disk_per_h) }}/giờ{% if rental.disk_gb %} ({{ "%g"|format(rental.disk_gb) }} GB){% endif %}. Chưa tính băng thông. Tạm coi giá theo giờ chưa gồm disk (chưa kiểm với hóa đơn); hóa đơn của provider là thực chi.</p>
+</section>
 <div class="panel-grid">
   <section class="card">
     <p class="eyebrow">PROVISIONING</p><h2>Timeline</h2>
