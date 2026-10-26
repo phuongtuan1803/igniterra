@@ -64,6 +64,7 @@ Table: Tài liệu trong bộ và câu hỏi mỗi tài liệu trả lời
 | [06 · Giao diện review](06-web-ui.md) | Người dùng xem, chọn, sửa, chạy lại gì | Làm CLI, trang review |
 | [07 · Triển khai và vận hành](07-operations.md) | Chạy, sao lưu, bảo mật, xử lý sự cố thế nào | Cài đặt; sự cố |
 | [08 · Lộ trình](08-roadmap.md) | Gate nào, kiểm chứng gì, khi nào dừng xây | Lập kế hoạch; trước mỗi gate |
+| [09 · GPU thuê và ComfyUI Workflows](09-gpu-comfyui.md) | GPU Rentals, workflow ComfyUI, provider adapter, provisioning và chi phí ra sao | Thiết kế Gate 4; tích hợp GPU ngoài |
 | [ADR](../adr/index.md) | Quyết định nào đã chốt hay bị loại, vì sao | Trước khi đổi một quyết định |
 
 <!-- id:s1.b4 -->

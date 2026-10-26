@@ -2,7 +2,7 @@
 id: IGN-DAT
 title: Igniterra — Contract và dữ liệu
 type: design
-ver: "2.4"
+ver: "2.5"
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -15,6 +15,7 @@ rev:
   - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
   - ["2.3", 2026-10-25, "Migration đầu tiên ở Gate 2: tasks.wait_detail và pause_requested, gate_decisions.subject, ScenePlan.cast khi chưa có series"]
   - ["2.4", 2026-10-25, "Gate 3: bảng series_jobs, ảnh tham chiếu có mốc và character sheet chỉ thêm, lớp phủ data/settings.toml"]
+  - ["2.5", 2026-10-26, "Chỉ rõ ranh giới dữ liệu GPU/ComfyUI Gate 4: bảng infrastructure riêng theo 09, không đổi contract core task"]
 ---
 
 <!-- id:s1 -->
@@ -559,3 +560,8 @@ f1 -> up -> m
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s10.b2-dark.svg">
 <img alt="Đọc file cũ qua hàm chuyển đổi, không sửa file trên đĩa" src="04-data-contracts.figs/s10.b2-light.svg">
 </picture>
+
+<!-- id:s11 -->
+## Dữ liệu GPU thuê và ComfyUI Workflows (Gate 4 — thiết kế)
+
+Bốn bảng SQLite ở s2 chỉ là **core task tables** của Gate 2–3. Module Gate 4 dùng bảng riêng `gpu_rentals`, `gpu_provision_steps`, `gpu_events`, `gpu_cost_samples`, `comfy_workflows`, `comfy_runs` và thư mục `data/gpu/`, `data/comfyui/` theo [09 — GPU/ComfyUI](09-gpu-comfyui.md#s6). Không trộn tiến độ provisioning với `step_runs` của video studio; không trộn chi phí thuê GPU với `costs.jsonl` trước khi có cơ chế gán chi phí/asset được thiết kế riêng. Quan hệ sang task nội dung (nếu có) chỉ qua foreign reference `rental_id` và `run_id`, không sửa ScenePlan hoặc AssetCandidate hiện hành.
