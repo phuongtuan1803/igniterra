@@ -383,8 +383,13 @@ class GPUService:
         G11: rental còn run ComfyUI có output chưa tải và kiểm (``RUN_UNRESOLVED``) thì từ chối bằng
         ``UnverifiedOutput`` trước khi ghi gì; chỉ đi tiếp khi người vận hành xác nhận bỏ output
         (``accept_unverified_output``), lúc đó các run đó thành ``abandoned``. Không đường tự động nào (on_failure,
-        idle TTL ở lát E) truyền cờ này. Run mới chỉ bắt đầu được bằng CAS ``ready→busy``, nên giữa lúc kiểm ở đây và
-        CAS ``→destroying`` bên dưới không lọt run mới: CAS đó thua và destroy dừng.
+        idle TTL ở lát E) truyền cờ này.
+
+        Lượt kiểm đầu hàm chỉ là đường tắt để không ghi operation vô ích. Chốt thật nằm ở ``Store.begin_destroy``:
+        điều kiện "không còn run chưa kiểm" nằm trong cùng câu UPDATE với CAS (status, version) ``→destroying``.
+        CAS (status, version) một mình không đủ: ``busy→destroying`` hợp lệ, nên run giành máy ``ready→busy`` sau
+        lượt kiểm đầu mà trước lượt đọc rental vẫn qua được CAS. Có xác nhận thì các run bị bỏ là đúng tập có lúc CAS,
+        trong cùng giao dịch.
         """
         unresolved = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
         if unresolved and not accept_unverified_output:
@@ -400,15 +405,18 @@ class GPUService:
         if not rental.provider_instance_id:
             raise GPUServiceError("rental chưa gắn instance; reconcile trước")
         op_id = self._start_operation(rental_id, "destroy", rental.provider_instance_id)
-        if not self._move(rental, "destroying"):
+        detail = "người vận hành xác nhận destroy, bỏ output chưa tải/kiểm" if accept_unverified_output else None
+        if self.store.begin_destroy(rental_id, rental.version, expect=rental.status, unresolved=RUN_UNRESOLVED,
+                                    abandon_detail=detail) is None:
             self.store.finish_gpu_operation(op_id, "rejected")       # chưa gửi gì tới provider
+            if not accept_unverified_output:
+                # CAS thua vì run mới chen vào (hoặc cùng lúc với đổi trạng thái): báo đúng run đang có, không danh
+                # sách cũ. Gọi lại kèm xác nhận mới destroy được, nên lý do này đứng trước.
+                current = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
+                if current:
+                    raise UnverifiedOutput(rental_id, current)
             raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
-        if unresolved:
-            abandoned = self.store.abandon_comfy_runs(rental_id, RUN_UNRESOLVED,
-                                                      "người vận hành xác nhận destroy, bỏ output chưa tải/kiểm")
-            if abandoned:
-                self.store.add_gpu_event(rental_id, "destroy", "unverified_output_accepted",
-                                         "bỏ output chưa kiểm của run: " + ", ".join(abandoned))
+        self._sample_cost(rental_id)
         try:
             self.provider.destroy_instance(rental.provider_instance_id)
         except GPUError as exc:

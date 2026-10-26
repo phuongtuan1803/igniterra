@@ -784,22 +784,49 @@ class Store:
             db.execute("UPDATE comfy_runs SET download_attempts=download_attempts+1 WHERE run_id=?", (run_id,))
             return db.execute("SELECT download_attempts FROM comfy_runs WHERE run_id=?", (run_id,)).fetchone()[0]
 
-    def abandon_comfy_runs(self, rental_id: str, statuses: tuple[str, ...], detail: str) -> list[str]:
-        """Mọi run chưa xong của rental → ``abandoned`` trong một giao dịch (destroy đã xác nhận bỏ output)."""
+    def begin_destroy(self, rental_id: str, version: int, *, expect: str, unresolved: tuple[str, ...],
+                      abandon_detail: str | None = None) -> list[str] | None:
+        """``expect→destroying`` (CAS theo version) gắn với điều kiện run ComfyUI, tất cả trong một giao dịch (G11).
+
+        ``abandon_detail`` là None: câu UPDATE kèm ``NOT EXISTS`` run của rental ở ``unresolved`` (như
+        ``release_rental``), nên run vừa giành máy sau lượt đọc của người gọi làm CAS thua thay vì bị bỏ quên.
+        Có ``abandon_detail`` (người vận hành đã xác nhận bỏ output): không chặn, và mọi run ``unresolved`` có tại
+        lúc CAS thành công → ``abandoned`` ngay trong giao dịch đó, không dựa vào danh sách đọc trước.
+        Trả None khi CAS thua; ngược lại là danh sách run đã bỏ (rỗng nếu không có).
+        """
         stamp = utc_now()
-        marks = ",".join("?" * len(statuses))
-        abandoned = []
+        marks = ",".join("?" * len(unresolved))
+        guard, args = "", ()
+        if abandon_detail is None:
+            guard = f" AND NOT EXISTS (SELECT 1 FROM comfy_runs WHERE rental_id=? AND status IN ({marks}))"
+            args = (rental_id, *unresolved)
+        abandoned: list[str] = []
         with self.connect() as db:
+            changed = db.execute(
+                "UPDATE gpu_rentals SET status='destroying', version=version+1, updated_at=? "
+                f"WHERE rental_id=? AND status=? AND version=?{guard}",
+                (stamp, rental_id, expect, version, *args)).rowcount
+            if not changed:
+                return None
+            db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition) VALUES (?,?,?)",
+                       (rental_id, stamp, f"{expect}→destroying"))
+            if abandon_detail is None:
+                return abandoned
+            # Giao dịch đã giữ khóa ghi từ câu UPDATE trên: không run nào đổi trạng thái chen giữa lúc đọc và bỏ.
             rows = db.execute(f"SELECT run_id, status FROM comfy_runs WHERE rental_id=? AND status IN ({marks})",
-                              (rental_id, *statuses)).fetchall()
+                              (rental_id, *unresolved)).fetchall()
             for row in rows:
-                if db.execute("UPDATE comfy_runs SET status='abandoned', version=version+1, updated_at=?, finished_at=?, "
-                              "error_code='destroy_accepted', detail=? WHERE run_id=? AND status=?",
-                              (stamp, stamp, detail, row["run_id"], row["status"])).rowcount:
-                    db.execute("INSERT INTO comfy_run_events (run_id, ts_utc, transition, error_code, detail) "
-                               "VALUES (?,?,?,?,?)",
-                               (row["run_id"], stamp, f"{row['status']}→abandoned", "destroy_accepted", detail))
-                    abandoned.append(row["run_id"])
+                db.execute("UPDATE comfy_runs SET status='abandoned', version=version+1, updated_at=?, finished_at=?, "
+                           "error_code='destroy_accepted', detail=? WHERE run_id=?",
+                           (stamp, stamp, abandon_detail, row["run_id"]))
+                db.execute("INSERT INTO comfy_run_events (run_id, ts_utc, transition, error_code, detail) "
+                           "VALUES (?,?,?,?,?)",
+                           (row["run_id"], stamp, f"{row['status']}→abandoned", "destroy_accepted", abandon_detail))
+                abandoned.append(row["run_id"])
+            if abandoned:
+                db.execute("INSERT INTO gpu_events (rental_id, ts_utc, transition, error_code, detail) VALUES (?,?,?,?,?)",
+                           (rental_id, stamp, "destroy", "unverified_output_accepted",
+                            "bỏ output chưa kiểm của run: " + ", ".join(abandoned)))
         return abandoned
 
     def add_comfy_event(self, run_id: str, transition: str, error_code: str | None = None,

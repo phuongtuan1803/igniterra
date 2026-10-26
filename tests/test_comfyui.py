@@ -29,7 +29,7 @@ from studio.comfyui.manifest import WorkflowManifest, validate
 from studio.comfyui.service import ComfyService, ComfyServiceError
 from studio.gpu.adapters.fake import FakeGPUProvider
 from studio.gpu.contracts import OfferFilters, Quote
-from studio.gpu.service import GPUService, UnverifiedOutput
+from studio.gpu.service import GPUService, GPUServiceError, UnverifiedOutput
 from studio.web import create_app
 
 IMAGE = "example/comfyui@sha256:" + "0" * 64
@@ -557,6 +557,57 @@ def test_g11_busy_rental_with_running_prompt_also_warns(svc, gpu, fake_gpu, fc, 
         gpu.destroy(rental_id)
     assert gpu.destroy(rental_id, accept_unverified_output=True).status == "destroyed"   # run treo không giữ máy mãi
     assert svc.run(run.run_id).status == "abandoned"
+
+
+@pytest.mark.parametrize("window", ["after_first_check", "after_rental_read"])
+@pytest.mark.parametrize("accept", [False, True])
+def test_g11_run_claiming_rental_during_destroy_is_never_left_stuck(monkeypatch, env, svc, gpu, fake_gpu, fc, server,
+                                                                   window, accept):
+    """Run giành máy ``ready→busy`` giữa lượt kiểm run chưa kiểm đầu destroy và CAS ``→destroying``: không xác nhận
+    thì destroy phải từ chối bằng chính run đó; có xác nhận thì run đó bị bỏ. Không bao giờ instance đã hủy mà run
+    vẫn treo ở trạng thái chưa xong."""
+    rental_id = ready_rental(gpu, fake_gpu, fc, server)
+    workflow = approved(svc)
+    sneaked = []
+
+    def sneak_in():
+        if not sneaked:
+            sneaked.append(start(svc, *workflow, rental_id))
+            assert gpu.rental(rental_id).status == "busy"
+
+    if window == "after_first_check":          # đúng tái hiện của review: lượt đọc đầu trả [] rồi run chen vào
+        real = env.store.comfy_runs
+
+        def comfy_runs(**kwargs):
+            rows = real(**kwargs)
+            sneak_in()
+            return rows
+        monkeypatch.setattr(env.store, "comfy_runs", comfy_runs)
+    else:                                      # sau lượt đọc rental, ngay trước CAS: version cũ, CAS cũng phải thua
+        real_start = gpu._start_operation
+
+        def start_operation(*args):
+            op_id = real_start(*args)
+            sneak_in()
+            return op_id
+        monkeypatch.setattr(gpu, "_start_operation", start_operation)
+
+    if accept:
+        if window == "after_rental_read":      # lượt đầu thua CAS vì version đổi; gọi lại thì bỏ run và hủy máy
+            with pytest.raises(GPUServiceError):
+                gpu.destroy(rental_id, accept_unverified_output=True)
+        assert gpu.destroy(rental_id, accept_unverified_output=True).status == "destroyed"
+        assert fake_gpu.destroyed() == 1
+        run = svc.run(sneaked[0].run_id)
+        assert run.status == "abandoned" and run.error_code == "destroy_accepted"
+    else:
+        with pytest.raises(UnverifiedOutput) as raised:
+            gpu.destroy(rental_id)
+        [run] = sneaked
+        assert [r["run_id"] for r in raised.value.runs] == [run.run_id]
+        assert fake_gpu.destroyed() == 0 and gpu.rental(rental_id).status == "busy"
+        assert svc.run(run.run_id).status == "queued"            # còn chạy bình thường, chưa mất gì
+        assert [op["status"] for op in env.store.gpu_operations(rental_id, "destroy")] == ["rejected"]
 
 
 def test_g11_web_destroy_shows_warning_and_needs_separate_acceptance(env, fc, server):
