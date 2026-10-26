@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Monitor{% endblock %}
+{% block body %}
+<div class="page-heading"><div><p class="eyebrow">PRODUCTION / MONITOR</p><h1>GPU &amp; keyframes</h1>
+  <p class="page-subtitle">Tự cập nhật mỗi 5 giây từ SQLite. Cần worker đang chạy để cập nhật tiến độ; mở trang này không submit hay poll provider.</p></div>
+  <a href="/comfyui/workflows">Thư viện workflow →</a></div>
+{% if task_filter %}<p class="section-note">Đang lọc task {{ task_filter }} · <a href="/monitor">Xem tất cả</a></p>{% endif %}
+<section class="card"><p class="eyebrow">GPU RENTALS</p><h2>Máy và chi phí ước tính</h2>
+  <div class="table-scroll"><table><thead><tr><th>Rental</th><th>Trạng thái</th><th>Ước tính</th><th>Cần xử lý</th></tr></thead><tbody>
+  {% for item in rentals %}<tr><td><a href="/gpu/instances/{{ item.rental.rental_id }}">{{ item.rental.rental_id }}</a><br>{{ item.rental.offer.gpu_name }}</td>
+    <td>{{ item.rental.status }}</td><td>${{ '%.4f'|format(item.cost.accrued_est) }}<br><small>${{ '%.4f'|format(item.cost.compute_per_h + item.cost.disk_per_h) }}/giờ · chưa tính bandwidth</small></td>
+    <td>{% for breach in item.breaches %}<div>{{ breach.detail }}</div>{% endfor %}{% if item.unverified %}<strong>Output chưa kiểm: không tự destroy</strong>{% endif %}{% if not item.breaches and not item.unverified %}—{% endif %}</td></tr>
+  {% else %}<tr><td colspan="4">Chưa có rental. <a href="/gpu">Mở GPU Rentals</a>.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="card"><p class="eyebrow">COMFYUI RUNS</p><h2>Run gần đây</h2>
+  <div class="table-scroll"><table><thead><tr><th>Run / task</th><th>Rental</th><th>Trạng thái</th><th>Sự kiện cuối</th></tr></thead><tbody>
+  {% for item in items %}{% set r = item.run %}<tr><td><a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a><br>
+    {% if item.origin %}<a href="/tasks/{{ item.origin.task_id }}?scene={{ item.origin.scene }}">{{ item.origin.task_id }} · {{ item.origin.scene }} · attempt {{ item.origin.attempt }}</a>{% else %}{{ item.name }}{% endif %}</td>
+    <td><a href="/gpu/instances/{{ r.rental_id }}">{{ r.rental_id }}</a></td><td><span class="chip {{ 'ok' if r.status == 'succeeded' else 'warn' }}">{{ r.status }}</span>{% if r.error_code %}<br>{{ r.error_code }}{% endif %}</td>
+    <td>{{ r.last_event or '—' }}{% if r.last_event_at %}<br>{{ r.last_event_at.strftime('%H:%M:%S') }} UTC{% endif %}{% if r.detail %}<br><small>{{ r.detail }}</small>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="4">Chưa có run phù hợp. Chọn image = comfyui và workflow đã duyệt trong <a href="/settings">Settings</a>.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

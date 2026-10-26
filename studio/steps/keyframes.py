@@ -20,7 +20,7 @@ def refs(ctx: Ctx, scene: str) -> list[Path]:
     """Ảnh tham chiếu của nhân vật trong scene; model chỉ nhận 1 ảnh thì dùng character sheet."""
     if ctx.series_dir is None:
         return []
-    max_refs = int(ctx.config["omniroute"].get("image_max_refs") or 1)
+    max_refs = getattr(ctx.adapter("image"), "max_refs", int(ctx.config["omniroute"].get("image_max_refs") or 1))
     paths: list[Path] = []
     for key in ctx.plan.scene(scene).characters:
         character = ctx.bible.characters.get(key)

@@ -62,3 +62,13 @@ timeout_s    = 15
 [gpu.vast]
 base_url  = "https://console.vast.ai/api/v0"
 timeout_s = 30                  # quá hạn sau khi gửi → kết quả không rõ, reconcile theo label
+
+[comfyui.image]                 # dùng khi [adapters] image = "comfyui"; không tự thuê GPU
+rental_id = ""                 # rental đã ready
+workflow_id = ""               # text2image đã gắn manifest duyệt
+revision = 1
+reference_workflow_id = ""      # workflow có LoadImage + ReferenceLatent, dùng character sheet
+reference_revision = 1
+model = "FLUX.2-klein-4b-fp8"
+timeout_s = 600
+poll_s = 2

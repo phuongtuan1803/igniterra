@@ -11,6 +11,7 @@ REGISTRY: dict[str, dict[str, str]] = {
         "fake": "studio.providers.fake:FakeLLM",
     },
     "image": {
+        "comfyui": "studio.providers.direct.comfyui:ComfyImage",
         "omniroute": "studio.providers.direct.omniroute:OmniRouteImage",
         "fake": "studio.providers.fake:FakeImage",
     },

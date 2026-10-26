@@ -246,6 +246,36 @@ class ComfyUIRuntime:
             raise ComfyUIUnavailable("/object_info rỗng: ComfyUI chưa nạp xong node")
         return data
 
+    def upload_image(self, path: Path) -> str:
+        """Upload ảnh tham chiếu bằng tên SHA-256; ghi đè cùng nội dung nên retry trước submit an toàn.
+
+        Chỉ gửi PNG/JPEG/WebP, tối đa 64 MiB. Response phải trả đúng tên và thư mục do studio chọn.
+        """
+        from studio.comfyui.runs import sniff
+
+        if path.stat().st_size > 64 * 1024 * 1024:
+            raise ComfyUIRejected("ảnh tham chiếu lớn hơn 64 MiB")
+        data = path.read_bytes()
+        kind = sniff(data[:64])
+        suffix, media = {"png": ("png", "image/png"), "jpeg": ("jpg", "image/jpeg"),
+                         "webp": ("webp", "image/webp")}.get(kind, (None, None))
+        if suffix is None:
+            raise ComfyUIRejected("ảnh tham chiếu phải là PNG, JPEG hoặc WebP")
+        # LoadImage.INPUT_TYPES liệt kê file ở input root, không liệt kê thư mục con.
+        name, folder = f"igniterra_ref_{hashlib.sha256(data).hexdigest()}.{suffix}", ""
+        try:
+            response = requests.post(f"{self.base_url}/upload/image", files={"image": (name, data, media)},
+                                     data={"type": "input", "subfolder": folder, "overwrite": "true"},
+                                     headers=self._headers(), timeout=(self.connect_timeout, self.timeout),
+                                     verify=self.verify, allow_redirects=False)
+        except requests.exceptions.RequestException as exc:
+            raise ComfyUIUnavailable(f"upload ảnh tham chiếu: {exc}") from None
+        self._check(response, "POST /upload/image", unknown=False)
+        result = self._json(response, "POST /upload/image")
+        if result.get("name") != name or result.get("subfolder") != folder or result.get("type") != "input":
+            raise ComfyUIRejected("upload trả đường dẫn khác tên SHA-256 và thư mục đã chọn")
+        return f"{folder}/{name}" if folder else name
+
     def view(self, filename: str, subfolder: str = "", folder_type: str = "output",
              max_bytes: int = VIEW_MAX_BYTES) -> bytes:
         """``GET /view`` vào bộ nhớ, có trần dung lượng. Tên file và subfolder phải sạch (không ``..``, ``/`` đầu)."""

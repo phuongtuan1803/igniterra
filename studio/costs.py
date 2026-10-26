@@ -68,11 +68,17 @@ def report_usage(units: dict[str, float] | None = None, est_usd: float | None = 
             call["model"] = model
 
 
+def current_request_id() -> str | None:
+    """ID của lượt gọi hiện tại, để adapter gắn job bền vững với attempt mà không đổi provider interface."""
+    call = _current.get()
+    return call.get("request_id") if call else None
+
+
 @contextmanager
 def paid_call(path: Path, request_id: str, provider: str, model: str | None) -> Iterator[dict]:
     """pending → gọi → ok | failed | unknown. Lỗi được ném lại nguyên loại cho worker."""
     append(path, CostEvent(ts=_now(), request_id=request_id, status="pending", provider=provider, model=model))
-    call: dict = {"units": None, "est_usd": None, "model": None}
+    call: dict = {"units": None, "est_usd": None, "model": None, "request_id": request_id}
     token = _current.set(call)
     try:
         yield call

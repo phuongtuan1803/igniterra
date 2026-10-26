@@ -284,7 +284,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         cfg = current_config()
         return page(request, "settings.html", adapters=cfg["adapters"], concurrency=cfg["concurrency"],
                     registry={c: sorted(providers.REGISTRY.get(c, {})) + ["none"] for c in CAPABILITIES},
-                    omniroute=cfg["omniroute"], gates=cfg["gates"], path=settings_path)
+                    omniroute=cfg["omniroute"], gates=cfg["gates"], path=settings_path,
+                    comfy_image=cfg.get("comfyui", {}).get("image", {}))
 
     @app.post("/settings")
     async def settings_save(request: Request):
@@ -294,6 +295,10 @@ def create_app(config: dict | None = None) -> FastAPI:
                    "omniroute": {k: form.get(k) for k in ("llm_model", "image_model") if form.get(k)},
                    "gates": {"keyframes": form.get("gate_keyframes") == "on"}}
         candidate = studio_config.deep_merge(current_config(), overlay)
+        image_fields = {k: str(form[k]).strip() for k in ("rental_id", "workflow_id", "reference_workflow_id") if k in form}
+        if image_fields:
+            overlay["comfyui"] = {"image": image_fields}
+            candidate = studio_config.deep_merge(candidate, overlay)
         problems = []
         for capability in CAPABILITIES:
             try:
@@ -406,6 +411,33 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     comfy = comfy_service.from_config(store, config, gpu)  # thư viện luôn bật; chạy cần GPU provider
 
+    @app.get("/monitor", response_class=HTMLResponse)
+    def monitor(request: Request, task: str | None = None):
+        items = []
+        for run in comfy.runs()[:100]:
+            revision = comfy.revision(run.workflow_id, run.revision)
+            origin = views.comfy_origin(revision.note)
+            if task and (not origin or origin["task_id"] != task):
+                continue
+            items.append({"run": run, "name": revision.name, "origin": origin})
+        rentals = [{"rental": r, "cost": gpu.cost(r.rental_id), "breaches": gpu.breaches(r),
+                    "unverified": gpu.unverified_runs(r.rental_id)} for r in gpu.rentals()] if gpu else []
+        return page(request, "monitor.html", items=items, rentals=rentals, auto_refresh=5, task_filter=task)
+
+    @app.post("/comfyui/image-profile")
+    async def comfy_image_profile(request: Request):
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        if form.get("confirm") != "on":
+            return back("/comfyui/workflows", err="xác nhận nhập profile trước", request=request)
+        try:
+            result = comfy.import_image_profile(HERE.parent.parent / "workflows" / "flux2-klein-4b")
+        except (comfy_service.ComfyServiceError, ValueError, OSError) as exc:
+            return back("/comfyui/workflows", err=str(exc)[:500], request=request)
+        return back("/comfyui/workflows", msg=f"Đã nhập profile; manifest {result['manifest_sha256']} chờ duyệt. "
+                    "Nhập ID hai workflow và rental ready vào Settings để dùng ComfyImage.", request=request)
+
     @app.get("/comfyui")
     def comfy_home():
         return RedirectResponse("/comfyui/workflows", status_code=303)
@@ -469,7 +501,10 @@ def create_app(config: dict | None = None) -> FastAPI:
             data = comfy.run_detail(run_id)
         except comfy_service.ComfyServiceError:
             return Response("không có run", status_code=404)
-        return page(request, "comfyui_run.html", **data, csrf=csrf)
+        origin = views.comfy_origin(data["revision"].note)
+        return page(request, "comfyui_run.html", **data, csrf=csrf, origin=origin,
+                    auto_refresh=5 if data["run"].status in ("checking", "submitting", "submit_unknown", "queued",
+                                                           "running", "downloading") else None)
 
     @app.post("/comfyui/runs/{run_id}/{action}")
     async def comfy_run_action(request: Request, run_id: str, action: str):

@@ -20,6 +20,7 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 
 - [Gate 2: core, CLI và 5 brief ra MP4](reports/g2/README.md) — 5 MP4 đạt hậu điều kiện; phiếu duyệt C01–C09 và D-07 chờ Tuan.
 - [Gate 3: trang review, Series Bible, T09](reports/g3/README.md) — bắt đầu trước D-07; character sheet giữ nhân vật 5/5 scene; điều kiện ra chờ số đo Gate 2.
+- [Gate 4: ComfyImage và FLUX.2 Klein 4B](reports/g4-comfy-image/README.md) — 5 keyframe trên GPU thật và MP4 53 giây; review sơ bộ 2/5 ảnh đạt nội dung, chờ duyệt cuối; có Monitor task/run/rental.
 
 Báo cáo là ảnh chụp tại thời điểm viết; trạng thái hiện hành nằm ở [08 · Lộ trình](src/design/08-roadmap.md). Chạy bộ kiểm thử bằng `uv run pytest`.
 

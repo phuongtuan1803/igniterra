@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "scope": "One FLUX brief; no OmniRoute request or provider comparison",
+  "account_check": {
+    "checked_at_utc": "2026-10-26T18:00:43+00:00",
+    "remaining_app_instances": [],
+    "cumulative_session_spend_usd": 0.1409463263600017,
+    "feature_pilot_spend_usd": 0.12453346926000171,
+    "prior_slice_e_usd": 0.0164128571,
+    "invoice_final": false,
+    "cap_usd": 2
+  },
+  "attempts": [
+    {
+      "task_id": "t_0010",
+      "rental_id": "r_f205124458e4",
+      "instance_id": "57848117",
+      "gpu": "RTX A5000",
+      "hourly_including_disk_usd": 0.2225925925925926,
+      "started_utc": "2026-10-26T17:37:32+00:00",
+      "ended_utc": "2026-10-26T17:47:11+00:00",
+      "ready_elapsed_s": 562.43,
+      "keyframes_gate_reached": false,
+      "keyframes_finished_elapsed_s": 569.23,
+      "cleanup": {
+        "elapsed_s": 577.67,
+        "kind": "cleanup",
+        "rental_id": "r_f205124458e4",
+        "status": "destroyed",
+        "remaining_same_rental": []
+      },
+      "errors": [
+        "RuntimeError: Task chưa đạt gate keyframes"
+      ]
+    },
+    {
+      "task_id": "t_0011",
+      "rental_id": "r_675867bb43e2",
+      "instance_id": "57849246",
+      "gpu": "RTX 3090",
+      "hourly_including_disk_usd": 0.2125925925925926,
+      "started_utc": "2026-10-26T17:50:07+00:00",
+      "ended_utc": "2026-10-26T17:57:07+00:00",
+      "ready_elapsed_s": 275.08,
+      "keyframes_gate_reached": true,
+      "keyframes_finished_elapsed_s": 410.73,
+      "cleanup": {
+        "elapsed_s": 418.87,
+        "kind": "cleanup",
+        "rental_id": "r_675867bb43e2",
+        "status": "destroyed",
+        "remaining_same_rental": []
+      },
+      "errors": [
+        "TypeError: record() got multiple values for argument 'kind'"
+      ]
+    }
+  ],
+  "task_id": "t_0011",
+  "task_status": "waiting",
+  "wait_reason": "gate:final",
+  "profile": "workflows/flux2-klein-4b",
+  "workflow_manifest_sha256": "951d596ac9597d3b9a164b64249946f474d5f18ba088a803840b462bafbfced2",
+  "model_checksums_verified": 3,
+  "reference_sheet": "series/garden/refs/robot_bao_tri_sheet_v2.png",
+  "images": [
+    {
+      "scene": "s01",
+      "candidate": "img_s01_a1",
+      "sha256": "3a897551db9dfd1c40cb1507495c3ae3ab3b7aa520246fecb7dc5fba851a43a8",
+      "width": 1088,
+      "height": 1920,
+      "run_id": "cr_3b5e2ac958f8",
+      "workflow_id": "wf_6607b8e928",
+      "workflow_sha256": "a492e25b7aacea57c77293758d0c3e1342571411313b93096fafa0d234551aa1",
+      "status": "succeeded",
+      "created_at": "2026-10-26T17:54:46+00:00",
+      "finished_at": "2026-10-26T17:55:09+00:00",
+      "run_elapsed_s": 23.0,
+      "codex_content_accepted": false,
+      "human_accepted": null
+    },
+    {
+      "scene": "s02",
+      "candidate": "img_s02_a1",
+      "sha256": "e94a8165957208cc35984e6844a5e4748fc98b125395b0173d8734cb15c29c0c",
+      "width": 1088,
+      "height": 1920,
+      "run_id": "cr_a020ed9f1bc9",
+      "workflow_id": "wf_2add6559ae",
+      "workflow_sha256": "7268a8c19f7824b7a55c38f0ee23cc61e60544e390cfe170d8d4b33f0ff9c17d",
+      "status": "succeeded",
+      "created_at": "2026-10-26T17:55:12+00:00",
+      "finished_at": "2026-10-26T17:55:35+00:00",
+      "run_elapsed_s": 23.0,
+      "codex_content_accepted": true,
+      "human_accepted": null
+    },
+    {
+      "scene": "s03",
+      "candidate": "img_s03_a1",
+      "sha256": "fcd122aad1a66c5a749b56cec420f52fa61c46d7c222712e43b5d526657f160f",
+      "width": 1088,
+      "height": 1920,
+      "run_id": "cr_69a0c2fbbfc8",
+      "workflow_id": "wf_c33f16972c",
+      "workflow_sha256": "63794e177b525305e616a3638ab045b88c560179a6b587ff5f167bca1fc2f37d",
+      "status": "succeeded",
+      "created_at": "2026-10-26T17:55:39+00:00",
+      "finished_at": "2026-10-26T17:56:04+00:00",
+      "run_elapsed_s": 25.0,
+      "codex_content_accepted": false,
+      "human_accepted": null
+    },
+    {
+      "scene": "s04",
+      "candidate": "img_s04_a1",
+      "sha256": "74158fc5ad8b336d64fa01e3ec7a2909039826e01b6d2b30f9c8d73d6e28e219",
+      "width": 1088,
+      "height": 1920,
+      "run_id": "cr_0ef8a61d4afa",
+      "workflow_id": "wf_8b69cf919e",
+      "workflow_sha256": "d7b9f4fa250a11a40815b1c0ce0f0383fe65cd4ca41c0defba721efb9d0a1152",
+      "status": "succeeded",
+      "created_at": "2026-10-26T17:56:08+00:00",
+      "finished_at": "2026-10-26T17:56:31+00:00",
+      "run_elapsed_s": 23.0,
+      "codex_content_accepted": true,
+      "human_accepted": null
+    },
+    {
+      "scene": "s05",
+      "candidate": "img_s05_a1",
+      "sha256": "e2f43f5bab985211dbb0d71b9c077b077a66095861451c29d7d930109d96888f",
+      "width": 1088,
+      "height": 1920,
+      "run_id": "cr_c60f39dac7ba",
+      "workflow_id": "wf_f2bbbdf6ff",
+      "workflow_sha256": "f36882434c6fedeb738c4051f2fcb0b9f9c39b7e5928e93f8fc9acf342404af6",
+      "status": "succeeded",
+      "created_at": "2026-10-26T17:56:35+00:00",
+      "finished_at": "2026-10-26T17:56:57+00:00",
+      "run_elapsed_s": 22.0,
+      "codex_content_accepted": false,
+      "human_accepted": null
+    }
+  ],
+  "technical_images_verified": 5,
+  "core_character_identity_codex": 5,
+  "content_accepted_codex": 2,
+  "content_accepted_human": null,
+  "observed_feature_usd_per_codex_accepted_image": 0.062266734630000854,
+  "post_keyframes": {
+    "task_id": "t_0011",
+    "status": "waiting",
+    "wait_reason": "gate:final",
+    "detail": "duyệt bản render r_001: renders/r_001/final_9x16.mp4",
+    "post_keyframes_elapsed_s": 39.41,
+    "finished_utc": "2026-10-26T17:59:04+00:00",
+    "render_revisions": [
+      "r_001"
+    ]
+  },
+  "render": {
+    "render_rev": "r_001",
+    "task_id": "t_0011",
+    "plan_rev": 1,
+    "scenes": [
+      {
+        "id": "s01",
+        "clip": "clip_s01_a1",
+        "voice": "vo_s01_a1",
+        "start_s": 0.0,
+        "duration_s": 10.9
+      },
+      {
+        "id": "s02",
+        "clip": "clip_s02_a1",
+        "voice": "vo_s02_a1",
+        "start_s": 10.9,
+        "duration_s": 11.1
+      },
+      {
+        "id": "s03",
+        "clip": "clip_s03_a1",
+        "voice": "vo_s03_a1",
+        "start_s": 22.0,
+        "duration_s": 10.633
+      },
+      {
+        "id": "s04",
+        "clip": "clip_s04_a1",
+        "voice": "vo_s04_a1",
+        "start_s": 32.633,
+        "duration_s": 10.8
+      },
+      {
+        "id": "s05",
+        "clip": "clip_s05_a1",
+        "voice": "vo_s05_a1",
+        "start_s": 43.433,
+        "duration_s": 9.672
+      }
+    ],
+    "video_project_revision": "8e8f217f26b84d2e9f3349dc0726e92d",
+    "stages_reused": [],
+    "stages_built": [
+      "s01:audio",
+      "s01:timing",
+      "s01:scene",
+      "s02:audio",
+      "s02:timing",
+      "s02:scene",
+      "s03:audio",
+      "s03:timing",
+      "s03:scene",
+      "s04:audio",
+      "s04:timing",
+      "s04:scene",
+      "s05:audio",
+      "s05:timing",
+      "s05:scene",
+      "assembly",
+      "export"
+    ],
+    "duration_s": 53.133,
+    "width": 1080,
+    "height": 1920,
+    "final_sha256": "ede7b14f7be2ae2b537bb29fc43c78dde054d18c32e9648781d825cf322f6976",
+    "subtitles": "subtitles/cues_a1.json"
+  },
+  "streams": [
+    {
+      "codec_type": "video",
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "avg_frame_rate": "30/1",
+      "sample_rate": null,
+      "channels": null
+    },
+    {
+      "codec_type": "audio",
+      "codec_name": "aac",
+      "width": null,
+      "height": null,
+      "avg_frame_rate": "0/0",
+      "sample_rate": "48000",
+      "channels": 2
+    }
+  ],
+  "notes": [
+    "First rental blocked before model inference because LoadImage did not enumerate a subfolder upload.",
+    "Second harness raised TypeError while logging image metadata after reaching keyframes gate. SQLite and file hashes independently verified all five images; cleanup still completed.",
+    "Keyframes gate approved by Codex only to render a technical pilot. Final human review and three content corrections remain.",
+    "Account delta includes both rentals, setup, bandwidth and failed attempt; accounting can lag. Not a final invoice."
+  ]
+}

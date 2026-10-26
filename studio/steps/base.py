@@ -70,7 +70,10 @@ class Ctx:
         adapter = self.adapter(capability)
         if adapter is None:
             return {"adapter": "none"}
-        return {"adapter": getattr(adapter, "name", type(adapter).__name__), "model": getattr(adapter, "model", None)}
+        result = {"adapter": getattr(adapter, "name", type(adapter).__name__), "model": getattr(adapter, "model", None)}
+        if hasattr(adapter, "input_signature"):
+            result["configuration"] = adapter.input_signature
+        return result
 
     @contextmanager
     def call(self, item: Item, adapter: Any) -> Iterator[None]:

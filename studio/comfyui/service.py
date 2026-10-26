@@ -167,6 +167,65 @@ class ComfyService:
         self._attach(record, manifest, "operator", note)
         return self.revision(workflow_id, revision)
 
+    def image_template(self, workflow_id: str, revision: int) -> dict:
+        """Graph đã kiểm SHA-256 và manifest duyệt, dùng làm template của ImageProvider."""
+        return self._runnable(self.revision(workflow_id, revision))
+
+    def import_image_profile(self, folder: Path) -> dict:
+        """Nhập hai workflow và manifest đã ghim từ một profile; giữ pending_review, không thuê hay tải model."""
+        manifest = WorkflowManifest.model_validate_json((folder / "manifest.json").read_text())
+        problems = manifests.validate(manifest)
+        if problems:
+            raise ComfyServiceError("profile không đạt: " + "; ".join(problems))
+        result = {}
+        for name in ("text2image", "reference"):
+            record = self.import_workflow(f"FLUX.2 Klein 4B · {name}", (folder / f"{name}.json").read_bytes())
+            record = self.attach_manifest(record.workflow_id, record.revision, manifest)
+            result[name] = {"workflow_id": record.workflow_id, "revision": record.revision}
+        result["manifest_sha256"] = manifest.sha256()
+        return result
+
+    def bind_image_inputs(self, workflow_id: str, revision: int, bindings: dict, request_id: str,
+                          input_sha256: str = "") -> WorkflowRevision:
+        """Tạo workflow cho một lượt sinh ảnh từ template đã duyệt; dependency và liên kết không được đổi.
+
+        Chỉ cho thay literal text, seed, kích thước và tên ảnh tham chiếu. Manifest dùng lại bản đã duyệt;
+        không duyệt dependency mới. Revision gốc bất biến và workflow phát sinh giữ request_id để monitor.
+        """
+        import copy
+
+        record = self.revision(workflow_id, revision)
+        original = self._runnable(record)
+        allowed = {"CLIPTextEncode": {"text"}, "RandomNoise": {"noise_seed"},
+                   "EmptyFlux2LatentImage": {"width", "height"}, "Flux2Scheduler": {"width", "height"},
+                   "SaveImage": {"filename_prefix"}, "LoadImage": {"image"}}
+        prompt = copy.deepcopy(original)
+        for node_id, values in bindings.items():
+            node = prompt.get(node_id)
+            if node is None or not isinstance(values, dict) or not set(values) <= allowed.get(node["class_type"], set()):
+                raise ComfyServiceError(f"binding không được phép ở node {node_id}")
+            for key, value in values.items():
+                if key not in node["inputs"] or isinstance(node["inputs"][key], (list, dict)):
+                    raise ComfyServiceError(f"không thay liên kết hoặc thêm input {node_id}.{key}")
+                if isinstance(value, (list, dict)) or type(value) is not type(node["inputs"][key]):
+                    raise ComfyServiceError(f"binding {node_id}.{key} sai kiểu")
+                if key in ("width", "height") and (not 16 <= value <= 4096 or value % 16):
+                    raise ComfyServiceError("kích thước ComfyUI phải là bội số 16, trong 16–4096")
+                if key == "noise_seed" and not 0 <= value < 2**64:
+                    raise ComfyServiceError("seed ngoài khoảng uint64")
+                if key == "text" and len(value) > 100_000:
+                    raise ComfyServiceError("prompt quá dài")
+                if key == "image" and not re.fullmatch(r"igniterra_ref_[0-9a-f]{64}\.(png|jpg|webp)", value):
+                    raise ComfyServiceError("ảnh tham chiếu không phải tên SHA-256 do studio upload")
+                if key == "filename_prefix" and not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", value):
+                    raise ComfyServiceError("prefix output không hợp lệ")
+            node["inputs"].update(values)
+        derived = self.import_workflow(f"Keyframe · {request_id}", json.dumps(prompt).encode(),
+                                       note=f"image_request:{request_id}\ninput_sha256:{input_sha256}")
+        manifest = self.manifest_view(record)
+        return self.attach_manifest(derived.workflow_id, derived.revision, manifest,
+                                    note=f"template {workflow_id} rev {revision}; dependency đã duyệt")
+
     def _attach(self, record: WorkflowRevision, manifest: WorkflowManifest, source: str, note: str | None) -> None:
         sha = manifest.sha256()
         self.store.add_comfy_manifest(sha, manifest.canonical_json(), note)
