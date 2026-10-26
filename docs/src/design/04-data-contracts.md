@@ -2,19 +2,15 @@
 id: IGN-DAT
 title: Igniterra — Contract và dữ liệu
 type: design
-ver: "2.4"
+ver: "2.5"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
 sum: Toàn bộ dữ liệu của một task nằm trong một thư mục ghi theo kiểu thêm mới — mỗi lần sinh là một ứng viên, mỗi lần sửa kịch bản là một revision; SQLite chỉ giữ task, StepRun và quyết định gate; chi phí là file costs.jsonl.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 6, 7.2"], [Thành phần, "contracts.py, store.py, taskdir.py, costs.py, prompt.py"], [Gate xây, "2 (contract, StepRun, costs), 3 (Series Bible đầy đủ)"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: ScenePlan có revision, assets.json với selected, costs.jsonl thay cost_events và ngân sách, bỏ SpeechScript, SceneVisual, profile"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2: contract Brief theo mẫu Gate 0, ScenePlan gắn hình bắt buộc, wps của giọng, nguồn và quyền của ứng viên, render revision thay cho một file final, bảng reviews (phiếu duyệt C01–C09, phút công), quy tắc ghi assets.json, cấu hình MPT nạp lúc import"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
-  - ["2.3", 2026-10-25, "Migration đầu tiên ở Gate 2: tasks.wait_detail và pause_requested, gate_decisions.subject, ScenePlan.cast khi chưa có series"]
-  - ["2.4", 2026-10-25, "Gate 3: bảng series_jobs, ảnh tham chiếu có mốc và character sheet chỉ thêm, lớp phủ data/settings.toml"]
+  - ["2.4", 2026-10-25, "Gate 3: bảng series_jobs, ảnh tham chiếu có mốc và character sheet chỉ thêm, lớp phủ data/settings.toml (lịch sử trước đó: git log)"]
+  - ["2.5", 2026-10-26, "Soát theo code: lược đồ SQLite là bản đang chạy, bỏ dẫn pilot trước Gate 2, thêm ranh giới dữ liệu GPU thuê/ComfyUI (09)"]
 ---
 
 <!-- id:s1 -->
@@ -74,10 +70,10 @@ Table: Ai ghi gì
 | `renders/r_NNN/` | Bước `render` | Thư mục mới mỗi lần render; bản được duyệt là bản mà `gate_decisions` trỏ tới |
 
 <!-- id:s2 -->
-## Lược đồ SQLite (đề xuất)
+## Lược đồ SQLite
 
 <!-- id:s2.b1 -->
-ADD-AIVIDEO-003 chỉ chốt "StepRun trong SQLite". Lược đồ dưới đây là đề xuất của tài liệu này; chốt khi viết migration đầu tiên ở Gate 2.
+Lược đồ đang chạy nằm trong `SCHEMA` của `studio/store.py` (SQLite WAL); khi hai nơi lệch nhau, code là chuẩn.
 
 <!-- id:s2.b2 -->
 <!-- report-kit:d2
@@ -152,7 +148,7 @@ reviews.task_id -> tasks.id
 - Ràng buộc duy nhất `(task_id, step, scene, attempt)` trên `step_runs`.
 - Nhận task: `UPDATE tasks SET status='running' WHERE id=? AND status='pending'`, kiểm số dòng bị đổi; không cần khóa riêng khi chỉ có một worker.
 - `wait_reason` là `gate:keyframes`, `gate:final`, `unknown_call`, `retries_exhausted`, `duration_exceeded` hoặc `paused`; giao diện dùng nó để hiện đúng nút.
-- `reviews` là nguồn số liệu cho D-01, D-07 và T10: `accepted` chỉ `true` khi mọi tiêu chí đạt; tiêu chí chưa chấm để `unknown`, không coi là đạt. `active_minutes` là phút công người duyệt tự ghi hoặc thời gian từ lúc mở Storyboard tới quyết định, tách khỏi thời gian chờ máy, theo quy ước của [g0-plan](../../reports/g0-g1/g0-plan.md).
+- `reviews` là nguồn số liệu cho G-02 và D-07: `accepted` chỉ `true` khi mọi tiêu chí đạt; tiêu chí chưa chấm để `unknown`, không coi là đạt. `active_minutes` là phút công người duyệt tự ghi hoặc thời gian từ lúc mở Storyboard tới quyết định, tách khỏi thời gian chờ máy.
 - Chi phí không nằm trong SQLite: `costs.jsonl` trong thư mục task là nguồn duy nhất (ADR-0006).
 
 <!-- id:s3 -->
@@ -205,14 +201,14 @@ Table: Danh mục contract
 | `AudioTrack` | `TTSProvider` | `subtitles`, renderer | File giọng của một scene và mốc thời gian từng từ (có thể rỗng) |
 | `CostEvent` | `costs.py` | Người, báo cáo tháng | Một dòng `costs.jsonl` |
 | `SeriesBible` | Người (trang Series) | `plan`, `keyframes`, `voice` | Phong cách, nhân vật, giọng, từ vựng camera, lexicon |
-| `Brief` | Người (CLI `task new`, trang Tạo task) | `plan`, kiểm hậu điều kiện, phiếu duyệt | Ý đồ câu chuyện và các ràng buộc phải giữ, theo mẫu đã chốt ở Gate 0 |
+| `Brief` | Người (CLI `task new`, trang Tạo task) | `plan`, kiểm hậu điều kiện, phiếu duyệt | Ý đồ câu chuyện và các ràng buộc phải giữ; mẫu là 5 file trong `briefs/` |
 
 <!-- id:s3.b4 -->
-`Brief` mang đúng các trường của 5 brief Gate 0 để `plan` và phiếu duyệt cùng đọc một nguồn. Hình bắt buộc có `not_before`: số thứ tự nhịp sớm nhất được phép xuất hiện, để kịch bản không lộ twist sớm. Pilot Gate 1 trượt đúng điểm này ở brief-02, khi mầm cây xuất hiện từ khung đầu (C06).
+`Brief` mang đúng các trường của 5 brief trong `briefs/` để `plan` và phiếu duyệt cùng đọc một nguồn. Hình bắt buộc có `not_before`: số thứ tự nhịp sớm nhất được phép xuất hiện, để kịch bản không lộ twist sớm. Lượt thử trước khi có core trượt đúng điểm này ở brief-02, khi mầm cây xuất hiện từ khung đầu (C06); T12 kiểm nó.
 
 <!-- id:s3.b5 -->
 ```json
-// data/tasks/t_0002/brief.json — brief-02 của Gate 0 theo contract Brief
+// data/tasks/t_0002/brief.json — brief-02 theo contract Brief
 {
   "schema_version": 1, "id": "brief-02", "title": "Người làm vườn cuối cùng",
   "language": "vi-VN", "target_s": [45, 58], "max_s": 60, "scenes": [4, 6],
@@ -271,6 +267,7 @@ Table: Trường của một scene
 | `target_s` | số giây | Ngân sách; `plan` giới hạn theo số từ chia cho `wps` của giọng (pilot đo 2,8–3,0 với NamMinh) |
 | `start_from` | `null` \| `"prev_last_frame"` | Nối frame, tùy chọn, Gate 4 |
 
+<!-- id:s4.b4-2 -->
 Trường cấp ScenePlan `cast` (Gate 2): khi task không thuộc series, LLM mô tả mỗi nhân vật một lần (`{key: mô tả}`), `prompt.py` ghép y nguyên vào mọi scene có key đó. Nhân vật đã có trong Series Bible thì không vào `cast`.
 
 <!-- id:s4.b4 -->
@@ -385,7 +382,7 @@ characters:
   kai:
     description: "man ~40, shaved head, scar on left eyebrow, grey flight jacket, orange patch"
     refs: [refs/kai_front.png, refs/kai_side.png, refs/kai_3q.png]
-voices: {narrator: {provider: mpt, name: vi-VN-NamMinhNeural, rate: 1.0, wps: 2.9}}   # wps đo ở Gate 1
+voices: {narrator: {provider: mpt, name: vi-VN-NamMinhNeural, rate: 1.0, wps: 2.9}}   # wps đo với vi-VN-NamMinhNeural
 lexicon: {"Lyra-7": "Lai-ra bảy"}          # từ điển phát âm
 camera:
   size:     {wide: "wide shot", medium: "medium shot", close_up: "close-up"}
@@ -396,6 +393,7 @@ camera:
 <!-- id:s7.b3 -->
 Đã chốt ở Gate 3 (`studio/series.py`): ảnh tham chiếu sinh bằng job trong bảng `series_jobs` (worker chạy, chi phí ghi `data/series/<tên>/costs.jsonl`, `request_id = series:<tên>:<nhân vật>:<góc>:<job>.<lượt>:<thử>`). Ứng viên nằm ở `refs/candidates/`; ảnh duyệt chép thành `refs/<nhân vật>_ref_vN` và ghép thành `refs/<nhân vật>_sheet_vN.png` (cùng chiều cao 1536 px), không ghi đè. Ảnh duyệt đầu tiên là mốc: các góc nhìn sinh sau được gửi kèm nó làm ảnh tham chiếu, vì 3 góc sinh độc lập không cùng một nhân vật (T09). `bible.yaml` được thay qua file tạm; bản trước giữ trong `history/`.
 
+<!-- id:s7.b4-2 -->
 Prompt keyframe được ghép xác định trong `prompt.py`: style + mô tả nhân vật + cụm từ camera + visual + negative, kèm ảnh refs. LLM không bao giờ viết lại mô tả nhân vật.
 
 <!-- id:s7.b4 -->
@@ -559,3 +557,9 @@ f1 -> up -> m
 <source media="(prefers-color-scheme: dark)" srcset="04-data-contracts.figs/s10.b2-dark.svg">
 <img alt="Đọc file cũ qua hàm chuyển đổi, không sửa file trên đĩa" src="04-data-contracts.figs/s10.b2-light.svg">
 </picture>
+
+<!-- id:s11 -->
+## Dữ liệu GPU thuê và ComfyUI (Gate 4, thiết kế)
+
+<!-- id:s11.b1 -->
+Năm bảng ở trên (`tasks`, `step_runs`, `gate_decisions`, `reviews`, `series_jobs`) là bảng core. Module Gate 4 dùng bảng riêng `gpu_*` và `comfy_*`, thư mục `data/gpu/<rental_id>/` và `data/comfyui/`, theo [09](09-gpu-comfyui.md#s7). Không ghi tiến độ provisioning vào `step_runs`, không ghi chi phí GPU vào `costs.jsonl`; output ComfyUI dùng cho một task đi vào thư mục task như ứng viên bình thường, mang `provider` và `model` thật.

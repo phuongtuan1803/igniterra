@@ -2,18 +2,15 @@
 id: IGN-OPS
 title: Igniterra — Triển khai và vận hành
 type: design
-ver: "2.3"
+ver: "2.4"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
 sum: Chạy hệ thống trên một máy với 2 process, quản lý bí mật qua config.toml của MPT và biến môi trường, nâng phiên bản MPT an toàn, quan sát bằng SQLite và costs.jsonl, sao lưu bằng chép data/, rủi ro, hạn chế và runbook sự cố.
-kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 3, 5.4, 7.2, 13"], [Môi trường, "Một máy (+ GPU tùy chọn ở Gate 4)"], [Gate, "2–4"]]
+kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 3, 5.4, 7.2, 13"], [Môi trường, "Một máy (+ GPU thuê ở Gate 4)"], [Gate, "2–4"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: MPT_HOME, quy trình nâng MPT, costs.jsonl, quyết định unknown; bỏ pricing.yaml, ngân sách, router"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2: FFmpeg và ffprobe hệ thống, MPT_HOME riêng, vendor tại 82bb4a7, nâng MPT kéo theo test web, giới hạn chi tiêu trước lượt gọi trả phí đầu tiên, runbook duration_exceeded và lệch phụ đề"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
-  - ["2.3", 2026-10-25, "Gate 3: lệnh web, STUDIO_BASIC_AUTH, data/settings.toml, runbook moderation"]
+  - ["2.3", 2026-10-25, "Gate 3: lệnh web, STUDIO_BASIC_AUTH, data/settings.toml, runbook moderation (lịch sử trước đó: git log)"]
+  - ["2.4", 2026-10-26, "Soát theo code: chỉ số đo qua bảng reviews, phụ thuộc web gián tiếp qua mpt, runbook GPU thuê/ComfyUI (09)"]
 ---
 
 <!-- id:s1 -->
@@ -53,7 +50,7 @@ main.data -> backup: "sao lưu định kỳ"
 </picture>
 
 <!-- id:s1.b2 -->
-Table: Process và lệnh chạy (đề xuất)
+Table: Process và lệnh chạy
 | Process | Lệnh | Khởi động lại |
 | --- | --- | --- |
 | web | `python -m studio web` (uvicorn) | Bất kỳ lúc nào; không giữ trạng thái |
@@ -61,7 +58,7 @@ Table: Process và lệnh chạy (đề xuất)
 | một bước | `python -m studio run-step <bước> --task <id> --scene <sNN>` | Dùng khi debug |
 
 <!-- id:s1.b3 -->
-Gate 2 chỉ cần CLI và worker. Web xuất hiện ở Gate 3. GPU tự host chỉ từ Gate 4; ComfyUI chạy trong image Docker ghim phiên bản custom node.
+CLI và worker đủ để chạy một task; web (`127.0.0.1:8600` mặc định) là tùy chọn. Repo không có Dockerfile hay file systemd; chạy hai lệnh trên trong môi trường `uv`. GPU thuê chỉ từ Gate 4: ComfyUI chạy trên instance Vast.ai từ `vastai/base-image` ghim digest, custom node ghim commit ([09](09-gpu-comfyui.md#s5)).
 
 <!-- id:s2 -->
 ## Cấu hình và bí mật
@@ -95,7 +92,7 @@ worker -> log: "không bao giờ ghi khóa" {class: bad}
 - Cấu hình MPT là toàn cục: một người vận hành, một cấu hình; không chạy hai cấu hình MPT song song.
 - Logger lọc mọi giá trị trùng với biến bí mật trước khi ghi (NFR-07).
 - `MPT_HOME` là thư mục riêng (ví dụ `~/.config/studio/mpt/`), quyền `600` cho `config.toml`, ngoài `data/` để sao lưu `data/` không mang theo khóa. MPT nạp file này một lần lúc import và có thể tự ghi lại nó.
-- Trước lượt gọi trả phí đầu tiên của mỗi adapter: đặt giới hạn chi tiêu ở tài khoản provider (D-03, pilot 5 USD). Với OmniRoute, giới hạn đặt ở tài khoản upstream (openrouter, codex), vì gateway chỉ theo dõi hạn mức. Ở báo cáo G0/G1 giới hạn này chưa được đặt.
+- Trước lượt gọi trả phí đầu tiên của mỗi adapter: đặt giới hạn chi tiêu ở tài khoản provider (D-03, pilot 5 USD). Với OmniRoute, giới hạn đặt ở tài khoản upstream (openrouter, codex), vì gateway chỉ theo dõi hạn mức. Đã đặt: OpenRouter 5 USD (25/10/2026); codex là gói thuê bao.
 - FFmpeg và ffprobe cài từ hệ thống (bản 6 trở lên). `imageio-ffmpeg` đi kèm MPT chỉ có `ffmpeg`, còn renderer gọi cả `ffprobe`.
 
 <!-- id:s3 -->
@@ -129,7 +126,7 @@ fix -> stay: "không đáng sửa"
 </picture>
 
 <!-- id:s3.b3 -->
-`vendor/video_project.py` không nâng theo gói `mpt`: nó là bản copy tại commit `82bb4a7` (gói `mpt` 1.3.9, bản đã chạy ở Gate 1). Chỉ cập nhật bản copy khi upstream sửa lỗi liên quan, ghi commit mới vào header. Vì `mpt` ghim FastAPI, Starlette và uvicorn mà web của ta cũng dùng, nhánh nâng MPT chạy thêm test web.
+`vendor/video_project.py` không nâng theo gói `mpt`: nó là bản copy tại commit `82bb4a7` (trùng gói `mpt` 1.3.9). Chỉ cập nhật bản copy khi upstream sửa lỗi liên quan, ghi commit mới vào header. Vì `mpt` ghim FastAPI, Starlette và uvicorn, còn Jinja2 đến gián tiếp qua `litellm`, mà web của ta dùng cả bốn mà không khai báo trong `pyproject.toml`, nhánh nâng MPT chạy thêm test web (`tests/test_web.py`, `tests/test_editorial_ui.py`).
 
 <!-- id:s4 -->
 ## Quan sát và debug
@@ -168,7 +165,7 @@ Table: Tín hiệu cần nhìn
 | Dòng `unknown` | `costs.jsonl`, Task detail | Kiểm dashboard provider trước khi sinh lại |
 
 <!-- id:s4.b5 -->
-Chỉ số chính, đo ở mỗi gate: chi phí trên mỗi video được duyệt và phút công trên mỗi video được duyệt (mẫu nhật ký pilot ở [08 · Gate 0–1](08-roadmap.md#s2)).
+Chỉ số chính, đo ở mỗi gate: chi phí trên mỗi video được duyệt và phút công trên mỗi video được duyệt. `accepted` và `active_minutes` nằm trong bảng `reviews`; chi phí lấy từ `costs.jsonl` và hóa đơn provider. Video chưa có phiếu duyệt thì các số này để trống, không báo bằng 0.
 
 <!-- id:s5 -->
 ## Sao lưu và dọn dẹp
@@ -275,6 +272,7 @@ Table: Phụ thuộc và vận hành
 | Gói `mpt` dùng tên package `app` | Trùng tên với code của ta | Package của ta tên `studio` |
 | Provider đổi giá hoặc ngừng (OpenAI đã gỡ Sora 2 khỏi API ngày 24/09/2026) | Chi phí đổi, adapter hỏng | Adapter theo năng lực; lưu model thật vào mỗi ứng viên; đối chiếu hóa đơn |
 | Lượt gọi trả phí không rõ kết quả | Có thể trả tiền hai lần nếu gửi lại | Ghi `pending` trước lượt gọi; người quyết định khi `unknown` |
+| Web phụ thuộc gián tiếp vào `mpt` (FastAPI, uvicorn) và `litellm` (Jinja2) | Nâng hoặc gỡ `mpt` có thể làm hỏng web dù code web không đổi | Test web chạy cùng test adapter; cân nhắc khai báo trực tiếp các gói này trong `pyproject.toml` mà không ghim lệch bản `mpt` |
 
 <!-- id:s8 -->
 ## Runbook sự cố thường gặp
@@ -323,3 +321,21 @@ Table: Điều kiện và thay đổi cho từng bậc
 | --- | --- | --- |
 | 1 → 2 | Một worker không đủ nhanh | Thêm process worker; nhận task bằng cập nhật có điều kiện trên SQLite; kiểm khóa ghi `assets.json` |
 | 2 → 3 | Cần worker trên máy khác | Postgres với `SELECT ... FOR UPDATE SKIP LOCKED`; artifact sang S3 / R2; `costs.jsonl` và `assets.json` cần nơi ghi chung (AD-11: không chỉ đổi URL) |
+
+<!-- id:s10 -->
+## Runbook GPU thuê và ComfyUI (Gate 4, thiết kế)
+
+<!-- id:s10.b1 -->
+Chưa có code; bảng dưới là hành vi phải có khi làm theo [09](09-gpu-comfyui.md). Nguyên tắc chung: GPU còn tồn tại là còn tính phí (kể cả khi provisioning lỗi hay đã stop); chỉ `destroyed` được Vast xác nhận mới kết thúc phí. Trước khi kết thúc một phiên làm việc, mở dashboard Vast và kiểm không còn instance có label `igniterra:`.
+
+<!-- id:s10.b2 -->
+Table: Sự cố GPU thuê và cách xử lý
+| Tình huống | Xử lý |
+| --- | --- |
+| Create timeout, không biết đã thuê chưa (`create_unknown`) | Không bấm thuê lại; Reconcile tìm instance có label `igniterra:<rental_id>`; nếu không thấy sau vài phút, kiểm dashboard rồi mới cho tạo lại |
+| Host chạy nhưng ComfyUI không lên | Xem bước lỗi trên timeline và log provisioning; không chuyển `ready`; sửa manifest rồi thuê mới, hoặc destroy |
+| Provisioning lỗi (pip, tải model, thiếu disk) | Manifest có `on_failure: destroy` thì instance tự hủy; kiểm lại bằng Reconcile. Nếu vẫn còn, destroy tay |
+| Worker khởi động lại | Reconcile mọi rental chưa `destroyed`; instance có label mà không có record thì báo orphan, người quyết định |
+| Destroy lỗi hoặc không rõ (`destroy_unknown`) | Giữ record, Reconcile tới khi instance biến mất khỏi danh sách; quá lâu thì destroy trên dashboard |
+| Output chưa tải về | Tải và kiểm SHA-256 trước; chỉ destroy khi người xác nhận chấp nhận mất output |
+| Lộ URL tunnel của ComfyUI | Destroy instance; tạo lại với `WEB_PASSWORD` mới; kiểm không có `AUTH_EXCLUDE` |

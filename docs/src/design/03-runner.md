@@ -2,17 +2,15 @@
 id: IGN-RUN
 title: Igniterra — Worker và luồng thực thi
 type: design
-ver: "2.2"
+ver: "2.3"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
 sum: Worker là một vòng lặp đơn giản qua danh sách bước cố định — bỏ qua bước đã xong, dừng ở gate, chạy bước qua adapter, kiểm tra, lưu checkpoint; retry, resume, lượt gọi trả phí không rõ kết quả và chạy lại một scene đều là nhánh của vòng lặp này.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 · mục 4.1, 7"], [Thành phần, "studio/pipeline.py, gates.py, costs.py"], [Gate xây, "2 (CLI), 3 (sửa trên web), 4 (motion)"]]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu (Pipeline Runner tổng quát), tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: danh sách bước cố định, giọng đọc là đồng hồ chủ, pending trước lượt gọi trả phí, bỏ fan-out tổng quát, parallel, ngân sách"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2: thêm bước animate (renderer không nhận ảnh tĩnh), kiểm tra hậu điều kiện, trần thời lượng sau voice, input_hash gồm cấu hình, commit artifact, quy tắc ghi khi task đang chạy, lỗi sau khi gửi lượt gọi trả phí là unknown"]
-  - ["2.2", 2026-10-25, "Code Gate 2: gate final gắn với render của selected hiện tại, dùng lại clip thì chọn lại clip, ContentRefused, phạm vi lý do trong prompt ảnh"]
+  - ["2.2", 2026-10-25, "Code Gate 2: gate final gắn với render của selected hiện tại, dùng lại clip thì chọn lại clip, ContentRefused, phạm vi lý do trong prompt ảnh (lịch sử trước đó: git log)"]
+  - ["2.3", 2026-10-26, "Soát theo code: VIDEO_STEPS và run_task chép từ pipeline.py thay cho phác thảo, bỏ ghi chú gate trùng, bỏ dẫn báo cáo pilot đã xóa"]
 ---
 
 <!-- id:s1 -->
@@ -86,16 +84,18 @@ Table: Bước, interface và đầu ra
 
 <!-- id:s2.b4 -->
 ```python
-# studio/pipeline.py (đề xuất) — danh sách bước là dữ liệu Python, không phải YAML
+# studio/pipeline.py — danh sách bước là dữ liệu Python, không phải YAML.
+# Mỗi module bước có applies(ctx, scene), inputs(ctx, scene), run(ctx, item);
+# pool là khóa giới hạn song song trong [concurrency] của studio.toml.
 VIDEO_STEPS = [
-    Step("plan",      run=steps.plan,      per_scene=False),
-    Step("keyframes", run=steps.keyframes, per_scene=True,  paid=True),
+    Step("plan", plan, per_scene=False),
+    Step("keyframes", keyframes, per_scene=True, pool="image"),
     Gate("keyframes", optional=True),
-    Step("voice",     run=steps.voice,     per_scene=True),
-    Step("subtitles", run=steps.subtitles, per_scene=False),
-    Step("motion",    run=steps.motion,    per_scene=True,  paid=True, applies=lambda s: s.mode == "motion"),
-    Step("animate",   run=steps.animate,   per_scene=True,  applies=uses_still_image),  # mode still, hoặc motion lỗi
-    Step("render",    run=steps.render,    per_scene=False),
+    Step("voice", voice, per_scene=True, pool="tts"),
+    Step("subtitles", subtitles, per_scene=False),
+    Step("motion", motion, per_scene=True, pool="video"),     # chỉ scene mode: motion và adapter video khác "none"
+    Step("animate", animate, per_scene=True, pool="animate"), # ảnh tĩnh, hoặc motion lỗi
+    Step("render", render, per_scene=False),
     Gate("final"),
 ]
 ```
@@ -165,20 +165,21 @@ retry -> fb: hết
 
 <!-- id:s3.b3 -->
 ```python
-# Phác thảo (đề xuất). Lỗi Fatal không bắt ở đây: nó làm task failed.
-def run_task(task):
-    if costs.orphan_pending(task):            # lượt gọi trả phí đã gửi, chưa có kết quả
-        return gates.wait(task, reason="unknown_call")
-    for step in VIDEO_STEPS:
-        if isinstance(step, Gate):
-            if not gates.approved(task, step):
-                return gates.wait(task, reason=f"gate:{step.name}")
-            continue
-        for scene in items_for(task, step):   # một mục "_" nếu per_scene=False
-            if store.is_done(task, step, scene, input_hash(task, step, scene)):
-                continue
-            run_with_retry(task, step, scene) # thread pool khi per_scene=True
-    store.complete(task)
+# studio/pipeline.py: run_task, rút gọn. Fatal làm task failed; Stop đưa task về waiting hoặc failed.
+ctx = make_ctx(store, config, task_id)
+_recover(ctx)                                  # StepRun running và pending mồ côi → unknown hoặc failed
+for entry in VIDEO_STEPS:
+    if isinstance(entry, Gate):
+        if not gates.approved(ctx, entry.name):   # so với subject hiện tại của gate
+            raise Stop("waiting", f"gate:{entry.name}", ...)
+        continue
+    outcome = run_step(ctx, entry)             # thread pool theo pool; luồng chính commit assets.json
+    if outcome["unknown"]:
+        raise Stop("waiting", "unknown_call", ...)
+    if outcome["exhausted"]:
+        raise Stop("waiting", "retries_exhausted", ...)
+    if entry.name == "voice" and _total_voice(ctx) > ctx.brief.max_s:
+        raise Stop("waiting", "duration_exceeded", ...)
 ```
 
 <!-- id:s4 -->
@@ -301,7 +302,7 @@ Table: Hậu điều kiện kiểm trước khi commit (đề xuất)
 | `render` | Giải mã được toàn bộ, 1080×1920, có audio, tổng thời lượng ≤ `max_s` của brief | `QualityFail`; vượt trần thì `waiting` lý do `duration_exceeded` |
 
 <!-- id:s5.b8 -->
-Pilot Gate 1 cho thấy vì sao cần bảng này: một lượt dựng thử ra 941×1672 thay vì 1080×1920 mà không có lỗi nào được báo; chỉ phép kiểm kích thước bắt được nó ([báo cáo G0/G1](../../reports/g0-g1/README.md)).
+Lý do cần bảng này: một lượt dựng thử trước khi có core ra 941×1672 thay vì 1080×1920 mà không có lỗi nào được báo; chỉ phép kiểm kích thước bắt được nó.
 
 <!-- id:s6 -->
 ## Lượt gọi trả phí và job bất đồng bộ
@@ -433,9 +434,6 @@ Table: Hành động và phạm vi chạy lại
 > [!NOTE]
 > Đã chốt khi code (Gate 2): gate `keyframes` gắn với tập ảnh selected của mọi scene (cột `subject` trong `gate_decisions`), nên sửa narration không mở lại gate còn sửa visual hay chọn ảnh khác thì có. Gate `final` gắn với render revision ứng với input_hash của selected hiện tại, không phải thư mục `r_NNN` mới nhất: chọn lại ứng viên cũ thì render cũ được dùng lại và đó là bản được duyệt. Khi `animate` bỏ qua vì đã có clip cùng đầu vào, luồng chính chọn lại clip đó. Với ảnh, lý do kỹ thuật của `QualityFail` không đưa vào prompt (không giúp model ảnh); chỉ ghi chú của người và gợi ý an toàn khi `ContentRefused`.
 
-> [!NOTE]
-> Gate duyệt gắn với revision: duyệt gate `keyframes` ở rev 2 rồi sửa visual tạo rev 3 thì gate cần duyệt lại. Sửa narration không đổi ảnh nên không mở lại gate `keyframes` (đề xuất; chốt ở Gate 3).
-
 <!-- id:s8 -->
 ## Retry và xử lý lỗi
 
@@ -491,7 +489,7 @@ Table: Cơ chế chịu lỗi
 ## Đồng bộ thời lượng: giọng đọc là đồng hồ chủ
 
 <!-- id:s9.b1 -->
-Kịch bản không cần khớp chính xác theo giây. LLM đếm giây kém, nên `plan` giới hạn theo số từ và kiểm tra tổng thời lượng ước tính nằm trong khoảng mục tiêu của brief. Tốc độ đọc lấy từ giọng trong Series Bible (`wps`), không phải hằng số chung: pilot Gate 1 đo được 2,81–3,03 từ/giây với `vi-VN-NamMinhNeural` ở tốc độ 1.0, nên 96–107 từ chỉ cho 33,7–35,6 giây. Với khoảng 45–58 giây của D-02, `plan` nhắm khoảng 130–165 từ.
+Kịch bản không cần khớp chính xác theo giây. LLM đếm giây kém, nên `plan` giới hạn theo số từ và kiểm tra tổng thời lượng ước tính nằm trong khoảng mục tiêu của brief. Tốc độ đọc lấy từ giọng trong Series Bible (`wps`), không phải hằng số chung: lượt đo trước khi có core được 2,81–3,03 từ/giây với `vi-VN-NamMinhNeural` ở tốc độ 1.0, nên 96–107 từ chỉ cho 33,7–35,6 giây. Với khoảng 45–58 giây của D-02, `plan` nhắm khoảng 130–165 từ.
 
 <!-- id:s9.b2-2 -->
 Thời lượng thật chỉ biết sau bước `voice`. Ngay sau `voice`, worker cộng thời lượng đo được của các scene: vượt `max_s` của brief (60 giây cho pilot) thì task `waiting` lý do `duration_exceeded`, người chọn rút gọn narration (revision mới) hoặc chấp nhận tăng tốc độ đọc trong giới hạn nghe rõ; không render bản vượt trần.

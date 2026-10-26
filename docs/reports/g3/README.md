@@ -2,13 +2,14 @@
 id: IGN-G3-REPORT
 title: Igniterra — Báo cáo Gate 3 (đang làm)
 type: report
-ver: "1.0"
+ver: "1.1"
 status: draft
 date: 2026-10-25
 owner: Tuan
 sum: Gate 3 bắt đầu trước D-07 theo yêu cầu của Tuan. Trang review, chọn/upload/chạy lại, Series Bible với character sheet và test T02–T07 đã xong (44 test xanh); T09 cho thấy character sheet giữ nhân vật nhất quán 5/5 scene ở cả hai brief thử. Điều kiện ra của Gate 3 (giảm sinh lại hoặc phút sửa so với Gate 2) chưa đo được vì Gate 2 chưa có phiếu duyệt.
 rev:
   - ["1.0", 2026-10-25, "Bản đầu: phần xây và T09; chờ số đo Gate 2 của Tuan"]
+  - ["1.1", 2026-10-26, "Điều kiện mở Gate 3 dẫn về G-02"]
 ---
 
 <!-- id:s1 -->
@@ -16,7 +17,7 @@ rev:
 
 <!-- id:s1.b1 -->
 > [!WARNING]
-> Gate 3 bắt đầu ngày 25/10/2026 theo yêu cầu của Tuan, khi Gate 2 chưa có phiếu duyệt C01–C09 hay phút công (D-07 chưa quyết). Lộ trình chỉ mở Gate 3 sau khi Gate 2 đạt mục tiêu Gate 0. Cái giá: điều kiện ra của Gate 3, "giảm số lần sinh lại hoặc phút sửa đã đo ở Gate 2", chưa có mốc để so.
+> Gate 3 bắt đầu ngày 25/10/2026 theo yêu cầu của Tuan, khi Gate 2 chưa có phiếu duyệt C01–C09 hay phút công (D-07 chưa quyết). Lộ trình chỉ mở Gate 3 sau khi Gate 2 đạt G-02. Cái giá: điều kiện ra của Gate 3, "giảm số lần sinh lại hoặc phút sửa đã đo ở Gate 2", chưa có mốc để so.
 
 <!-- id:s1.b2 -->
 Phần xây của Gate 3 đã xong. Gồm trang review (Tasks, Storyboard, Task detail, Series, Settings), chọn ứng viên, upload kèm nguồn và quyền, chạy lại scene kèm ghi chú, phiếu duyệt trên web, và Series Bible đầy đủ (ảnh tham chiếu sinh bằng job của worker, character sheet). T02–T07 chạy với bản giả. T09 chạy thật trên 2 brief: character sheet giữ được nhân vật, còn đồ vật (chậu đất) vẫn trôi.

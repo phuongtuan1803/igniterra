@@ -2,18 +2,16 @@
 id: IGN-SYS
 title: Igniterra — Thiết kế hệ thống
 type: design
-ver: "2.2"
+ver: "3.0"
 status: draft
-date: 2026-10-24
+date: 2026-10-26
 owner: Tuan
 sum: Bối cảnh, mục tiêu, phạm vi, mô hình miền, yêu cầu và ràng buộc của studio, hệ thống sản xuất video ngắn bằng AI theo scene có duyệt thủ công, xây bằng core tối thiểu + adapter trên MoneyPrinterTurbo; điểm vào của bộ tài liệu thiết kế.
 kv: [[Nguồn, "ADD-AIVIDEO-003 v3.0 (19/10/2026)"], [Kiến trúc, "Architecture D — core tối thiểu + adapter"], [Đối tượng, Người phát triển và vận hành]]
 defines: [FR, NFR, CON]
 rev:
-  - ["1.0", 2026-10-19, "Bản đầu, tách từ ADD-AIVIDEO-001 v1.1"]
-  - ["2.0", 2026-10-22, "Viết lại theo ADD-AIVIDEO-003 v3.0: core tối thiểu + adapter, MPT làm thư viện provider, ScenePlan có revision, ứng viên selected, lộ trình theo decision gate"]
-  - ["2.1", 2026-10-24, "Soát trước Gate 2: brief theo mẫu Gate 0, CON-08 sản phẩm pilot (D-02), FR-17 hậu điều kiện và trần thời lượng, FR-18 phiếu duyệt, bước animate trong luồng giá trị, ràng buộc ffprobe và pin phụ thuộc của gói mpt"]
-  - ["2.2", 2026-10-24, "LLM và ảnh của Gate 2b qua OmniRoute (codex/gpt-5.6-luna, openrouter/google/gemini-nano-banana-2.1), model đặt trong studio.toml"]
+  - ["2.2", 2026-10-24, "LLM và ảnh qua OmniRoute, model đặt trong studio.toml (lịch sử trước đó: git log)"]
+  - ["3.0", 2026-10-26, "Soát theo code: bỏ nội dung pilot trước Gate 2, phiếu duyệt C01–C09 và mục tiêu pilot chuyển về đây, ADR 0004–0006 đã duyệt, thêm FR-19, FR-20, NFR-11, NFR-12, CON-09 cho GPU thuê/ComfyUI (09)"]
 ---
 
 <!-- id:s1 -->
@@ -38,10 +36,12 @@ detail: Thiết kế chi tiết {
   ops: "07 · Triển khai và vận hành" {class: plain}
 }
 plan: "08 · Lộ trình theo decision gate" {class: hands}
+gpu: "09 · GPU thuê và ComfyUI\n(Gate 4, thiết kế)" {class: hands}
 adr: "ADR · Quyết định kiến trúc" {class: gate}
 sys -> arch: "yêu cầu, ràng buộc"
 arch -> detail: "thành phần, quy tắc"
 detail -> plan: "gate nào xây phần nào"
+plan -> gpu: "khi D-05 mở"
 adr -> arch: chốt lựa chọn
 adr -> detail: chốt lựa chọn
 ```
@@ -63,11 +63,12 @@ Table: Tài liệu trong bộ và câu hỏi mỗi tài liệu trả lời
 | [06 · Giao diện review](06-web-ui.md) | Người dùng xem, chọn, sửa, chạy lại gì | Làm CLI, trang review |
 | [07 · Triển khai và vận hành](07-operations.md) | Chạy, sao lưu, bảo mật, xử lý sự cố thế nào | Cài đặt; sự cố |
 | [08 · Lộ trình](08-roadmap.md) | Gate nào, kiểm chứng gì, khi nào dừng xây | Lập kế hoạch; trước mỗi gate |
+| [09 · GPU thuê và ComfyUI](09-gpu-comfyui.md) | Thuê GPU, chạy ComfyUI, dùng repo mã nguồn mở nào và thế nào | Trước khi mở D-05 |
 | [ADR](../adr/index.md) | Quyết định nào đã chốt hay bị loại, vì sao | Trước khi đổi một quyết định |
 
 <!-- id:s1.b4 -->
 > [!IMPORTANT]
-> Quy tắc bảo trì: khi code đi lệch tài liệu, sửa tài liệu sở hữu sự thật đó trong cùng PR và tăng `ver` kèm một dòng `rev`. Quyết định khó đảo ngược phải có ADR trước khi code. Chi tiết đánh dấu "đề xuất" (tên module, lược đồ SQLite, trạng thái chi tiết) được chốt hoặc sửa ở Gate 2.
+> Quy tắc bảo trì: khi code đi lệch tài liệu, sửa tài liệu sở hữu sự thật đó trong cùng PR và tăng `ver` kèm một dòng `rev`. Quyết định khó đảo ngược phải có ADR trước khi code. Phần ghi "thiết kế" hoặc "đề xuất" chưa có trong code.
 
 <!-- id:s2 -->
 ## Bối cảnh hệ thống
@@ -96,7 +97,7 @@ mptsvc: Dịch vụ sau MPT {
   vidp: "Provider video\nSeedance, MiniMax..." {class: plain}
 }
 local: "FFmpeg\n(dựng, burn-in)" {class: hands}
-gpu: "GPU tự host\nComfyUI (Gate 4)" {class: hands}
+gpu: "GPU thuê (Vast.ai)\n+ ComfyUI (Gate 4, thiết kế)" {class: hands}
 pub: "Nền tảng đăng\nYouTube, TikTok (hoãn)" {class: plain}
 op -> studio: "brief, chọn, sửa, duyệt"
 studio -> op: "storyboard, MP4, chi phí"
@@ -104,7 +105,7 @@ studio -> cloud: "SDK trực tiếp"
 studio -> mpt: "chỉ qua studio/providers/mpt/"
 mpt -> mptsvc
 studio -> local: subprocess
-studio -> gpu: "HTTP API"
+studio -> gpu: "REST Vast.ai,\nHTTP ComfyUI"
 studio -> pub: "upload tay (hoãn)" {style.stroke-dash: 3}
 ```
 -->
@@ -121,25 +122,42 @@ Table: Tác nhân và hệ thống ngoài
 | MoneyPrinterTurbo | Thư viện provider: TTS, căn phụ đề, provider video, stock footage | Import `app.*` chỉ trong `studio/providers/mpt/`; cấu hình trong `config.toml` của MPT |
 | Dịch vụ AI cloud | LLM viết ScenePlan, ảnh keyframe có nhân vật, image-to-video | SDK trực tiếp qua adapter của ta |
 | FFmpeg | Dựng scene, ghép, burn-in phụ đề | subprocess từ renderer `video_project` |
-| GPU tự host | Ảnh và video bằng model mở | HTTP endpoint ComfyUI, chỉ từ Gate 4 |
+| GPU thuê (Vast.ai) | Chạy ComfyUI cho ảnh và video bằng model mở | REST Vast.ai để thuê; HTTP ComfyUI qua tunnel có xác thực; chỉ từ Gate 4, thiết kế ở [09](09-gpu-comfyui.md) |
 | Nền tảng đăng | Đăng video | Hoãn; upload tay cho tới Gate 4 |
 
 <!-- id:s3 -->
 ## Mục tiêu và phạm vi
 
 <!-- id:s3.b1 -->
-Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Mọi con số chi phí và thời gian là ước tính cho tới khi đo ở Gate 2.
+Mục tiêu được đo trên video được duyệt, không trên số video sinh ra. Chi phí chưa đo được trong code: response ảnh qua OmniRoute không có `usage`, nên `est_usd` để trống và phải đối chiếu dashboard provider.
 
 <!-- id:s3.b2 -->
 Table: Mục tiêu hệ thống
 | ID | Mục tiêu | Đo bằng |
 | --- | --- | --- |
-| G-01 | Từ một brief ra MP4 9:16 có hình theo scene, giọng tiếng Việt, phụ đề, không thao tác file thủ công | 5 brief đã chốt ở Gate 0 ([g0-plan](../../reports/g0-g1/g0-plan.md)) ra MP4 ở Gate 2 |
-| G-02 | Đạt mục tiêu vận hành của Gate 0 trên 5 brief | Video đạt C01–C09; tối đa 15 phút chủ động mỗi video được duyệt; tổng chi pilot trong 5 USD. Không so với MPT vì baseline đã bỏ (D-01, 24/10/2026) |
+| G-01 | Từ một brief ra MP4 9:16 có hình theo scene, giọng tiếng Việt, phụ đề, không thao tác file thủ công | 5 brief cố định trong `briefs/` ra MP4 (đạt ở Gate 2, [báo cáo g2](../../reports/g2/README.md)) |
+| G-02 | Mục tiêu vận hành của pilot trên 5 brief | Ít nhất 3/5 video đạt mọi tiêu chí C01–C09; tối đa 15 phút chủ động mỗi video được duyệt; tổng chi pilot trong 5 USD |
 | G-03 | Người dùng kiểm soát từng scene | Chọn ứng viên, sửa scene, chạy lại riêng scene, duyệt gate |
 | G-04 | Không phụ thuộc cứng vào MPT | Bỏ MPT cho một năng lực = viết adapter khác cùng interface, đổi một dòng cấu hình |
 | G-05 | Chi phí minh bạch theo lượt gọi | `costs.jsonl` có từng lượt gọi trả phí; đối chiếu hóa đơn hằng tháng |
 | G-06 | Một người phát triển và vận hành được | 2 process, SQLite, thư mục `data/`, FFmpeg, gói `mpt` |
+
+<!-- id:s3.b2-2 -->
+Phiếu duyệt gate `final` chấm 9 tiêu chí; `accepted = true` chỉ khi mọi tiêu chí đạt, tiêu chí chưa chấm là `unknown`. Danh sách cố định trong `studio/contracts.py` (`CHECKLIST`) và nhãn trên web trong `studio/web/views.py`; không đổi tiêu chí sau khi xem kết quả.
+
+<!-- id:s3.b2-3 -->
+Table: Phiếu duyệt C01–C09
+| ID | Tiêu chí | Bằng chứng |
+| --- | --- | --- |
+| C01 | MP4 phát được, dọc 9:16, 1080×1920 | Metadata, mở xem |
+| C02 | Tổng thời lượng không vượt 60 giây | Thời lượng thật của file |
+| C03 | Hook trong 3 giây đầu, đủ diễn biến, đúng twist của brief | Xem, ghi timestamp |
+| C04 | Giọng Việt rõ, không đọc sai làm đổi nghĩa | Nghe toàn bộ |
+| C05 | Phụ đề có dấu, không mất chữ hay cắt mép, không lệch nguyên câu | Xem toàn bộ |
+| C06 | Đủ hình bắt buộc; hình không mâu thuẫn lời kể, không lộ twist sớm | Timestamp từng hình |
+| C07 | Chủ thể chính không đổi loại hoặc ngoại hình khi xuất hiện lại | So các cảnh |
+| C08 | Không khung đen ngoài chủ ý, lỗi hình nghiêm trọng, âm thanh vỡ | Xem toàn bộ |
+| C09 | Lưu nguồn và quyền tài sản; mô tả ghi truyện hư cấu, hình và giọng AI | Nguồn trong `assets.json`, mô tả nháp |
 
 <!-- id:s3.b3 -->
 <!-- report-kit:d2
@@ -232,7 +250,8 @@ Table: Thuật ngữ
 | Gate | Điểm dừng chờ người duyệt, từ chối hoặc sửa |
 | Series Bible | Dữ liệu dùng chung cho một series: phong cách, mẫu nhân vật, giọng, từ vựng camera, từ điển phát âm |
 | Revision | Bản bất biến của ScenePlan hoặc của dự án render; sửa luôn tạo revision mới |
-| Decision gate | Mốc kiểm chứng trong lộ trình (Gate 0–4), có lối ra "dừng xây"; khác gate duyệt trong task |
+| Decision gate | Mốc kiểm chứng trong lộ trình (Gate 2–4), có lối ra "dừng xây"; khác gate duyệt trong task |
+| Rental | Một lần thuê GPU (Gate 4): từ khi tạo instance tới khi provider xác nhận đã hủy; không thuộc task nào |
 
 <!-- id:s4.b4 -->
 Trong bộ tài liệu, "phải" là yêu cầu bắt buộc, "nên" là khuyến nghị, "tùy chọn" là thành phần bật hoặc tắt được.
@@ -311,7 +330,7 @@ Cột Gate là decision gate đầu tiên mà yêu cầu phải đạt (xem [08 
 Table: Yêu cầu chức năng
 | ID | Yêu cầu | Gate | Thiết kế ở |
 | --- | --- | --- | --- |
-| FR-01 | Tạo task từ brief theo mẫu Gate 0: hook, nhân vật, diễn biến, twist, hình bắt buộc (kèm nhịp sớm nhất được xuất hiện), điều cấm, khoảng thời lượng và trần `max_s`, ngôn ngữ, series, ghi đè adapter/model tùy chọn | 2 | 06, 04 |
+| FR-01 | Tạo task từ brief theo contract `Brief` (mẫu là 5 file trong `briefs/`): hook, nhân vật, diễn biến, twist, hình bắt buộc (kèm nhịp sớm nhất được xuất hiện), điều cấm, khoảng thời lượng và trần `max_s`, ngôn ngữ, series, ghi đè adapter/model tùy chọn | 2 | 06, 04 |
 | FR-02 | Bước `plan` trả ScenePlan theo scene bằng structured output; `shot` là enum lấy từ Series Bible; mỗi hình bắt buộc của brief gắn với một scene và không xuất hiện sớm hơn nhịp cho phép | 2 | 04, 05 |
 | FR-03 | Chạy danh sách bước cố định, lặp theo scene; bỏ qua StepRun `done` có file hợp lệ | 2 | 03 |
 | FR-04 | Mỗi lần sinh là một ứng viên; ứng viên đầu tiên mặc định là selected; render chỉ đọc selected | 2 | 04 |
@@ -329,6 +348,8 @@ Table: Yêu cầu chức năng
 | FR-16 | Quy trình khác (audiobook) bằng danh sách bước mới, dùng lại adapter | 4 | 05 |
 | FR-17 | Kiểm hậu điều kiện kỹ thuật trước khi commit artifact (giải mã được, 1080×1920, có audio, thời lượng); tổng giọng vượt `max_s` thì task `waiting`, không render bản vượt trần | 2 | 03 |
 | FR-18 | Gate `final` ghi phiếu duyệt: kết quả từng tiêu chí C01–C09 (đạt, trượt, chưa rõ, kèm timestamp), `accepted` và phút công chủ động của người duyệt | 2 (CLI), 3 (web) | 04, 06 |
+| FR-19 | Thuê GPU on-demand qua `GPUProvider` (Vast.ai đầu tiên, không viết cứng trong web hay service): tìm offer, xác nhận báo giá, theo dõi provisioning theo bước, chi phí ước tính, stop/destroy có xác nhận; một rental độc lập với task | 4 | 09 |
+| FR-20 | Nhập ComfyUI workflow JSON thành revision, duyệt manifest dependency (model, custom node ghim commit), chạy trên GPU `ready`, tải và kiểm output; không viết node editor | 4 | 09 |
 
 <!-- id:s7 -->
 ## Yêu cầu phi chức năng
@@ -347,6 +368,8 @@ Table: Yêu cầu phi chức năng
 | NFR-08 | Đổi provider của một năng lực chỉ bằng cấu hình | T07: đổi adapter TTS chỉ bằng cấu hình | 05 |
 | NFR-09 | Nâng phiên bản MPT không ảnh hưởng core | Test riêng từng adapter chạy trước khi nâng | 05, 07 |
 | NFR-10 | Tôn trọng rate limit provider | Thread pool giới hạn theo adapter | 03 |
+| NFR-11 | Không thuê trùng, không báo hủy khi chưa chắc: ghi intent trước mọi create/destroy/submit, kết quả không rõ thì reconcile theo label hoặc `prompt_id` | G04, G08, G09, G10 ([09](09-gpu-comfyui.md#s8)) | 09 |
+| NFR-12 | Không cài dependency chưa duyệt lên GPU thuê; custom node ghim commit, model ghim revision và kiểm SHA-256; ComfyUI chỉ lộ qua kênh có xác thực | G05–G07, G12 | 09 |
 
 <!-- id:s8 -->
 ## Ràng buộc và giả định
@@ -356,13 +379,14 @@ Table: Ràng buộc và giả định
 | ID | Ràng buộc / giả định | Hệ quả thiết kế |
 | --- | --- | --- |
 | CON-01 | Một người vận hành, một máy | Modular monolith, không broker, không microservice (AD-01) |
-| CON-02 | Python 3.11+, FFmpeg và ffprobe hệ thống, gói `mpt`, API key là toàn bộ phụ thuộc nền; gói `mpt` ghim cứng nhiều thư viện (FastAPI, Starlette, uvicorn, openai, Streamlit) | Stack ở [02 · Công nghệ](02-architecture.md#s8); web của studio dùng đúng bản FastAPI mà `mpt` ghim |
+| CON-02 | Python 3.11+, FFmpeg và ffprobe hệ thống, gói `mpt`, API key là toàn bộ phụ thuộc nền; `pyproject.toml` chỉ khai báo `mpt==1.3.9` và `pydantic`. FastAPI, uvicorn, `requests` đến từ `mpt`, Jinja2 đến gián tiếp qua `litellm` | Stack ở [02 · Công nghệ](02-architecture.md#s8); web dùng đúng bản `mpt` ghim; gói mới không được ghim lệch các bản đó (ví dụ `vastai` xung đột `pillow`, [09](09-gpu-comfyui.md#s3)) |
 | CON-03 | MPT cập nhật gần như hằng ngày; gói `mpt` dùng tên package `app` | Ghim phiên bản; package của ta tên `studio`; ranh giới adapter |
 | CON-04 | Giá và sự tồn tại của provider thay đổi thường xuyên (OpenAI gỡ Sora 2 khỏi API ngày 24/09/2026) | Chỉ ghi nhật ký chi phí, giới hạn chi tiêu ở tài khoản provider (AD-10) |
 | CON-05 | Chính sách nền tảng (YouTube, TikTok, ACX, EU AI Act Điều 50 từ 02/08/2026) | Gate cuối do người; không tự đăng trước Gate 4 |
-| CON-06 | Model tự host có giấy phép khác nhau | Chỉ Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại |
-| CON-07 | Chưa có baseline: chi phí và thời gian trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026 | Baseline MPT đã bỏ (D-01); Gate 2 đo trên studio; mọi con số là ước tính tới khi đo |
-| CON-08 | Sản phẩm pilot (D-02, chốt ở Gate 0): Short sci-fi bí ẩn tiếng Việt, 9:16, 45–58 giây, trần cứng 60 giây, 4–6 nhịp hình, nhạc tắt, không cận mặt cố định | Brief mang `max_s` và số scene; `plan` và hậu điều kiện kiểm trần; Series Bible ưu tiên bối cảnh, bóng người |
+| CON-06 | Model tự host có giấy phép khác nhau | Chỉ Wan 2.2, FLUX.2 klein 4B (Apache 2.0) cho thương mại; FLUX.2 klein 9B, FLUX.2 dev có license khác, không dùng |
+| CON-07 | Giá tham khảo trong tài liệu lấy từ báo cáo nghiên cứu tháng 10/2026; không có baseline MPT (D-01) | Mọi con số chi phí là ước tính tới khi đối chiếu hóa đơn |
+| CON-08 | Sản phẩm pilot (D-02): Short sci-fi bí ẩn tiếng Việt, 9:16, 45–58 giây, trần cứng 60 giây, 4–6 nhịp hình, nhạc tắt, không cận mặt cố định | Brief mang `max_s` và số scene; `plan` và hậu điều kiện kiểm trần; Series Bible ưu tiên bối cảnh, bóng người |
+| CON-09 | GPU thuê (Gate 4) chỉ on-demand, một provider (Vast.ai), một worker, một run mỗi instance; image runtime dẫn xuất từ `vastai/base-image` chỉ được dùng trên Vast.ai (Vast.ai Elastic License) | `GPUProvider` trung lập, runtime template thì không; provider thứ hai cần image riêng ([09](09-gpu-comfyui.md#s9)) |
 
 <!-- id:s9 -->
 ## Thuộc tính chất lượng
@@ -420,15 +444,15 @@ Table: Kịch bản chất lượng
 ## Hạn chế và quyết định mở
 
 <!-- id:s10.b1 -->
-Phần lớn hạn chế là đánh đổi có chủ đích để giữ hệ thống nhỏ; chi tiết ở [07 · Rủi ro](07-operations.md#s7). Ba quyết định kiến trúc khó đảo ngược đang chờ duyệt trước Gate 2; ba đề xuất của v1.1 đã bị loại.
+Phần lớn hạn chế là đánh đổi có chủ đích để giữ hệ thống nhỏ; chi tiết ở [07 · Rủi ro](07-operations.md#s7). Ba quyết định kiến trúc khó đảo ngược đã được duyệt ngày 24/10/2026; ba đề xuất của v1.1 đã bị loại.
 
 <!-- id:s10.b2 -->
 Table: Quyết định kiến trúc trong sổ ADR
 | ADR | Quyết định | Trạng thái |
 | --- | --- | --- |
-| [ADR-0004](../adr/0004-minimal-core-mpt-adapters.md) | Core tối thiểu + adapter; MPT là thư viện provider ghim phiên bản; copy duy nhất `video_project.py` | {chip:wait} Chờ duyệt trước Gate 2 |
-| [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) | ScenePlan là contract kịch bản duy nhất, có revision; render dùng ứng viên selected | {chip:wait} Chờ duyệt trước Gate 2 |
-| [ADR-0006](../adr/0006-paid-call-ledger.md) | Ghi `pending` trước lượt gọi trả phí; nhật ký chi phí thay cho ngân sách đặt trước | {chip:wait} Chờ duyệt trước Gate 2 |
+| [ADR-0004](../adr/0004-minimal-core-mpt-adapters.md) | Core tối thiểu + adapter; MPT là thư viện provider ghim phiên bản; copy duy nhất `video_project.py` | {chip:ok} Đã duyệt 24/10/2026 |
+| [ADR-0005](../adr/0005-sceneplan-revisions-selected.md) | ScenePlan là contract kịch bản duy nhất, có revision; render dùng ứng viên selected | {chip:ok} Đã duyệt 24/10/2026 |
+| [ADR-0006](../adr/0006-paid-call-ledger.md) | Ghi `pending` trước lượt gọi trả phí; nhật ký chi phí thay cho ngân sách đặt trước | {chip:ok} Đã duyệt 24/10/2026 |
 | [ADR-0001](../adr/0001-generic-fan-out.md) | Fan-out tổng quát theo danh sách trong contract | {chip:bad} Bị loại (AD-05) |
 | [ADR-0002](../adr/0002-speechscript-contract.md) | Contract `SpeechScript` riêng cho `voice` | {chip:bad} Bị loại (AD-06) |
 | [ADR-0003](../adr/0003-parallel-step-groups.md) | Cú pháp nhóm `parallel:` trong profile | {chip:bad} Bị loại (AD-05) |

@@ -2,7 +2,7 @@
 id: ADR-0004
 title: "Core tối thiểu + adapter, MoneyPrinterTurbo là thư viện provider"
 type: adr
-ver: 0.4
+ver: 0.5
 status: draft
 date: 2026-10-24
 owner: Tuan
@@ -22,9 +22,10 @@ adr:
   reason: Tuan duyệt ngày 24/10/2026 trong thread dự án.
 rev:
   - [0.1, 2026-10-22, "Đề xuất, tách từ ADD-AIVIDEO-003 AD-01..AD-04, AD-13 và mục 4–5"]
-  - [0.2, 2026-10-24, "Soát trước Gate 2: ghim mpt 1.3.9 và vendor tại 82bb4a7; renderer không nhận ảnh tĩnh nên thêm bước animate; rủi ro pin phụ thuộc; chỉ phần trả phí của Gate 2 chờ baseline Gate 1"]
-  - [0.3, 2026-10-24, Tuan chốt D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; Gate 1 không còn chặn quyết định này]
+  - [0.2, 2026-10-24, "Soát trước Gate 2: ghim mpt 1.3.9 và vendor tại 82bb4a7; renderer không nhận ảnh tĩnh nên thêm bước animate; rủi ro pin phụ thuộc"]
+  - [0.3, 2026-10-24, Tuan chốt D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT]
   - [0.4, 2026-10-24, "Quyết định: Tuan duyệt"]
+  - [0.5, 2026-10-26, "Bỏ dẫn tới pilot trước Gate 2 và mục lộ trình đã xóa; nội dung quyết định không đổi"]
 ---
 
 <!-- id:summary -->
@@ -32,10 +33,10 @@ rev:
 
 <!-- id:summary.b1 -->
 > [!IMPORTANT]
-> Quyết định: studio là một core Python nhỏ do ta viết, gọi các chức năng của MoneyPrinterTurbo (MPT) qua 5 provider interface. MPT là gói pip `mpt` ghim phiên bản; chỉ thư mục `studio/providers/mpt/` được import `app.*`. Renderer là bản copy `video_project.py` của MPT tại commit `82bb4a7`, trùng gói `mpt` 1.3.9 đã chạy ở Gate 1. Renderer này chỉ nhận footage là video và không có chuyển động camera, nên ảnh tĩnh được bước `animate` của ta dựng thành clip trước khi render; bản copy giữ nguyên.
+> Quyết định: studio là một core Python nhỏ do ta viết, gọi các chức năng của MoneyPrinterTurbo (MPT) qua 5 provider interface. MPT là gói pip `mpt` ghim phiên bản; chỉ thư mục `studio/providers/mpt/` được import `app.*`. Renderer là bản copy `video_project.py` của MPT tại commit `82bb4a7`, trùng gói `mpt` 1.3.9. Renderer này chỉ nhận footage là video và không có chuyển động camera, nên ảnh tĩnh được bước `animate` của ta dựng thành clip trước khi render; bản copy giữ nguyên.
 
 <!-- id:summary.b2 -->
-Core lo phần MPT không có: kịch bản theo scene, mẫu nhân vật và từ vựng camera, chọn và duyệt từng scene, nhật ký chi phí. MPT lo phần ta không nên tự viết: 14 provider giọng đọc (có Edge TTS tiếng Việt miễn phí), căn phụ đề, provider video AI. Điều kiện build đã được chốt: ngày 24/10/2026 Tuan chọn D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; rủi ro là chưa chứng minh MPT không dựng đúng được khi có đủ cảnh (nguồn: ADD-AIVIDEO-003 mục 1, 2, 10; [08 · Gate 0–1](../design/08-roadmap.md#s2)). Khuyến nghị: duyệt.
+Core lo phần MPT không có: kịch bản theo scene, mẫu nhân vật và từ vựng camera, chọn và duyệt từng scene, nhật ký chi phí. MPT lo phần ta không nên tự viết: 14 provider giọng đọc (có Edge TTS tiếng Việt miễn phí), căn phụ đề, provider video AI. Điều kiện build đã được chốt: ngày 24/10/2026 Tuan chọn D-01 = build dựa trên lỗi C06 của pilot và bỏ baseline MPT; rủi ro là chưa chứng minh MPT không dựng đúng được khi có đủ cảnh (nguồn: ADD-AIVIDEO-003 mục 1, 2, 10; [08 · Quyết định](../design/08-roadmap.md#s7)). Khuyến nghị: duyệt.
 
 <!-- id:summary.b3 -->
 <!-- report-kit:d2
@@ -60,7 +61,7 @@ need -> c: "đáp ứng, dùng lại hạ tầng MPT"
 ## Ảnh hưởng tới sử dụng và vận hành
 
 <!-- id:impact.b1 -->
-Người vận hành dùng một hệ thống duy nhất (CLI rồi trang review); họ không mở WebUI của MPT sau Gate 1. Người phát triển phải giữ ranh giới import và chạy test adapter trước mỗi lần nâng MPT. API key và cấu hình provider nằm trong `config.toml` của MPT (`MPT_HOME`), nên có một nơi cấu hình cho cả hai phía.
+Người vận hành dùng một hệ thống duy nhất (CLI rồi trang review); họ không mở WebUI của MPT. Người phát triển phải giữ ranh giới import và chạy test adapter trước mỗi lần nâng MPT. API key và cấu hình provider nằm trong `config.toml` của MPT (`MPT_HOME`), nên có một nơi cấu hình cho cả hai phía.
 
 <!-- id:proscons -->
 ## Ưu và nhược điểm
@@ -82,7 +83,6 @@ Người vận hành dùng một hệ thống duy nhất (CLI rồi trang review
 Table: Việc phải xong trước
 | Việc | Người làm | Bị chặn |
 | --- | --- | --- |
-| ~~Gate 1: 5 video từ MPT nguyên bản và nhật ký pilot~~ Đã gỡ: bỏ baseline, D-01 = build (24/10/2026) | Tuan | Không còn chặn; Gate 2b chỉ chờ giới hạn chi tiêu và ADR này |
 | ~~Chốt phiên bản MPT ghim (P-01)~~ Đã chốt `mpt==1.3.9` (24/10/2026) | Tuan | Adapter MPT, `vendor/video_project.py` |
 | Duyệt ADR này | Tuan | Khởi tạo package `studio/` |
 
