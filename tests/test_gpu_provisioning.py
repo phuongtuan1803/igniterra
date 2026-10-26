@@ -55,6 +55,7 @@ class Instance:
         self.history: dict = {}
         self.posts: list[dict] = []
         self.requests: list[tuple[str, str, bool]] = []
+        self.checksums: bytes | None = None  # output/igniterra/model_sha256.txt do checksum_script ghi (lát E)
         self.lock = threading.Lock()
 
 
@@ -88,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
         authed = INST.token is not None and self.headers.get("authorization") == f"Bearer {INST.token}"
         with INST.lock:
             INST.requests.append((self.command, url.path, authed))
-        portal = url.path == "/provisioning/status"
+        portal = url.path in ("/provisioning/status", "/capabilities")
         if not authed and (portal or not INST.open_comfyui):
             return self.reply(401, {"error": "unauthorized"})
         if portal:
@@ -124,6 +125,9 @@ class Handler(BaseHTTPRequestHandler):
             query = parse_qs(url.query)
             if query.get("filename") == ["igniterra_smoke_00001_.png"] and query.get("type") == ["output"]:
                 return self.reply(200, PNG, "image/png")
+            if (query.get("filename"), query.get("subfolder"), query.get("type")) == (
+                    ["model_sha256.txt"], ["igniterra"], ["output"]) and INST.checksums is not None:
+                return self.reply(200, INST.checksums, "text/plain")
             return self.reply(404, {"error": "not found"})
         return self.reply(404, {"error": "not found"})
 
@@ -282,7 +286,8 @@ def test_rent_writes_manifest_and_private_password_never_in_sqlite_or_html(env, 
     yaml_text = (folder / "provisioning.yaml").read_text(encoding="utf-8")
     assert svc.rental(rental_id).manifest_sha256 in yaml_text and 'action: "destroy"' in yaml_text
     spec = fake_gpu.specs[svc.rental(rental_id).provider_instance_id]
-    assert spec.env == {"WEB_PASSWORD": password, "ENABLE_AUTH": "true",
+    assert spec.env == {"WEB_PASSWORD": password, "ENABLE_AUTH": "true", "ENABLE_HTTPS": "true",
+                        "PORTAL_CONFIG": "localhost:1111:11111:/:Instance Portal|localhost:8188:18188:/:ComfyUI",
                         "PROVISIONING_MANIFEST": "/etc/igniterra/provisioning.yaml"}
     assert password not in repr(spec)
     with sqlite3.connect(env.store.path) as db:
@@ -368,11 +373,93 @@ def test_ready_only_with_full_evidence(env, svc, fake_gpu, inst, server):
     assert svc.check_provisioning(rental_id).status == "ready" and len(inst.posts) == 1     # gọi lại không submit thêm
 
 
-def test_models_without_instance_checksum_are_marked_unverified(env, svc, fake_gpu, inst, server):
+def test_models_are_ready_only_after_instance_sha256_matches_manifest(env, svc, fake_gpu, inst, server):
+    """Lát E (thay SSH): SHA-256 do script cố định trên instance tính, đọc qua ``/view`` có Bearer; thiếu thì chờ."""
+    rental_id = rent(svc, fake_gpu, inst, server, gpu_manifest(downloads=[MODEL]))
+    inst.report = all_steps_done()                 # provisioner xong, portal không trả SHA-256
+    for _ in range(2):
+        assert svc.check_provisioning(rental_id).status == "provisioning"
+    assert steps(env, rental_id)["models"][0] == "running" and inst.posts == []          # chưa smoke
+    pending = [e for e in events(env, rental_id) if e["error_code"] == "checksum_pending"]
+    assert len(pending) == 1 and MODEL["dest"] in pending[0]["detail"]                   # không ghi lặp mỗi lượt
+
+    inst.checksums = f"{MODEL['sha256']}  {MODEL['dest']}\n".encode()                    # định dạng sha256sum
+    assert svc.check_provisioning(rental_id).status == "ready"
+    assert steps(env, rental_id)["models"][0] == "done"
+    assert all(authed for method, path, authed in inst.requests if path == "/view")
+
+
+@pytest.mark.parametrize("status, expected", [("none", "provisioning"), ("in_progress", "provisioning"),
+                                               ("complete", "ready"), ("failed", "destroyed")])
+def test_official_portal_capabilities_shape(env, svc, fake_gpu, inst, server, status, expected):
+    rental_id = rent(svc, fake_gpu, inst, server)
+    inst.report = {"schema_version": "1.0", "provisioning": {"status": status,
+                   "log_file": "/var/log/portal/provisioning.log"}, "credentials": {"secret": "must-not-store"}}
+    assert svc.check_provisioning(rental_id).status == expected
+    assert "must-not-store" not in str(events(env, rental_id))
+
+
+def test_generated_manifest_installs_requirements_and_serves_only_through_proxy():
+    from studio.gpu import provisioning
+
+    data = gpu_manifest().provisioner()
+    assert data["version"] == 1
+    assert data["git_repos"][0]["post_commands"] == [
+        "uv pip install --python /venv/main/bin/python -r requirements.txt"]
+    app, = data["services"]
+    assert app["command"] == "python main.py --listen 127.0.0.1 --port 18188 --disable-auto-launch"
+    assert app["portal_search_term"] == "ComfyUI"
+    assert "8188:18188" in provisioning.PORTAL_CONFIG
+
+
+def test_model_checksum_file_mismatch_is_provision_failed(env, svc, fake_gpu, inst, server):
     rental_id = rent(svc, fake_gpu, inst, server, gpu_manifest(downloads=[MODEL]))
     inst.report = all_steps_done()
-    assert svc.check_provisioning(rental_id).status == "ready"
-    assert any(e["error_code"] == "checksum_unverified" for e in events(env, rental_id))
+    inst.checksums = f"{'0' * 64}  {MODEL['dest']}\n".encode()
+    rental = svc.check_provisioning(rental_id)
+    assert rental.status == "destroyed" and steps(env, rental_id)["models"][::2] == ("failed", "checksum_mismatch")
+    assert inst.posts == []
+
+
+def test_model_checksum_never_reported_is_never_ready_and_times_out(env, svc, fake_gpu, inst, server, clock):
+    rental_id = rent(svc, fake_gpu, inst, server, gpu_manifest(downloads=[MODEL]))
+    inst.report = {"complete": True, "disk_free_gb": 200, "steps": {"runtime_setup": DONE}}   # không báo bước models
+    inst.checksums = b"garbage\n" + f"{'b' * 64}  ../../etc/{MODEL['dest']}\n".encode()     # dòng lạ bị bỏ qua
+    assert svc.check_provisioning(rental_id).status == "provisioning"
+    clock.now += timedelta(seconds=svc.provision_timeout_s + 1)
+    assert svc.check_provisioning(rental_id).status == "destroyed"
+    assert steps(env, rental_id)["models"][::2] == ("failed", "provision_timeout")
+
+
+def test_checksum_script_is_fixed_quoted_and_carried_in_onstart(env, svc, fake_gpu, inst, server):
+    import base64
+    import re
+
+    from studio.gpu.provisioning import checksum_script, parse_sha256sum
+
+    manifest = gpu_manifest(downloads=[MODEL])
+    script = checksum_script(manifest)
+    assert "while [ ! -f /.provisioning_complete ]" in script and f"sha256sum -- {MODEL['dest']} >" in script
+    assert "/workspace/ComfyUI/output/igniterra/model_sha256.txt.part" in script and "mv -f" in script
+    assert checksum_script(gpu_manifest()) is None                    # không có model thì không cần
+    with pytest.raises(ValueError):
+        checksum_script(manifest.model_copy(update={"downloads": [manifest.downloads[0].model_copy(
+            update={"dest": "x/$(reboot)"})]}))
+    rental_id = rent(svc, fake_gpu, inst, server, manifest)
+    onstart = fake_gpu.specs[svc.rental(rental_id).provider_instance_id].onstart
+    blobs = re.findall(r"printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -d > (\S+)", onstart)
+    assert [target for _, target in blobs] == ["/etc/igniterra/provisioning.yaml", "/etc/igniterra/model_sha256.sh"]
+    assert base64.b64decode(blobs[1][0]).decode() == script
+    assert "nohup sh /etc/igniterra/model_sha256.sh" in onstart and "ssh" not in onstart.lower()
+    assert parse_sha256sum(f"{'A' * 64} *{MODEL['dest']}\n{'c' * 64}  /etc/passwd\n") == {MODEL["dest"]: "a" * 64}
+
+
+def test_no_ssh_channel_and_never_disables_host_key_checking():
+    """Quyết định lát E: không mở kênh SSH (xem docstring studio.gpu.provisioning); không bao giờ tắt kiểm host key."""
+    for path in [*(STUDIO / "gpu").rglob("*.py"), *(STUDIO / "comfyui").rglob("*.py")]:
+        text = path.read_text(encoding="utf-8")
+        assert "StrictHostKeyChecking=no" not in text, path
+        assert not {n for n in imports(path) if n.split(".")[0] in ("paramiko", "asyncssh", "subprocess", "fabric")}, path
 
 
 def test_model_checksum_mismatch_is_provision_failed(env, svc, fake_gpu, inst, server):

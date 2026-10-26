@@ -98,8 +98,8 @@ class VastGPUProvider:
     def search_offers(self, filters: OfferFilters) -> list[Offer]:
         """``POST /bundles/``. Service vẫn kiểm lại từng offer (G02); bộ lọc ở đây chỉ để giảm số dòng.
 
-        ``allocated_storage`` = dung lượng yêu cầu: vast-cli gửi trường này "để tính giá", gợi ý ``dph_total``
-        trả về có thể đã gồm disk. Chưa xác nhận; xem ``studio.gpu.costs``.
+        ``allocated_storage`` = dung lượng yêu cầu. Lát E kiểm response thật: ``dph_total`` đã gồm
+        ``storage_total_cost``; đánh dấu trên Offer để không cộng disk hai lần (``studio.gpu.costs``).
         """
         query: dict = {
             "rentable": {"eq": True},
@@ -142,7 +142,7 @@ class VastGPUProvider:
             "label": spec.label,
             "cancel_unavail": True,         # không có cờ này Vast tạo instance stopped vẫn tính phí disk
             "runtype": "ssh_direc ssh_proxy",
-            "env": dict(spec.env),          # WEB_PASSWORD, ENABLE_AUTH, PROVISIONING_MANIFEST (lát C)
+            "env": {"-p 1111:1111": "1", "-p 8188:8188": "1", **spec.env},  # Chỉ mở cổng Caddy có auth
         }
         if spec.onstart:
             body["onstart"] = spec.onstart
@@ -192,6 +192,7 @@ class VastGPUProvider:
                      disk_space_gb=float(row["disk_space"]), reliability=_float(reliability),
                      cuda_max_good=_float(row.get("cuda_max_good")), verified=verified,
                      rentable=bool(row.get("rentable", True)), dph_total=float(row["dph_total"]),
+                     dph_total_includes_disk=True,
                      storage_cost=_float(row.get("storage_cost")), inet_up_cost=_float(row.get("inet_up_cost")),
                      inet_down_cost=_float(row.get("inet_down_cost")), geolocation=row.get("geolocation"),
                      quoted_at=quoted_at)

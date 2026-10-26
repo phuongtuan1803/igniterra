@@ -17,6 +17,19 @@
   </form>
   {% endif %}
 </div>
+{% include "_gpu_limits.html" %}
+{% if idle_deadline %}<p class="section-note">Hạn idle: {{ idle_deadline.strftime("%Y-%m-%d %H:%M:%S %z") }}.
+  Theo dõi run hoặc tải output qua studio sẽ gia hạn idle; xem trang rental không gia hạn.</p>{% endif %}
+{% if breaches %}
+<section class="card" aria-label="Rental vượt giới hạn" role="alert">
+  <h2>Rental vượt giới hạn</h2>
+  <ul>{% for breach in breaches %}<li>{{ breach.detail }}</li>{% endfor %}</ul>
+  {% if unverified_runs %}<p><strong>Không tự destroy: output chưa tải/kiểm. Máy vẫn tính phí.</strong>
+    {% for run in unverified_runs %}<a href="/comfyui/runs/{{ run.run_id }}">{{ run.run_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.
+    Tải output hoặc xác nhận bỏ output rồi destroy bên dưới.</p>
+  {% else %}<p>Worker sẽ gửi destroy ở lượt guardrail tiếp theo. Có thể destroy ngay bên dưới.</p>{% endif %}
+</section>
+{% endif %}
 {% if rental.status == "create_unknown" %}
 <p class="section-note">Create đã gửi nhưng không có response. Studio tìm instance theo label <code>{{ rental.label }}</code> và không tự tạo lại. Nếu chưa thấy, kiểm tra trên trang provider trước khi thuê offer khác.</p>
 {% elif rental.status == "provisioning" %}
@@ -65,7 +78,8 @@
 <section class="card" aria-label="Estimated cost">
   <p class="eyebrow">COST</p><h2>Chi phí ước tính</h2>
   <p><strong>${{ "%.4f"|format(cost.accrued_est) }}</strong> <span class="chip warn">{{ cost.label }}</span></p>
-  <p class="small muted">Tốc độ hiện tại: compute ${{ "%.4f"|format(cost.compute_per_h) }}/giờ + disk ${{ "%.4f"|format(cost.disk_per_h) }}/giờ{% if rental.disk_gb %} ({{ "%g"|format(rental.disk_gb) }} GB){% endif %}. Chưa tính băng thông. Tạm coi giá theo giờ chưa gồm disk (chưa kiểm với hóa đơn); hóa đơn của provider là thực chi.</p>
+  <p class="small muted">Tốc độ hiện tại: compute ${{ "%.4f"|format(cost.compute_per_h) }}/giờ + disk ${{ "%.4f"|format(cost.disk_per_h) }}/giờ{% if rental.disk_gb %} ({{ "%g"|format(rental.disk_gb) }} GB){% endif %}. Chưa tính băng thông.
+    {% if cost.dph_total_includes_disk %}Báo giá đã gồm disk; phần disk được tách ra, không cộng hai lần.{% else %}Snapshot này chưa xác nhận giá gồm disk; ước tính cộng riêng phần disk.{% endif %} Hóa đơn của provider là thực chi.</p>
 </section>
 {% if manifest %}
 <section class="card" aria-label="Provisioning manifest">

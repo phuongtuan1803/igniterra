@@ -2,15 +2,16 @@
 id: IGN-GPU
 title: Igniterra — GPU thuê và ComfyUI Workflows (Gate 4, thiết kế)
 type: design
-ver: "2.0"
+ver: "2.1"
 status: draft
 date: 2026-10-26
 owner: Tuan
-sum: Thiết kế Gate 4 cho thuê GPU on-demand (Vast.ai là adapter đầu tiên) và chạy ComfyUI workflow trên GPU đó; chưa có dòng code nào. Gồm ranh giới module, contract GPUProvider, vòng đời thuê, cách áp dụng đúng các repo mã nguồn mở (license, cách cài, cách gọi), dữ liệu, chi phí, bảo mật và bộ kiểm chứng G01–G12.
-kv: [[Trạng thái, "Thiết kế; chưa code; D-05 chưa mở"], [Module đề xuất, "studio/gpu/, studio/comfyui/, studio/web/"], [Yêu cầu, "FR-19, FR-20, NFR-11, NFR-12, CON-09"]]
+sum: GPU thuê on-demand và ComfyUI workflow: contract, vòng đời thuê, provisioning đã duyệt, guardrail và bộ kiểm chứng G01–G12. Lát A–D đã triển khai; lát E bổ sung giới hạn, kiểm checksum và kiểm chứng tích hợp thật.
+kv: [[Trạng thái, "Đã có code A–E; bằng chứng và giới hạn vận hành ở runbook"], [Module, "studio/gpu/, studio/comfyui/, studio/web/"], [Yêu cầu, "FR-19, FR-20, NFR-11, NFR-12, CON-09"]]
 rev:
   - ["1.1", 2026-10-26, "PR #9: 09 tổng quan, 10 GPU Rentals, 11 ComfyUI Workflows, 12 UX, 13 Verification"]
   - ["2.0", 2026-10-26, "Gộp 09–13 thành một tài liệu, bỏ phần lặp; soát lại cách áp dụng repo mã nguồn mở: không cài gói vastai (xung đột pillow với mpt), license Vast.ai Elastic của base-image, label chủ sở hữu, cancel_unavail, on_failure destroy, prompt_id do client sinh"]
+  - ["2.1", 2026-10-26, "Lát E: guardrail worker, ưu tiên giữ output G11, SHA-256 qua ComfyUI có xác thực; sửa manifest khởi động ComfyUI và tiến độ /capabilities theo upstream; thêm runbook"]
 ---
 
 <!-- id:s1 -->
@@ -18,7 +19,7 @@ rev:
 
 <!-- id:s1.b1 -->
 > [!IMPORTANT]
-> Đây là thiết kế. Trong `studio/` chưa có module GPU hay ComfyUI, không có Dockerfile hay script provisioning, `studio.toml` đặt `video = "none"`. Không thuê GPU thật trước khi Tuan mở D-05 ([08](08-roadmap.md#s5)).
+> `studio/gpu/` và `studio/comfyui/` đã triển khai lát A–E; mặc định `[gpu] provider = "none"`. Bật provider và thuê thật chỉ trong phạm vi chi phí đã được người vận hành duyệt. Cách chạy, giới hạn và bằng chứng nằm trong [runbook Slice E](../../runbooks/gpu-slice-e.md).
 
 <!-- id:s1.b2 -->
 - **GPU Rentals**: tìm offer, thuê on-demand, theo dõi provisioning, chi phí ước tính, stop/destroy. Là module hạ tầng, không phải provider nội dung thứ sáu.
@@ -90,7 +91,7 @@ Table: GPUProvider và lời gọi Vast.ai tương ứng (theo `vast.py` của v
 - **Không thêm gói `vastai`/`vastai-sdk` vào `pyproject.toml`.** `vastai==1.9.1` ghim `pillow==12.2.0`, còn `mpt==1.3.9` kéo `moviepy==2.2.1` cần `pillow<12`: hai gói không cài chung một `uv.lock`. Adapter là client REST nhỏ trên `requests` (đã có trong lock), đọc vast-cli (MIT) làm tài liệu tham chiếu endpoint. CLI `vastai` chỉ dùng tay, cài riêng bằng `uv tool install vastai`.
 - **Label là khóa đối soát.** Lời gọi create của vast-cli không mang idempotency key. Ghi `rental_id` và `operation_id` vào SQLite trước khi gọi create; nếu timeout, tìm instance có label đó trước khi cân nhắc tạo lại (G04).
 - **`cancel_unavail = true`.** Không có cờ này, khi lập lịch thất bại Vast tạo instance ở trạng thái stopped, vẫn tính phí disk.
-- **Chi phí ước tính tách ba phần**: giá theo giờ `dph_total`, disk (`storage_cost` tính theo GB-tháng × dung lượng yêu cầu), băng thông (`inet_up_cost`, `inet_down_cost` theo GB). vast-cli không ghi rõ `dph_total` đã gồm disk hay chưa; kiểm bằng một lượt thuê ở lát E rồi sửa công thức. Ghi nhãn "ước tính, không phải hóa đơn".
+- **Chi phí ước tính tách ba phần**: giá theo giờ, disk (`storage_cost` tính theo GB-tháng × dung lượng yêu cầu), băng thông (`inet_up_cost`, `inet_down_cost` theo GB). Lát E đã kiểm response thật có `dph_total = dph_base + storage_total_cost`: adapter đánh dấu `Offer.dph_total_includes_disk` để tách compute và disk, không cộng hai lần. Snapshot cũ/provider chưa khai báo giữ cách cộng disk bảo thủ. Ghi nhãn "ước tính, không phải hóa đơn"; bandwidth chưa được đo.
 - Khóa API: biến môi trường `VAST_API_KEY`, thêm vào `SECRET_ENV` của `studio/config.py` để `redact()` che nó trong log và lỗi.
 
 <!-- id:s4 -->
@@ -137,6 +138,9 @@ dunk -> done: "không còn trong list"
 - `ready` chỉ khi có bằng chứng: host chạy, kết nối có xác thực, `/.provisioning_complete` tồn tại, ComfyUI trả `GET /system_stats`, workflow smoke chạy ra file. Host `running` không phải `ready`.
 - Sau khi worker khởi động lại: đọc `list_owned_instances()`, đối chiếu từng rental; instance có label `igniterra:` mà không có record thì báo orphan, không tự xóa.
 - Idle TTL, `max_runtime_minutes`, `max_hourly_usd` là guardrail mềm do worker thực thi; khi mất kết nối, tiền vẫn chạy. Đặt thêm giới hạn ở tài khoản Vast (nạp trước số dư nhỏ).
+- `[gpu.limits]` mặc định: idle 30 phút (chỉ `ready`), runtime 240 phút từ lúc gửi create, giá compute + disk tối đa 2 USD/giờ. `max_total_usd` mặc định bằng giá tối đa × thời gian tối đa / 60; đây là ước tính mỗi rental, chưa gồm băng thông. `stopped` cần destroy thủ công vì disk còn dữ liệu.
+- Worker thường chạy guard mỗi `[gpu] guard_interval_s` (60 giây); `worker --once` và `worker --task` không mở guard. `gpu poll` chạy một lượt provisioning, giới hạn và reconcile; `gpu enforce-limits` chỉ thực thi giới hạn. Khởi động lại đối soát trước khi chạy guard; chỉ xét rental của provider hiện hành, kiểm label trước destroy tự động, không tự hủy orphan.
+- G11 ưu tiên giữ output: rental vượt giới hạn mà có run chưa tải/kiểm thì không tự destroy, log ERROR mỗi lượt và cảnh báo trên `/gpu` cùng trang rental. Người vận hành tải output hoặc xác nhận bỏ rồi destroy. Trong thời gian chờ, máy vẫn tính phí. Hoạt động qua runtime gia hạn idle; thao tác chỉ xem trang GPU không gia hạn. Điều kiện idle và run chưa kiểm nằm trong cùng giao dịch CAS với `→destroying`.
 
 <!-- id:s5 -->
 ## Provisioning trên instance
@@ -150,12 +154,18 @@ Table: Cách dùng provisioner của base-image
 | --- | --- | --- |
 | Manifest | Sinh từ manifest đã duyệt trong SQLite, ghi vào `data/gpu/<rental_id>/provisioning.yaml`, truyền qua `PROVISIONING_MANIFEST` hoặc `onstart` | Tái lập được; review được trước khi trả tiền |
 | ComfyUI và custom node | `git_repos` với `ref` là full commit SHA | Provisioner nhận tag, branch hoặc commit; branch trôi theo thời gian |
-| Model | `downloads` từ Hugging Face dạng `/resolve/<commit>/<file>`; sau đó worker kiểm SHA-256 qua SSH với giá trị LFS của Hugging Face | Provisioner không kiểm checksum |
+| Model | `downloads` từ Hugging Face dạng `/resolve/<commit>/<file>`; script cố định do studio sinh tính SHA-256, worker đọc qua `/view` có xác thực và so với manifest | Provisioner không kiểm checksum; thiếu hash thì chưa `ready`, lệch thì fail và destroy |
 | Phát hiện dependency | Extension `provisioner_comfyui` chỉ chạy khô (dry run) khi nhập workflow, rồi đóng băng kết quả vào manifest | Extension tra Registry, lấy bản node hiện hành, không ghim |
 | Lỗi provisioning | `on_failure.action: destroy`, `max_retries` nhỏ | Mặc định là `continue`: instance hỏng vẫn tính phí |
-| Tiến độ | Worker đọc log provisioning và `/.provisioning_complete` qua SSH, hoặc `GET /capabilities` của Instance Portal | Webhook của provisioner cần studio nhận request từ Internet; studio chỉ chạy ở localhost/Tailscale |
+| Tiến độ | `GET /capabilities`: `provisioning.status` là `complete`, `failed`, `in_progress` hoặc `none`; chỉ `complete` chứng minh sentinel đã có | Portal không cung cấp tiến độ từng bước ở endpoint này; không bịa phần trăm |
 | Xác thực | Giữ `ENABLE_AUTH` mặc định; đặt `WEB_PASSWORD` ngẫu nhiên cho mỗi rental lúc tạo, lưu cục bộ, dùng làm Bearer; không đặt `AUTH_EXCLUDE` cho cổng ComfyUI | Instance Portal tự tạo Cloudflare tunnel với URL công khai |
-| SSH | Ghim host key lần kết nối đầu vào `data/gpu/<rental_id>/known_hosts`; không `StrictHostKeyChecking=no` | Chống giả mạo host |
+| Kênh kết nối | Lát E không dùng SSH. Portal và ComfyUI đi qua Caddy có HTTPS + Bearer; CA tin cậy cấu hình ở `[gpu.portal] verify_tls` | Không cần giữ thêm khóa SSH và `known_hosts`; nếu bổ sung SSH sau này phải ghim host key và giữ kiểm tra nghiêm ngặt |
+
+<!-- id:s5.b4 -->
+Manifest sinh thêm lệnh cài `requirements.txt` từ repo đã ghim và service Supervisor chạy ComfyUI ở `127.0.0.1:18188`. Cổng ngoài `8188` được Caddy proxy có xác thực, không mở cổng backend `18188`. Adapter mở cổng ngoài `1111` và `8188`; `PORTAL_CONFIG` giữ cổng trong khác cổng ngoài. `onstart` ghi manifest trước khi gọi entrypoint; tắt cập nhật Portal/CLI lúc boot để giữ phiên bản trong image đã ghim. Schema đối chiếu với [base-image](https://github.com/vast-ai/base-image) và [provisioner](https://github.com/vast-ai/base-image/blob/main/ROOT/opt/instance-tools/lib/provisioner/README.md).
+
+<!-- id:s5.b5 -->
+Quyết định checksum: script chờ sentinel provisioning rồi ghi file `output/igniterra/model_sha256.txt` bằng file tạm + `mv`; worker chỉ nhận hash khớp manifest trước smoke. SHA-256 ở đây phát hiện file sai/hỏng, không chứng minh host của provider đáng tin: cả SSH và HTTPS đều nhận kết quả do instance tính. Dùng lại kênh HTTPS đã xác thực tránh thêm bộ máy SSH; CA phải được tin từ nguồn độc lập, không đặt `verify_tls = false`. Nếu Portal đã trả hash trong báo cáo thì dùng trước, thiếu mới tải file checksum.
 
 <!-- id:s5.b3 -->
 Bước provisioning lưu ở `gpu_provision_steps`: `instance_create`, `host_boot`, `transport_ready`, `runtime_setup`, `custom_nodes`, `models`, `health_smoke`, `ready`. Mỗi bước có `pending/running/done/failed/skipped/unknown`, lượt thử, thời điểm, mã lỗi, con trỏ log và số byte nếu biết. UI không hiển thị phần trăm khi không có tổng byte.
@@ -189,7 +199,7 @@ Table: Bảng SQLite riêng của Gate 4 (không đổi 5 bảng core)
 <!-- id:s7.b2 -->
 - Chi phí GPU không ghi vào `costs.jsonl` của task: chưa có cách phân bổ giờ GPU cho từng asset. Hóa đơn Vast là thực chi.
 - Bí mật (`VAST_API_KEY`, `HF_TOKEN`, `WEB_PASSWORD` từng rental) chỉ ở `.env` hoặc `data/gpu/` quyền 600; không vào workflow JSON, manifest, `gpu_events`, HTML.
-- Mọi POST đổi trạng thái có xác nhận và nonce chống bấm hai lần. `studio/web/` hiện chỉ có basic auth, chưa có CSRF token; phải thêm trước khi có route thuê GPU, vì một POST giả mạo có thể tốn tiền.
+- POST GPU và ComfyUI có CSRF token theo process; thuê/chạy cần xác nhận và ID sinh trước chống bấm hai lần. Giữ một uvicorn worker; Basic auth đặt qua `STUDIO_BASIC_AUTH`.
 
 <!-- id:s7.b3 -->
 Table: Route đề xuất (kế thừa basic auth của `studio/web/`)

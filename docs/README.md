@@ -12,7 +12,8 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 | [06 · Giao diện review và CLI](src/design/06-web-ui.md) | Bản đồ trang, Storyboard, can thiệp, Task detail, lệnh CLI |
 | [07 · Triển khai và vận hành](src/design/07-operations.md) | Triển khai, bí mật, nâng cấp MPT, quan sát, sao lưu, bảo mật, rủi ro, runbook |
 | [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 2–4, test T01–T12, thứ tự triển khai GPU thuê, quyết định còn mở |
-| [09 · GPU thuê và ComfyUI](src/design/09-gpu-comfyui.md) | Gate 4, thiết kế chưa code: GPUProvider, Vast.ai, provisioning, ComfyUI workflow, license và cách dùng repo mã nguồn mở, G01–G12 |
+| [09 · GPU thuê và ComfyUI](src/design/09-gpu-comfyui.md) | Gate 4: GPUProvider, Vast.ai, provisioning, ComfyUI workflow, guardrail và G01–G12 |
+| [Runbook Slice E](runbooks/gpu-slice-e.md) | Kiểm thử, thuê thật trong trần chi phí, xác nhận destroy và giới hạn còn lại |
 | [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 đã duyệt |
 
 ## Báo cáo pilot
@@ -20,7 +21,7 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 - [Gate 2: core, CLI và 5 brief ra MP4](reports/g2/README.md) — 5 MP4 đạt hậu điều kiện; phiếu duyệt C01–C09 và D-07 chờ Tuan.
 - [Gate 3: trang review, Series Bible, T09](reports/g3/README.md) — bắt đầu trước D-07; character sheet giữ nhân vật 5/5 scene; điều kiện ra chờ số đo Gate 2.
 
-Báo cáo là ảnh chụp tại thời điểm viết; trạng thái hiện hành nằm ở [08 · Lộ trình](src/design/08-roadmap.md). Hiện có 46 test (`uv run pytest`).
+Báo cáo là ảnh chụp tại thời điểm viết; trạng thái hiện hành nằm ở [08 · Lộ trình](src/design/08-roadmap.md). Chạy bộ kiểm thử bằng `uv run pytest`.
 
 ## Cách viết và build
 
