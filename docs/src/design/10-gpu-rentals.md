@@ -2,7 +2,7 @@
 id: IGN-GPU-RENTALS
 title: Igniterra — GPU Rentals: thuê máy, provisioning và lifecycle
 type: design
-ver: "1.0"
+ver: "1.1"
 status: draft
 date: 2026-10-26
 owner: Tuan
@@ -10,6 +10,7 @@ sum: Contract GPUProvider, Vast.ai on-demand, provisioning observable, dữ li�
 kv: [[Phạm vi, "Gate 4 design"], [Yêu cầu, "FR-19..FR-21, NFR-11, NFR-13"], [Đầu vào, "09-gpu-comfyui"]]
 rev:
   - ["1.0", 2026-10-26, "Chuẩn hóa GPU rental, provider protocol, billing, lifecycle và progress"]
+  - ["1.1", 2026-10-26, "Thay sơ đồ provisioning trùng lặp bằng decision branch cho error recovery"]
 ---
 
 <!-- id:s1 -->
@@ -69,17 +70,22 @@ Các method sống ở `studio/gpu/adapters/base.py`; adapter `vast.py` tham kh�
 <!-- id:s4.b1 -->
 <!-- report-kit:d2
 ```d2
-# cap: Persisted provisioning steps and readiness evidence
+# cap: Provisioning failure classification and safe recovery
 direction: down
-quote: "Offer and quote\nConfirmed" {class: data}
-create: "Create instance\nProvider ID" {class: hands}
-boot: "Boot GPU\nNetwork reachable" {class: hands}
-image: "Pinned ComfyUI\nRuntime image" {class: hands}
-nodes: "Nodes and deps\nPinned commits" {class: hands}
-models: "Model downloads\nBytes and checksum" {class: hands}
-smoke: "Health and smoke\nVerified" {class: gate}
-ready: "Ready for runs" {class: gate}
-quote -> create -> boot -> image -> nodes -> models -> smoke -> ready
+boot: "Host connected" {class: hands}
+setup: "Runtime and models\nProvisioning" {class: hands}
+verify: "Health and smoke\nVerification" {class: gate}
+ready: "Ready for workflow" {class: gate}
+failure: "Phase failure\nEvidence logged" {class: bad}
+triage: "Classify error\nCost still accruing" {class: data}
+retry: "Idempotent step\nRetry if safe" {class: hands}
+cleanup: "Confirm destroy\nReconcile result" {class: gate}
+boot -> setup -> verify -> ready
+setup -> failure
+verify -> failure
+failure -> triage
+triage -> retry
+triage -> cleanup
 ```
 -->
 <picture>
