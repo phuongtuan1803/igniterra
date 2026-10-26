@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ record.name }} · ComfyUI{% endblock %}
+{% block body %}
+<div class="page-header">
+  <div><p class="eyebrow">08 / COMFYUI WORKFLOW</p><h1>{{ record.name }}</h1><div class="muted small">{{ record.workflow_id }} · revision {{ record.revision }} · {{ record.format }} · SHA-256 file gốc <code>{{ record.source_sha256 }}</code>{% if record.api_sha256 and record.format == "gui" %} · API <code>{{ record.api_sha256[:16] }}…</code>{% endif %}</div></div>
+  <a href="/comfyui/workflows">← Workflows</a>
+</div>
+<div class="status">
+  <span class="chip {{ 'ok' if record.status == 'approved' else 'warn' }}">{{ record.status }}</span>
+  {% if not record.runnable %}<span class="chip warn">Chỉ có GUI JSON: nhập kèm Export (API) để chạy</span>{% endif %}
+</div>
+{% if record.status == "needs_review" %}
+<p class="section-note">Không xác định được đủ dependency từ file này; studio không đoán và không chạy. Khai manifest (model ghim commit + SHA-256 + license, custom node ghim commit + requirements) rồi duyệt:
+<code>python -m studio comfyui manifest attach {{ record.workflow_id }} {{ record.revision }} FILE.json</code>, sau đó <code>comfyui manifest approve SHA</code>.</p>
+{% elif record.status == "pending_review" %}
+<p class="section-note">Manifest <code>{{ record.manifest_sha256[:12] }}</code> ({{ record.manifest_source }}) chờ duyệt. Đọc kỹ bên dưới rồi <code>python -m studio comfyui manifest approve {{ record.manifest_sha256 }}</code>.</p>
+{% endif %}
+<section class="card" aria-label="Dependencies">
+  <p class="eyebrow">DEPENDENCIES</p><h2>{% if manifest %}Manifest <code>{{ manifest.manifest_sha256[:12] }}</code> · {{ manifest.status }}{% else %}Bản trích (chưa có manifest){% endif %}</h2>
+  <p class="small muted">Manifest là bản khai đã duyệt, không tự cài lên rental. Trước mỗi lần chạy, studio kiểm <code>/object_info</code> của rental: thiếu <code>class_type</code> hay model thì chặn, không submit.</p>
+  {% if manifest_view %}
+  <div class="table-scroll"><table>
+    <thead><tr><th>Loại</th><th>Nguồn</th><th>Commit / SHA-256</th><th>License / requirements</th></tr></thead>
+    <tbody>
+      {% for n in manifest_view.custom_nodes %}<tr><td>custom node · {{ n.dest }}</td><td class="small">{{ n.repo }}</td><td><code>{{ n.commit }}</code></td><td class="small">{{ n.requirements|join(", ") or "không có" }}</td></tr>{% endfor %}
+      {% for m in manifest_view.models %}<tr><td>model · {{ m.dest }}</td><td class="small">{{ m.url }}</td><td><code>{{ m.sha256[:16] }}…</code> · {{ m.size_bytes }} B</td><td>{{ m.license }}</td></tr>{% endfor %}
+      {% if not manifest_view.custom_nodes and not manifest_view.models %}<tr><td colspan="4" class="muted small">Không khai dependency nào ngoài lõi ComfyUI.</td></tr>{% endif %}
+    </tbody>
+  </table></div>
+  {% endif %}
+  {% if record.draft.gaps %}
+  <h3>Còn thiếu (lý do needs_review)</h3>
+  <ul class="small">{% for g in record.draft.gaps %}<li>{{ g }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if record.draft.hints %}<p class="small muted">Tên file giống model trong workflow (chỉ để đối chiếu): {{ record.draft.hints|join(", ") }}</p>{% endif %}
+  <p class="small muted">class_type: {{ record.class_types|join(", ") }}</p>
+</section>
+{% if record.status == "approved" and record.runnable %}
+<section class="card" aria-label="Run workflow">
+  <p class="eyebrow">RUN</p><h2>Chạy trên GPU ready</h2>
+  {% if not gpu_enabled %}<p class="section-note">GPU provider chưa bật.</p>
+  {% elif not rentals %}<p class="section-note">Không có rental <code>ready</code>. Thuê ở <a href="/gpu">GPU Rentals</a>.</p>
+  {% else %}
+  <form method="post" action="/comfyui/workflows/{{ record.workflow_id }}/runs" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="run_id" value="{{ new_run_id }}">
+    <input type="hidden" name="revision" value="{{ record.revision }}">
+    <label>Rental <select name="rental_id">{% for r in rentals %}<option value="{{ r.rental_id }}">{{ r.rental_id }} · {{ r.offer.gpu_name }} · ${{ "%.3f"|format(r.offer.dph_total) }}/giờ</option>{% endfor %}</select></label>
+    <label><input type="checkbox" name="confirm"> Xác nhận chạy revision {{ record.revision }} (GPU đang tính phí)</label>
+    <button class="button" type="submit">Chạy</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+<div class="panel-grid">
+  <section class="card">
+    <p class="eyebrow">REVISIONS</p><h2>Lịch sử nhập</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Rev</th><th>Dạng</th><th>Trạng thái</th><th>Nhập lúc</th></tr></thead>
+      <tbody>{% for r in revisions %}<tr><td><a href="/comfyui/workflows/{{ r.workflow_id }}?revision={{ r.revision }}">{{ r.revision }}</a></td><td>{{ r.format }}</td><td>{{ r.status }}</td><td class="small muted">{{ r.created_at.strftime("%Y-%m-%d %H:%M") }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="workflow_id" value="{{ record.workflow_id }}">
+      <input type="hidden" name="name" value="{{ record.name }}">
+      <label>Revision mới (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
+      <label>Kèm Export (API) <input type="file" name="api_file" accept=".json,application/json"></label>
+      <button class="button" type="submit">Nhập revision mới</button>
+    </form>
+  </section>
+  <section class="card">
+    <p class="eyebrow">RUNS</p><h2>Lượt chạy</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Run</th><th>Rev</th><th>Rental</th><th>Trạng thái</th></tr></thead>
+      <tbody>{% for r in runs %}<tr><td><a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a></td><td>{{ r.revision }}</td><td>{{ r.rental_id }}</td><td>{{ r.status }}{% if r.error_code %} · {{ r.error_code }}{% endif %}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted small">Chưa có.</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+</div>
+{% endblock %}

@@ -21,6 +21,8 @@
 <p class="section-note">Create đã gửi nhưng không có response. Studio tìm instance theo label <code>{{ rental.label }}</code> và không tự tạo lại. Nếu chưa thấy, kiểm tra trên trang provider trước khi thuê offer khác.</p>
 {% elif rental.status == "provisioning" %}
 <p class="section-note">Host chạy chưa phải ready. Rental chỉ <code>ready</code> khi có đủ bằng chứng: host chạy, kết nối có xác thực, <code>/.provisioning_complete</code>, ComfyUI trả <code>/system_stats</code> và workflow smoke ra file. Bước hỏng quá <code>max_retries</code> → <code>provision_failed</code> và destroy.</p>
+{% elif rental.status == "busy" %}
+<p class="section-note">Đang chạy một workflow ComfyUI (một run mỗi instance). Rental về <code>ready</code> khi prompt chạy xong trên GPU; output tải và kiểm sau đó.</p>
 {% elif rental.status == "provision_failed" %}
 <p class="section-note">Provisioning hỏng; nguyên nhân ở bảng bước và sự kiện. Manifest có <code>on_failure: destroy</code> nên studio đã gửi destroy; kiểm trạng thái bên dưới.</p>
 {% elif rental.status == "destroying" %}
@@ -47,6 +49,12 @@
     {% if can_destroy %}
     <form method="post" action="/gpu/instances/{{ rental.rental_id }}/destroy" class="stack-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% if unverified_runs %}
+      <p class="section-note" role="alert"><strong>Output chưa tải/kiểm.</strong> {{ unverified_runs|length }} run ComfyUI trên rental này chưa có output đã tải và kiểm SHA-256:
+        {% for r in unverified_runs %}<a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a> ({{ r.status }}){% if not loop.last %}, {% endif %}{% endfor %}.
+        Destroy sẽ mất output đó trên máy. Tải output trước (trang run → Tải lại output), hoặc tick ô bên dưới để bỏ.</p>
+      <label><input type="checkbox" name="accept_unverified"> Tôi chấp nhận bỏ output chưa kiểm của {{ unverified_runs|length }} run trên</label>
+      {% endif %}
       <label><input type="checkbox" name="confirm"> Xác nhận destroy instance {{ rental.provider_instance_id }} (mất mọi dữ liệu trên máy)</label>
       <button class="button danger" type="submit">Destroy</button>
     </form>

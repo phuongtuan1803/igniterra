@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ run.run_id }} · ComfyUI{% endblock %}
+{% block body %}
+<div class="page-header">
+  <div><p class="eyebrow">08 / COMFYUI RUN</p><h1>{{ revision.name }} · rev {{ run.revision }}</h1><div class="muted small">{{ run.run_id }} · rental <a href="/gpu/instances/{{ run.rental_id }}">{{ run.rental_id }}</a>{% if rental %} ({{ rental.status }}){% endif %} · prompt_id <code>{{ run.prompt_id or "—" }}</code></div></div>
+  <a href="/comfyui/workflows/{{ run.workflow_id }}?revision={{ run.revision }}">← Workflow</a>
+</div>
+<div class="status">
+  <span class="chip {{ 'ok' if run.status == 'succeeded' else ('bad' if run.status in ('failed', 'blocked', 'output_failed', 'abandoned') else 'warn') }}">{{ run.status }}</span>
+  {% if run.error_code %}<span class="chip bad">{{ run.error_code }}</span>{% endif %}
+  <span class="small muted">Sự kiện cuối: {{ run.last_event or "—" }}{% if run.last_event_at %} lúc {{ run.last_event_at.strftime("%H:%M:%S") }} UTC{% endif %} · node: {{ run.current_node or "chưa biết (poll /queue không báo node đang chạy)" }}{% if run.queue_state %} · queue {{ run.queue_state }}{% endif %}</span>
+  {% if run.status not in ("succeeded", "failed", "blocked", "abandoned", "output_failed") %}
+  <form method="post" action="/comfyui/runs/{{ run.run_id }}/refresh">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="button" type="submit">Kiểm tiến độ</button>
+  </form>
+  {% endif %}
+</div>
+{% if run.detail %}<p class="section-note">{{ run.detail }}</p>{% endif %}
+{% if run.status == "submit_unknown" %}
+<p class="section-note">POST /prompt không có response. Studio tra <code>/queue</code> và <code>/history/{{ run.prompt_id }}</code> theo prompt_id đã ghi trước khi gửi; không submit lại.</p>
+{% elif run.status == "output_failed" %}
+<p class="section-note">Output chưa tải hoặc chưa kiểm được: run chưa <code>succeeded</code>. Destroy rental lúc này sẽ cảnh báo và cần xác nhận riêng.</p>
+<form method="post" action="/comfyui/runs/{{ run.run_id }}/retry-download">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="button" type="submit">Tải lại output</button>
+</form>
+{% endif %}
+<section class="card" aria-label="Outputs">
+  <p class="eyebrow">OUTPUT</p><h2>Output ({{ outputs|selectattr("status", "equalto", "verified")|list|length }}/{{ outputs|length }} đã kiểm)</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>File</th><th>Trạng thái</th><th>Media</th><th>Byte</th><th>SHA-256</th></tr></thead>
+    <tbody>
+      {% for o in outputs %}
+      <tr><td>{% if o.status == "verified" and o.path %}<a href="/files/{{ o.path }}">{{ o.filename }}</a>{% else %}{{ o.filename }}{% endif %}<br><small class="muted">node {{ o.node }}{% if o.subfolder %} · {{ o.subfolder }}{% endif %}</small></td>
+        <td>{{ o.status }}{% if o.error %}<br><small>{{ o.error }}</small>{% endif %}</td><td>{{ o.media_type or "—" }}</td><td>{{ o.bytes or "—" }}</td><td>{% if o.sha256 %}<code>{{ o.sha256[:16] }}…</code>{% else %}—{% endif %}</td></tr>
+      {% else %}<tr><td colspan="5" class="muted small">Chưa có output.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+<section class="card" aria-label="Run events">
+  <p class="eyebrow">AUDIT</p><h2>Events</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>UTC</th><th>Chuyển</th><th>Chi tiết</th></tr></thead>
+    <tbody>{% for e in events %}<tr><td class="small muted">{{ e.ts_utc.strftime("%H:%M:%S") }}</td><td>{{ e.transition }}{% if e.error_code %} <span class="chip bad">{{ e.error_code }}</span>{% endif %}</td><td class="small">{{ e.detail or "" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

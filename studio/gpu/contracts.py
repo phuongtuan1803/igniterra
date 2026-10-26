@@ -19,13 +19,15 @@ RentalStatus = Literal["draft", "creating", "create_unknown", "create_failed", "
 # Lát B thêm ngoài sơ đồ: ``stopped`` (route stop của s7.b3; vẫn tính phí storage, chỉ còn đường destroy),
 # ``provisioning→destroying`` (hủy khi provisioning treo; lát C chưa có thì rental dừng ở provisioning) và
 # ``destroy_unknown→destroying`` (chỉ khi provider đã từ chối chắc chắn lượt destroy trước; service kiểm).
+# Lát D thêm ``busy→destroying``: run treo không được giữ máy tính phí mãi; destroy khi còn run chưa có output đã
+# kiểm luôn cần xác nhận riêng (G11, ``GPUService.destroy``).
 TRANSITIONS: dict[str, set[str]] = {
     "draft": {"creating"},
     "creating": {"provisioning", "create_unknown", "create_failed"},
     "create_unknown": {"provisioning", "create_failed"},
     "provisioning": {"ready", "provision_failed", "stopped", "destroying"},
     "ready": {"busy", "stopped", "destroying"},
-    "busy": {"ready"},
+    "busy": {"ready", "destroying"},
     "provision_failed": {"stopped", "destroying"},
     "stopped": {"destroying"},
     "destroying": {"destroyed", "destroy_unknown"},

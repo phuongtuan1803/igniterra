@@ -3,10 +3,12 @@
 Chỉ nói chuyện qua HTTP với ComfyUI (GPL-3.0) chạy như process riêng; không import hay vendor mã ComfyUI. Mọi
 request đi qua cổng có xác thực của Instance Portal (Caddy) với ``Authorization: Bearer <WEB_PASSWORD>``.
 
-Lát C chỉ dùng phần cần cho health + smoke: ``GET /system_stats``, ``POST /prompt`` kèm ``prompt_id`` do client
+Lát C dùng phần cần cho health + smoke: ``GET /system_stats``, ``POST /prompt`` kèm ``prompt_id`` do client
 sinh, ``GET /history/{prompt_id}``, ``GET /queue``, ``GET /view`` (đọc vào bộ nhớ, có trần dung lượng). Lát D mở
-rộng chính lớp này: ``/object_info`` kiểm ``class_type`` trước khi chạy, WebSocket ``/ws``, tải output ra đĩa
-qua ``safe_path`` và kiểm SHA-256/loại media.
+rộng chính lớp này: ``GET /object_info`` để kiểm ``class_type`` trước khi chạy, vị trí trong ``/queue``, sự kiện
+cuối trong ``/history``, và ``download()`` stream ``/view`` ra đĩa (file tạm rồi đổi tên, kiểm ``Content-Length``,
+tính SHA-256). Đường dẫn đích và loại media do ``studio.comfyui.runs`` kiểm. Theo dõi chỉ bằng poll ``/queue`` +
+``/history``; WebSocket ``/ws`` chưa làm (09 · s6 cho phép poll khi không có ``/ws``).
 
 Ánh xạ lỗi cùng nghĩa với ``Retryable``/``Unconfirmed`` của OmniRoute và ``GPUError``/``GPUUnknown`` của GPU:
 
@@ -19,13 +21,18 @@ qua ``safe_path`` và kiểm SHA-256/loại media.
 
 from __future__ import annotations
 
+import hashlib
+import os
 import re
+import uuid
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
 
 SMOKE_PREFIX = "igniterra_smoke"
 VIEW_MAX_BYTES = 10 * 1024 * 1024
+DOWNLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024       # output video lớn nhất nhận về (2 GiB)
 SAFE_NAME = re.compile(r"[A-Za-z0-9._-]{1,200}")
 SAFE_SUBFOLDER = re.compile(r"(?:[A-Za-z0-9._-]{1,100}(?:/[A-Za-z0-9._-]{1,100}){0,4})?")
 FOLDER_TYPES = ("output", "temp")
@@ -82,6 +89,37 @@ def history_status(entry: dict) -> str:
     if status.get("completed") or text == "success":
         return "success"
     return "running"
+
+
+def last_event(entry: dict) -> tuple[str | None, int | None, str | None]:
+    """Sự kiện cuối trong ``status.messages`` của mục history: (tên, timestamp ms, node). Không có thì None."""
+    messages = (entry.get("status") or {}).get("messages") or []
+    for item in reversed(messages):
+        if isinstance(item, list) and len(item) == 2 and isinstance(item[1], dict):
+            name, data = str(item[0]), item[1]
+            node = data.get("node_id") or data.get("node")
+            if node is None and data.get("nodes"):
+                node = ",".join(str(n) for n in data["nodes"])
+            stamp = data.get("timestamp")
+            return name, int(stamp) if isinstance(stamp, (int, float)) else None, str(node) if node else None
+    return None, None, None
+
+
+def check_output_ref(filename: str, subfolder: str, folder_type: str) -> None:
+    """Tên file, subfolder, type của output phải sạch trước khi gọi ``/view`` hoặc ghi ra đĩa."""
+    if not SAFE_NAME.fullmatch(filename) or filename in (".", ".."):
+        raise ComfyUIRejected(f"tên file output lạ: {filename!r}")
+    if not SAFE_SUBFOLDER.fullmatch(subfolder) or ".." in subfolder.split("/") or "." in subfolder.split("/"):
+        raise ComfyUIRejected(f"subfolder output lạ: {subfolder!r}")
+    if folder_type not in FOLDER_TYPES:
+        raise ComfyUIRejected(f"type output lạ: {folder_type!r}")
+
+
+class Download:
+    """Kết quả ``download()``: file đã ghi đủ byte, SHA-256 tính khi stream, ``Content-Type`` server báo."""
+
+    def __init__(self, path: Path, size: int, sha256: str, content_type: str, head: bytes):
+        self.path, self.size, self.sha256, self.content_type, self.head = path, size, sha256, content_type, head
 
 
 class ComfyUIRuntime:
@@ -187,23 +225,31 @@ class ComfyUIRuntime:
         return self._json(self._get("/queue"), "GET /queue")
 
     def in_queue(self, prompt_id: str) -> bool:
-        """``/queue`` trả ``queue_running``/``queue_pending`` là list ``[number, prompt_id, prompt, …]``."""
+        return self.queue_state(prompt_id) is not None
+
+    def queue_state(self, prompt_id: str) -> str | None:
+        """``running`` | ``pending`` | None theo vị trí của ``prompt_id`` trong ``/queue``.
+
+        ``/queue`` trả ``queue_running``/``queue_pending`` là list ``[number, prompt_id, prompt, …]``.
+        """
         data = self.queue()
-        for key in ("queue_running", "queue_pending"):
+        for key, state in (("queue_running", "running"), ("queue_pending", "pending")):
             for item in data.get(key) or []:
                 if isinstance(item, list) and len(item) > 1 and item[1] == prompt_id:
-                    return True
-        return False
+                    return state
+        return None
+
+    def object_info(self) -> dict:
+        """``GET /object_info``: mọi node (``class_type``) runtime này nạp được, kèm định nghĩa input."""
+        data = self._json(self._get("/object_info"), "GET /object_info")
+        if not data:
+            raise ComfyUIUnavailable("/object_info rỗng: ComfyUI chưa nạp xong node")
+        return data
 
     def view(self, filename: str, subfolder: str = "", folder_type: str = "output",
              max_bytes: int = VIEW_MAX_BYTES) -> bytes:
         """``GET /view`` vào bộ nhớ, có trần dung lượng. Tên file và subfolder phải sạch (không ``..``, ``/`` đầu)."""
-        if not SAFE_NAME.fullmatch(filename) or filename in (".", ".."):
-            raise ComfyUIRejected(f"tên file output lạ: {filename!r}")
-        if not SAFE_SUBFOLDER.fullmatch(subfolder) or ".." in subfolder.split("/"):
-            raise ComfyUIRejected(f"subfolder output lạ: {subfolder!r}")
-        if folder_type not in FOLDER_TYPES:
-            raise ComfyUIRejected(f"type output lạ: {folder_type!r}")
+        check_output_ref(filename, subfolder, folder_type)
         response = self._get("/view", {"filename": filename, "subfolder": subfolder, "type": folder_type}, stream=True)
         chunks, size = [], 0
         try:
@@ -217,3 +263,39 @@ class ComfyUIRuntime:
         finally:
             response.close()
         return b"".join(chunks)
+
+    def download(self, filename: str, subfolder: str, folder_type: str, dest: Path,
+                 max_bytes: int = DOWNLOAD_MAX_BYTES) -> Download:
+        """``GET /view`` stream ra ``dest``: ghi file tạm cùng thư mục, đủ byte theo ``Content-Length`` mới đổi tên.
+
+        ``dest`` do người gọi kiểm (realpath/commonpath trong thư mục run). Mất kết nối giữa chừng hoặc thiếu byte là
+        ``ComfyUIUnavailable`` (tải lại được); quá trần là ``ComfyUIRejected``. Không bao giờ để lại file dở dang.
+        """
+        check_output_ref(filename, subfolder, folder_type)
+        response = self._get("/view", {"filename": filename, "subfolder": subfolder, "type": folder_type}, stream=True)
+        expected = response.headers.get("content-length")
+        temp = dest.with_name(f".{dest.name}.{uuid.uuid4().hex}.part")
+        digest, size, head = hashlib.sha256(), 0, b""
+        try:
+            fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            with os.fdopen(fd, "wb") as handle:
+                for chunk in response.iter_content(256 * 1024):
+                    size += len(chunk)
+                    if size > max_bytes:
+                        raise ComfyUIRejected(f"output {filename} lớn hơn {max_bytes} byte")
+                    if len(head) < 64:
+                        head += chunk[:64 - len(head)]
+                    digest.update(chunk)
+                    handle.write(chunk)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if expected is not None and expected.isdigit() and int(expected) != size:
+                raise ComfyUIUnavailable(f"GET /view {filename}: nhận {size} byte, Content-Length {expected}")
+            os.replace(temp, dest)
+        except requests.exceptions.RequestException as exc:
+            raise ComfyUIUnavailable(f"GET /view {filename}: {exc}") from None
+        finally:
+            response.close()
+            if temp.exists():
+                temp.unlink()
+        return Download(dest, size, digest.hexdigest(), response.headers.get("content-type", ""), head)

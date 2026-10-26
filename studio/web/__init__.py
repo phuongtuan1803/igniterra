@@ -2,7 +2,9 @@
 
 Web không gọi provider và không chạy bước: mọi hành động đi qua ``gates.Actions`` / ``series.SeriesActions``
 (cùng lớp CLI dùng), và bị từ chối khi task đang ``running``. Trang GPU chỉ gọi ``studio.gpu.service``,
-không import adapter GPU; POST của trang GPU có CSRF token và rental_id sinh trước làm nonce.
+không import adapter GPU; POST của trang GPU có CSRF token và rental_id sinh trước làm nonce. Trang ComfyUI chỉ
+gọi ``studio.comfyui.service`` (không cầm runtime ComfyUI); POST dùng cùng CSRF token, chạy workflow có ô xác nhận và
+run_id sinh trước làm nonce.
 """
 
 from __future__ import annotations
@@ -22,10 +24,12 @@ from fastapi.templating import Jinja2Templates
 
 from studio import config as studio_config
 from studio import costs, providers
+from studio.comfyui import service as comfy_service
 from studio.contracts import Brief, CheckItem, Review
 from studio.gates import ActionError, Actions
 from studio.gpu import service as gpu_service
 from studio.gpu.contracts import ATTENTION, BILLABLE, TRANSITIONS, OfferFilters, Quote
+from studio.paths import contained
 from studio.series import VIEWS, SeriesActions, SeriesDir, SeriesError, list_series
 from studio.store import Store
 from studio.web import views
@@ -35,12 +39,9 @@ CAPABILITIES = ("llm", "image", "tts", "subtitles", "video")
 
 
 def safe_path(root: Path, relative: str) -> Path | None:
-    """realpath + commonpath trong root; không so tiền tố chuỗi (07 · Đường dẫn file)."""
-    base = os.path.realpath(root)
-    target = os.path.realpath(os.path.join(base, relative))
-    if os.path.commonpath([base, target]) != base or not os.path.isfile(target):
-        return None
-    return Path(target)
+    """realpath + commonpath trong root (``studio.paths.contained``), và phải là file (07 · Đường dẫn file)."""
+    target = contained(root, relative)
+    return target if target is not None and target.is_file() else None
 
 
 def create_app(config: dict | None = None) -> FastAPI:
@@ -391,10 +392,99 @@ def create_app(config: dict | None = None) -> FastAPI:
         if action != "reconcile" and form.get("confirm") != "on":
             return back(url, err=f"{action} cần xác nhận", request=request)
         try:
-            rental = getattr(gpu, action)(rental_id)
+            if action == "destroy":
+                # G11: còn run có output chưa tải/kiểm thì service từ chối, trừ khi đã tick ô bỏ output riêng.
+                rental = gpu.destroy(rental_id, accept_unverified_output=form.get("accept_unverified") == "on")
+            else:
+                rental = getattr(gpu, action)(rental_id)
         except (gpu_service.GPUServiceError, KeyError) as exc:
             return back(url, err=str(exc)[:500], request=request)
         return back(url, msg=f"{rental_id}: {rental.status}", request=request)
+
+    # ------------------------------------------------------------ ComfyUI Workflows (Gate 4, lát D)
+
+    comfy = comfy_service.from_config(store, config, gpu)  # thư viện luôn bật; chạy cần GPU provider
+
+    @app.get("/comfyui")
+    def comfy_home():
+        return RedirectResponse("/comfyui/workflows", status_code=303)
+
+    @app.get("/comfyui/workflows", response_class=HTMLResponse)
+    def comfy_library(request: Request):
+        return page(request, "comfyui.html", library=comfy.library(), csrf=csrf,
+                    runs=comfy.runs()[:20], gpu_enabled=gpu is not None)
+
+    @app.post("/comfyui/workflows")
+    async def comfy_import(request: Request):
+        """Nhập workflow (GUI hoặc API JSON, kèm bản API tùy chọn) thành revision mới; cần CSRF token."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        workflow_id = str(form.get("workflow_id", "")) or None
+        url = f"/comfyui/workflows/{workflow_id}" if workflow_id else "/comfyui/workflows"
+        source, api = form.get("file"), form.get("api_file")
+        if source is None or not hasattr(source, "read"):
+            return back(url, err="chọn file workflow JSON", request=request)
+        raw = await source.read()
+        api_raw = await api.read() if api is not None and hasattr(api, "read") and api.filename else None
+        try:
+            record = comfy.import_workflow(str(form.get("name", "")) or (source.filename or ""), raw, api_raw=api_raw,
+                                           workflow_id=workflow_id, note=str(form.get("note", "")) or None)
+        except comfy_service.ComfyServiceError as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(f"/comfyui/workflows/{record.workflow_id}?revision={record.revision}",
+                    msg=f"{record.workflow_id} rev {record.revision}: {record.status}", request=request)
+
+    @app.get("/comfyui/workflows/{workflow_id}", response_class=HTMLResponse)
+    def comfy_workflow_page(request: Request, workflow_id: str, revision: int | None = None):
+        try:
+            record = comfy.revision(workflow_id, revision)
+        except comfy_service.ComfyServiceError:
+            return Response("không có workflow", status_code=404)
+        return page(request, "comfyui_workflow.html", record=record, revisions=comfy.revisions(workflow_id),
+                    manifest=comfy.manifest(record.manifest_sha256) if record.manifest_sha256 else None,
+                    manifest_view=comfy.manifest_view(record), runs=comfy.runs(workflow_id=workflow_id),
+                    rentals=comfy.ready_rentals(), new_run_id=comfy.new_run_id(), csrf=csrf, gpu_enabled=gpu is not None)
+
+    @app.post("/comfyui/workflows/{workflow_id}/runs")
+    async def comfy_start_run(request: Request, workflow_id: str):
+        """Chạy revision đã duyệt trên rental ``ready``; cần CSRF, ô xác nhận và run_id sinh trước (nonce)."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        url = f"/comfyui/workflows/{workflow_id}"
+        if form.get("confirm") != "on":
+            return back(url, err="chạy workflow cần xác nhận (GPU đang tính phí)", request=request)
+        try:
+            run = comfy.start_run(str(form.get("run_id", "")), workflow_id, int(form.get("revision", "")),
+                                  str(form.get("rental_id", "")))
+        except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError, ValueError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(f"/comfyui/runs/{run.run_id}", msg=f"{run.run_id}: {run.status}", request=request)
+
+    @app.get("/comfyui/runs/{run_id}", response_class=HTMLResponse)
+    def comfy_run_page(request: Request, run_id: str):
+        try:
+            data = comfy.run_detail(run_id)
+        except comfy_service.ComfyServiceError:
+            return Response("không có run", status_code=404)
+        return page(request, "comfyui_run.html", **data, csrf=csrf)
+
+    @app.post("/comfyui/runs/{run_id}/{action}")
+    async def comfy_run_action(request: Request, run_id: str, action: str):
+        """refresh (một lượt poll) | retry-download; cần CSRF token."""
+        handlers = {"refresh": comfy.refresh, "retry-download": comfy.retry_download}
+        if action not in handlers:
+            return Response(status_code=404)
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        url = f"/comfyui/runs/{run_id}"
+        try:
+            run = handlers[action](run_id)
+        except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(url, msg=f"{run_id}: {run.status}", request=request)
 
     # ------------------------------------------------------------ files
 
@@ -409,5 +499,6 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     app.state.store = store
     app.state.gpu = gpu
+    app.state.comfy = comfy
     return app
 

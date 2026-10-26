@@ -634,7 +634,12 @@ def test_comfyui_code_is_never_imported_and_web_only_uses_service():
         assert not {n for n in imports(path) if n.split(".")[0] in comfy_modules}, path
     for path in (STUDIO / "web").rglob("*.py"):
         names = imports(path)
-        assert not {n for n in names if n.startswith(("studio.comfyui", "studio.gpu.probe", "studio.gpu.adapters"))}, path
+        # Lát D: web gọi studio.comfyui.service (lớp service), không bao giờ runtime/runs/workflows của ComfyUI.
+        assert not {n for n in names if n.startswith(("studio.comfyui", "studio.gpu.probe", "studio.gpu.adapters"))
+                    and n not in ("studio.comfyui", "studio.comfyui.service")}, path
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom) and node.module == "studio.comfyui":
+                assert {alias.name for alias in node.names} <= {"service"}, path
 
 
 # ------------------------------------------------------------ race: destroy song song với lúc phát hiện lỗi provisioning
