@@ -37,3 +37,8 @@ height    = 1920
 fps       = 30
 font      = "Be Vietnam Pro"
 font_size = 66
+
+[gpu]                           # Gate 4 (09 · GPU thuê); "none" đến khi D-05 mở
+provider    = "none"            # "fake" cho thử trang /gpu; adapter thật thêm ở lát B
+image       = ""                # bắt buộc ghim digest: repo/image@sha256:...
+quote_ttl_s = 300               # báo giá quá hạn thì phải tìm offer lại

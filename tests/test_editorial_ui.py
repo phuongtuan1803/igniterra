@@ -28,6 +28,9 @@ def test_web_templates_compile():
         "settings.html",
         "_status.html",
         "_macros.html",
+        "gpu.html",
+        "gpu_rental.html",
+        "_gpu_offers.html",
     ):
         assert env.get_template(name)
 
