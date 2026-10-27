@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Tự kiểm · {{ record.name }}{% endblock %}
+{% block body %}
+{% set tone = {"passed": "ok", "running": "warn", "awaiting_review": "warn"}.get(group.status, "bad") %}
+<div class="page-header"><div><p class="eyebrow">COMFYUI / TỰ KIỂM {{ group.group_id|upper }}</p><h1>{{ record.name }} · tự kiểm</h1><div class="muted small">revision {{ group.revision }} · {{ machine }} · bắt đầu {{ group.created_at.strftime("%H:%M") }} UTC · {{ "model vision chấm" if group.judge == "vision" else "bạn tự duyệt" }}</div></div><a class="button" href="/comfyui/workflows/{{ group.workflow_id }}?revision={{ group.revision }}">← Workflow</a></div>
+<div class="status"><span class="chip {{ tone }}">{{ group_labels[group.status] }}</span> <span class="small muted">{% if group.status in ("running", "awaiting_review") %}{{ group.stop_reason or "Đang chạy lượt " ~ group.attempts }}{% else %}Dừng vì: {{ group.stop_reason }}{% endif %}</span>
+  {% if group.status in ("running", "awaiting_review") %}
+  <form method="post" action="/comfyui/groups/{{ group.group_id }}/refresh"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit">{{ icon("refresh") }} Kiểm tiến độ</button></form>
+  <form method="post" action="/comfyui/groups/{{ group.group_id }}/stop"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit">Dừng, không mở lượt mới</button></form>
+  {% endif %}
+</div>
+<section class="metrics" aria-label="Tổng quan">
+  <div class="metric-card"><span class="eyebrow">LƯỢT</span><strong>{{ group.attempts }} / {{ group.max_attempts }}</strong><span>Dừng khi đạt</span></div>
+  <div class="metric-card"><span class="eyebrow">CHI PHÍ ƯỚC TÍNH</span><strong>{{ usd(group.spent_usd) }}</strong><span>Trần ${{ "%.2f"|format(group.cap_usd) }}</span><div class="budget-bar" role="img" aria-label="Đã dùng {{ (100 * group.spent_usd / group.cap_usd)|round|int }}% trần"><span style="width:{{ [100, 100 * group.spent_usd / group.cap_usd]|min }}%"></span></div></div>
+  <div class="metric-card"><span class="eyebrow">THỜI GIAN GPU</span><strong>{{ gpu_seconds|round|int }} giây</strong><span>{{ runs|length }} lượt</span></div>
+  <div class="metric-card"><span class="eyebrow">KẾT QUẢ DÙNG</span><strong>{% if group.chosen_run_id %}Lượt {{ chosen.attempt }}{% else %}Chưa chọn{% endif %}</strong><span>Chỉ lượt đã kiểm SHA-256</span></div>
+</section>
+<section class="card">
+  <h2>Các lượt</h2>
+  <ol class="attempts">
+    {% for item in attempts %}{% set r = item.run %}{% set v = r.verdict %}
+    <li>{% if item.image %}<a href="/files/{{ item.image.path }}"><img class="thumb-img" src="/files/{{ item.image.path }}" alt="Ảnh lượt {{ r.attempt }}" loading="lazy"></a>{% else %}<div class="thumb-box{% if v %} {{ 'ok' if v.passed else 'bad' }}{% endif %}">Lượt {{ r.attempt }}</div>{% endif %}
+      <div><strong>Lượt {{ r.attempt }}: {% if v %}{{ "Đạt" if v.passed else "Lỗi" }}{% if v.summary %} · {{ v.summary }}{% endif %}{% else %}{{ run_labels.get(r.status, r.status) }}{% endif %}</strong>
+        <p class="small muted">seed {{ item.seed if item.seed is not none else "—" }} · {% if r.gpu_seconds is not none %}{{ r.gpu_seconds|round|int }} giây · {{ usd(item.usd) }}{% else %}chưa xong{% endif %}{% if v %} · {{ "kiểm bằng model vision" if v.by == "vision" else "bạn duyệt" }}{% endif %} · <a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a></p>
+        {% if v and v.artifacts %}<p class="small">Lỗi thấy: {{ v.artifacts|join("; ") }}</p>{% endif %}
+        {% if r.error_code %}<p class="small">{{ r.error_code }}: {{ (r.detail or "")[:200] }}</p>{% endif %}
+        {% if group.status == "awaiting_review" and loop.last and r.status == "succeeded" and not v %}
+        <form method="post" action="/comfyui/groups/{{ group.group_id }}/review" class="row">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="run_id" value="{{ r.run_id }}">
+          <label class="sr-only" for="note-{{ r.run_id }}">Ghi chú</label><input id="note-{{ r.run_id }}" type="text" name="note" maxlength="300" placeholder="Lỗi gì (tùy chọn)">
+          <button class="button primary" type="submit" name="verdict" value="pass">{{ icon("check") }} Đạt</button>
+          <button class="button" type="submit" name="verdict" value="fail">Lỗi, chạy lượt sau</button>
+        </form>{% endif %}
+        {% if r.status == "succeeded" %}<div class="row">
+          {% if group.chosen_run_id == r.run_id %}<span class="chip ok">Đang dùng kết quả này</span>{% else %}
+          <form method="post" action="/comfyui/groups/{{ group.group_id }}/choose"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="run_id" value="{{ r.run_id }}"><button class="button{% if v and v.passed %} primary{% endif %}" type="submit">{{ icon("check") }} Dùng kết quả này</button></form>{% endif %}
+          {% if item.image %}<a class="button" href="/files/{{ item.image.path }}" download>{{ icon("download") }} Tải ảnh</a>{% endif %}
+        </div>{% endif %}
+      </div></li>
+    {% endfor %}
+  </ol>
+  <p class="small muted">Tự kiểm chỉ chạy lại khi lượt trước có kết quả rõ ràng. Nếu ComfyUI không xác nhận đã nhận prompt (submit_unknown), Igniterra dừng và đối soát, không gửi lại. Chi phí là ước tính theo thời gian GPU và giá giờ của máy, cộng phí chấm; không phải hóa đơn.</p>
+</section>
+{% endblock %}

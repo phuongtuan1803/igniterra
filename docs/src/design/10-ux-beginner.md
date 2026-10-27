@@ -2,18 +2,19 @@
 id: IGN-UX
 title: Igniterra — UX cho người mới và ComfyUI độc lập
 type: design
-ver: "1.4"
+ver: "1.5"
 status: draft
 date: 2026-10-27
 owner: Tuan
 sum: Hành trình J01–J15 cho người không rành kỹ thuật, ưu tiên ComfyUI chạy độc lập trên máy thuê Vast.ai hoặc VPS có GPU, hai chế độ chạy (ComfyUI gốc và chạy có kiểm), vòng lặp tự kiểm nằm ở Igniterra, và bộ 14 màn hình chuẩn dạng hình để AI review sản phẩm.
-kv: [[Trạng thái, "Giai đoạn 0–2 xong; giai đoạn 3–6 là thiết kế"], [Màn hình chuẩn, "docs/ux/spec (14 màn × 3 độ rộng)"], [Thay cho, "docs/ux/proposals/v2.1 (đề xuất, chưa merge)"], [Liên quan, "06 · Giao diện, 09 · GPU và ComfyUI"]]
+kv: [[Trạng thái, "Giai đoạn 0–3 xong; giai đoạn 4–6 là thiết kế"], [Màn hình chuẩn, "docs/ux/spec (14 màn × 3 độ rộng)"], [Thay cho, "docs/ux/proposals/v2.1 (đề xuất, chưa merge)"], [Liên quan, "06 · Giao diện, 09 · GPU và ComfyUI"]]
 rev:
   - ["1.0", 2026-10-27, "Chuyển đề xuất UX v2.1 vào bộ thiết kế: thu gọn phạm vi, thêm J06–J15, máy cố định, hai chế độ ComfyUI, tự kiểm và chạy lại, loại workflow, màn hình chuẩn và quy trình review bằng AI"]
   - ["1.1", 2026-10-27, "Tuan chốt: máy cố định chưa tính vào ngân sách; đề xuất VieNeu-TTS cho giọng đọc và cách chấm lượt tự kiểm"]
   - ["1.2", 2026-10-27, "Tuan chốt Q-UX-01 (VieNeu-TTS) và Q-UX-02 (model vision qua OmniRoute, người chọn kết quả cuối)"]
   - ["1.3", 2026-10-27, "Giai đoạn 1 có code: máy cố định, provider \"fixed\", nút Mở ComfyUI, hiện mật khẩu máy thuê qua POST; F09 và F10 đã sửa"]
   - ["1.4", 2026-10-27, "Giai đoạn 2 có code: idle tính theo job trong ComfyUI gốc, Lưu workflow từ máy qua userdata API"]
+  - ["1.5", 2026-10-27, "Giai đoạn 3 có code: nhập hai bước, duyệt trên web, input mapping, form chạy có kiểm, tự kiểm nhiều lượt, nghe thử giọng đọc; F04, F20 và F21 đã sửa"]
 ---
 
 <!-- id:s1 -->
@@ -21,7 +22,7 @@ rev:
 
 <!-- id:s1.b1 -->
 > [!IMPORTANT]
-> Giai đoạn 0 (tài liệu), 1 (máy cố định, Mở ComfyUI, F09, F10) và 2 (idle theo ComfyUI gốc, Lưu workflow từ máy) đã có; từ giai đoạn 3 trở đi là thiết kế, chưa có code. Thứ tự làm do Tuan chốt ngày 2026-10-27: ComfyUI làm trước, Brief và Series làm sau. Mỗi giai đoạn là một PR riêng và dừng lại cho Tuan duyệt.
+> Giai đoạn 0 (tài liệu), 1 (máy cố định, Mở ComfyUI, F09, F10), 2 (idle theo ComfyUI gốc, Lưu workflow từ máy) và 3 (chế độ có kiểm, S14–S19) đã có; từ giai đoạn 4 trở đi là thiết kế, chưa có code. Thứ tự làm do Tuan chốt ngày 2026-10-27: ComfyUI làm trước, Brief và Series làm sau. Mỗi giai đoạn là một PR riêng và dừng lại cho Tuan duyệt.
 
 <!-- id:s1.b2 -->
 Persona chính là người biết mình muốn video hay ảnh gì nhưng không biết JSON, CLI, SHA-256, provisioning hay API export. Tài liệu trả lời ba việc:
@@ -222,7 +223,10 @@ next -> run
 <!-- id:s6.b3 -->
 - Mỗi lượt là một run bình thường, có `run_id` riêng, nên mọi guard hiện có vẫn đúng: một run mỗi máy, nonce chống bấm hai lần, không gửi lại khi kết quả không rõ.
 - Trần phí và số lượt tối đa nhập trên form (S16) và lưu cùng nhóm lượt. Chi phí mỗi lượt là ước tính theo thời gian GPU, ghi rõ không phải hóa đơn.
-- Cách kiểm: model vision qua OmniRoute (đã có cho LLM và ảnh), hoặc người dùng tự duyệt từng lượt. Cách chấm đã chốt ở [mục cuối](#s13); model vision cụ thể chọn ở giai đoạn 3.
+- Cách kiểm: model vision qua OmniRoute (đã có cho LLM và ảnh), hoặc người dùng tự duyệt từng lượt. Cách chấm đã chốt ở [mục cuối](#s13). Model đặt ở `[comfyui.judge] model` trong `studio.toml`; để trống thì form chỉ cho tự duyệt.
+- Model trả JSON theo bảng tiêu chí cố định; Igniterra tự tính "đạt" từ các trường đó, không tin cờ do model đặt. Chấm lỗi (gateway lỗi, sai model, JSON hỏng) thì nhóm chuyển sang chờ người duyệt, không tự chạy lượt mới.
+- Lượt sau chỉ đổi seed. Trước mỗi lượt, Igniterra cộng ước tính lượt đó (thời gian GPU × giá giờ của máy, cộng phí chấm) vào số đã dùng; vượt trần thì dừng. Mặc định 3 lượt, trần 0,10 USD; tối đa 5 lượt và 5 USD.
+- Worker theo dõi nhóm lượt trong luồng `comfy-watch`, nên vòng tự kiểm chạy tiếp khi trình duyệt đã đóng. Run không xong (failed, blocked, unknown) thì nhóm dừng.
 - Workflow mẫu "Sửa dị dạng" (giai đoạn 4) dùng detailer, để lượt đầu đã ít lỗi.
 
 <!-- id:s7 -->
@@ -245,6 +249,16 @@ Table: Loại workflow Tuan cần, input và output
 
 <!-- id:s7.b3 -->
 Kiểu ô input: chữ, số, ảnh, nhân vật (ảnh tham chiếu đã duyệt của Series), giọng đọc (văn bản + giọng). Mọi giá trị được kiểm phía server theo mapping và `/object_info` lúc gửi. Igniterra không tự dò node rồi ghi vào `inputs` bất kỳ.
+
+<!-- id:s7.b4 -->
+Cách giai đoạn 3 làm:
+
+<!-- id:s7.b5 -->
+- Nhập hai bước: file được giữ tạm 24 giờ ở `data/comfyui/staging`, S15 hiện kết quả kiểm, loại đoán từ `class_type` và cảnh báo nếu đã có revision cùng nội dung ở bất kỳ workflow nào. Lưu bản trùng phải bấm "Vẫn lưu thành bản riêng".
+- Mapping chỉ khai được input literal (không phải dây nối giữa các node), chọn từ danh sách đọc trong API JSON. Lưu mapping tạo revision mới, revision đó chờ duyệt lại.
+- Duyệt trên web (S16) duyệt cả manifest lẫn mapping, vẫn kiểm SHA-256 và cảnh báo license như CLI.
+- Ảnh input được kiểm loại và cỡ, lưu theo SHA-256, tải lên máy với tên `igniterra_ref_<sha>` ngay trước khi gửi prompt. Ô ảnh và nhân vật được bỏ qua khi so COMBO với `/object_info`, vì tên file chỉ có sau khi tải lên.
+- Output audio (S19) được nghe thử, kiểm SHA-256 lại trước khi gắn làm giọng đọc cho một scene.
 
 <!-- id:s8 -->
 ## Hành trình J01–J15
@@ -346,10 +360,10 @@ Table: Phát hiện còn hiệu lực
 | --- | --- | --- | --- |
 | F09 | Block title của trang ComfyUI chứa cả dialog nhập workflow, dialog lặp lại trong body | `studio/web/templates/comfyui.html` dòng 3 | Đã sửa ở giai đoạn 1: title chỉ là chữ, một dialog, có test |
 | F10 | Nút "Làm mới" trên Monitor tắt luôn tự cập nhật | `monitor.html` dòng 7 trỏ `?refresh=off` | Đã sửa ở giai đoạn 1: Làm mới bây giờ giữ chế độ tự cập nhật, có test |
-| F20 | Run không nhận input; muốn đổi prompt phải nhập revision mới | `ComfyService.start_run(run_id, workflow_id, revision, rental_id)` | Giai đoạn 3: input mapping |
+| F20 | Run không nhận input; muốn đổi prompt phải nhập revision mới | `ComfyService.start_run(run_id, workflow_id, revision, rental_id)` | Đã sửa ở giai đoạn 3: input mapping (S17), form chạy (S16), có test |
 | F19 | `Scene.mode = "motion"` chỉ có adapter `video.fake` | `studio/providers/__init__.py` | Sau giai đoạn 3: `VideoProvider` qua ComfyService |
-| F21 | Chống trùng chỉ so với revision mới nhất của cùng workflow | `ComfyService.import_workflow` | Giai đoạn 3: cảnh báo trùng toàn thư viện (S15), không tự xóa |
-| F04 | Duyệt manifest workflow phải dùng CLI | `comfyui_workflow.html` | Giai đoạn 3: duyệt trên web, giữ kiểm SHA và license |
+| F21 | Chống trùng chỉ so với revision mới nhất của cùng workflow | `ComfyService.import_workflow` | Đã sửa ở giai đoạn 3: cảnh báo trùng toàn thư viện (S15), không tự xóa, có test |
+| F04 | Duyệt manifest workflow phải dùng CLI | `comfyui_workflow.html` | Đã sửa ở giai đoạn 3: duyệt trên web, giữ kiểm SHA và license, có test |
 | F01 | Chưa có thư viện Brief; tạo task cần JSON đầy đủ | `POST /tasks` chỉ nhận `brief_file` hoặc `brief_json` | Giai đoạn 6: S01 |
 | F12 | Upload ảnh nhân vật không kiểm nội dung trước khi lưu | `series.py` `upload_ref` | Giai đoạn 6 |
 | F13 | POST của task, series, settings chưa có CSRF như GPU và ComfyUI | `studio/web/__init__.py` | Khi đụng tới các route đó |
@@ -381,7 +395,7 @@ Table: Giai đoạn, mỗi giai đoạn một PR
 
 <!-- id:s13.b2 -->
 > [!IMPORTANT]
-> Q-UX-02 đã chốt (Tuan, 2026-10-27): lượt tự kiểm được chấm bằng model vision qua OmniRoute theo bảng tiêu chí cố định, trả JSON (mặt, tay, giống nhân vật, lỗi hình); người dùng chọn kết quả cuối. Model cụ thể chọn ở giai đoạn 3.
+> Q-UX-02 đã chốt (Tuan, 2026-10-27): lượt tự kiểm được chấm bằng model vision qua OmniRoute theo bảng tiêu chí cố định, trả JSON (mặt, tay, giống nhân vật, lỗi hình); người dùng chọn kết quả cuối. Code đã có từ giai đoạn 3; Tuan chọn model ở `[comfyui.judge] model`, chưa chọn thì chỉ tự duyệt.
 
 <!-- id:s13.b3 -->
 > [!IMPORTANT]
@@ -391,4 +405,4 @@ Table: Giai đoạn, mỗi giai đoạn một PR
 Lý do đề xuất Q-UX-01: [VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) có license Apache 2.0, chạy được cả trên CPU, nên còn có thể chạy ngoài GPU thuê nếu cần. Node [VieNeu TTS](https://comfy.icu/node/VieNeuTTS) của [ComfyUI-HMT-Ultimate](https://github.com/tuyenhm68/ComfyUI-HMT-Ultimate) nhận `text`, `voice` (21 giọng mẫu) và trả `AUDIO` 24 kHz cùng file WAV, khớp kiểu input "giọng đọc" ở trên. [F5-TTS Vietnamese](https://www.promptlayer.com/models/f5-tts-vietnamese-100h) dùng license CC-BY-NC-SA-4.0, nên nếu video có kiếm tiền thì không dùng được. Chưa kiểm chất lượng giọng của cả hai; đó là việc của giai đoạn 4.
 
 <!-- id:s13.b5 -->
-Lý do đề xuất Q-UX-02: chấm qua OmniRoute dùng lại khóa và giới hạn chi phí đã có, tốn ít so với một lượt GPU. Bảng tiêu chí cố định và đầu ra JSON giúp so được giữa các lượt và ghi được vào sổ chi phí. Model vision cụ thể chọn ở giai đoạn 3 từ `/v1/models` của OmniRoute. Nếu chấm sai nhiều, người dùng chuyển sang tự duyệt trên cùng form (S16).
+Lý do đề xuất Q-UX-02: chấm qua OmniRoute dùng lại khóa và giới hạn chi phí đã có, tốn ít so với một lượt GPU. Bảng tiêu chí cố định và đầu ra JSON giúp so được giữa các lượt và ghi được vào sổ chi phí. Model vision cụ thể chọn từ `/v1/models` của OmniRoute và ghi vào `[comfyui.judge] model`. Nếu chấm sai nhiều, người dùng chuyển sang tự duyệt trên cùng form (S16).

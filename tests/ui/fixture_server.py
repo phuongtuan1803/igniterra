@@ -130,8 +130,60 @@ revision = comfy.attach_manifest(revision.workflow_id, revision.revision, Workfl
 comfy.approve_manifest(revision.manifest_sha256)
 pending = comfy.import_workflow("Browser pending workflow", json.dumps(runtime_fixture.API_PROMPT).encode())
 
+# IGN-UX giai đoạn 3 (S14–S19): workflow đã khai input, bản nhập trùng, nhóm tự kiểm hai lượt, giọng đọc trên VPS.
+import test_comfyui_checked as checked
+from studio.comfyui import judge as judges
+
+runtime_fixture.STATE.object_info.update(json.loads(json.dumps(checked.OBJECT_INFO)))
+runtime_fixture.STATE.object_info.update({"VieNeuTTS": {"input": {"required": {}}}, "SaveAudio": {"input": {"required": {}}}})
+
+
+def approve_all(record):
+    record = comfy.attach_manifest(record.workflow_id, record.revision, WorkflowManifest(models=[runtime_fixture.MODEL]))
+    return comfy.approve_revision(record.workflow_id, record.revision)
+
+
+def finish_posts(files=None):
+    for post in runtime_fixture.STATE.posts:
+        if post["prompt_id"] not in runtime_fixture.STATE.history:
+            runtime_fixture.STATE.finish(post["prompt_id"], files=files)
+    comfy.poll()
+
+
+flux = approve_all(comfy.import_workflow("FLUX.2 Klein · Keyframes", json.dumps(checked.PROMPT).encode(), kind="t2i"))
+flux = comfy.save_inputs(flux.workflow_id, flux.revision, checked.FIELDS)
+comfy.approve_revision(flux.workflow_id, flux.revision)
+comfy.judge = checked.Judge(checked.BAD, checked.GOOD)
+group = comfy.start_group(comfy.new_run_id(), flux.workflow_id, flux.revision, ready.rental_id,
+                          {"in1": "Bé Na cầm đèn lồng đứng trước cổng chùa, buổi tối, ánh vàng ấm", "in2": "421337"},
+                          judge="vision", max_attempts=3, cap_usd=0.10)
+finish_posts()
+finish_posts()
+comfy.judge = judges.OmniRouteJudge({})            # trang S16 hiện đúng trạng thái chưa chọn model chấm
+
+portrait_raw = runtime_fixture.STATE.saved["portrait-fix.json"]
+comfy.import_workflow("Sửa mặt · thử", portrait_raw, kind="fix")
+stage = comfy.stage_from_machine(ready.rental_id, "portrait-fix.json")
+
+tts_prompt = {"1": {"class_type": "VieNeuTTS", "inputs": {"text": "xin chào", "voice": "nu_bac"}},
+              "2": {"class_type": "SaveAudio", "inputs": {"audio": ["1", 0], "filename_prefix": "giong-doc-s03"}}}
+tts = approve_all(comfy.import_workflow("Đọc tiếng Việt", json.dumps(tts_prompt).encode()))
+tts = comfy.save_inputs(tts.workflow_id, tts.revision, [
+    {"label": "Lời thoại", "kind": "text", "node": "1", "input": "text", "required": True, "max_length": "2000"},
+    {"label": "Giọng", "kind": "voice", "node": "1", "input": "voice", "options": "nu_bac, nam_nam"}])
+comfy.approve_revision(tts.workflow_id, tts.revision)
+audio_run = comfy.start_run(comfy.new_run_id(), tts.workflow_id, tts.revision, fixed.rental_id, {
+    "in1": "Tối hôm ấy, Na cầm chiếc đèn lồng nhỏ, rón rén bước ra cổng chùa. Gió thổi nhẹ, ánh nến lung linh như đang kể chuyện.",
+    "in2": "nu_bac"})
+runtime_fixture.STATE.files["giong-doc-s03_00001_.wav"] = (checked.wav_bytes(14.2), "audio/wav")
+finish_posts([{"filename": "giong-doc-s03_00001_.wav", "subfolder": "", "type": "output"}])
+comfy.import_workflow("Upscale 2×", runtime_fixture.gui_workflow([{"id": 1, "type": "ImageUpscaleWithModel",
+                                                                    "properties": {"cnr_id": "comfy-core", "ver": "0.3.60"}}]))
+
 metadata = {"keyframes": keyframes, "final": final, "failed": failed, "paused": paused,
-            "ready": ready.rental_id, "fixed": fixed.rental_id, "workflow": revision.workflow_id, "pending": pending.workflow_id}
+            "ready": ready.rental_id, "fixed": fixed.rental_id, "workflow": revision.workflow_id, "pending": pending.workflow_id,
+            "mapped": flux.workflow_id, "mapped_revision": flux.revision, "group": group.group_id, "stage": stage,
+            "audio_run": audio_run.run_id, "tts": tts.workflow_id}
 
 
 @app.get("/__fixture")

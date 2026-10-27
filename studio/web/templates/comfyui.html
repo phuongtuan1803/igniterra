@@ -1,66 +1,62 @@
 {% extends "base.html" %}
-{% from "_macros.html" import metric, icon %}
-{% block title %}ComfyUI Workflows{% endblock %}
+{% from "_macros.html" import icon %}
+{% block title %}Thư viện workflow · ComfyUI{% endblock %}
 {% block body %}
-<div class="page-heading">
-  <div><p class="eyebrow">INFRASTRUCTURE / COMFYUI</p><h1>Workflows dễ kiểm soát</h1><p class="page-subtitle">Nhập workflow, kiểm phụ thuộc, chọn GPU sẵn sàng và nhận kết quả đã xác minh.</p></div>
-  <a class="button primary" href="#import-workflow" data-open-dialog="import-workflow">{{ icon("upload") }} Nhập workflow</a>
-</div>
-<section class="metrics" aria-label="Workflow overview">
-  {{ metric('WORKFLOWS', library|length, 'Đã nhập vào thư viện') }}
-  {{ metric('ĐÃ DUYỆT', library|selectattr('latest.status','equalto','approved')|list|length, 'Vẫn cần API JSON và GPU ready') }}
-  {{ metric('CHỜ REVIEW', library|rejectattr('latest.status','equalto','approved')|list|length, 'Kiểm tra dependency và manifest', 'warn') }}
-  {{ metric('RUN GẦN ĐÂY', runs|length, 'Tối đa 20 lượt gần nhất') }}
+<div class="page-header"><div><p class="eyebrow">COMFYUI</p><h1>Thư viện workflow</h1><p class="page-subtitle muted">Một thư viện cho mọi loại workflow. Mỗi lần nhập là một revision không sửa được.</p></div><a class="button primary" href="#import-workflow" data-open-dialog="import-workflow">{{ icon("upload") }} Nhập workflow</a></div>
+{% if not gpu_enabled %}<p class="section-note">Chưa bật GPU: thư viện, nhập và duyệt dùng được; chạy workflow cần máy GPU sẵn sàng.</p>{% endif %}
+<section class="card">
+  <p class="eyebrow">BẮT ĐẦU NHANH</p><h2>Workflow mẫu đã ghim</h2>
+  <div class="template-grid">
+    <div class="template-card"><span class="type-pill">Ảnh từ chữ</span><strong>FLUX.2 Klein 4B</strong><span class="small muted">Prompt → ảnh 9:16, kèm bản dùng ảnh tham chiếu. Model ghim revision và SHA-256.</span><a class="button" href="#use-flux" data-open-dialog="use-flux">Dùng mẫu</a></div>
+  </div>
+  <p class="small muted">Mẫu cho các loại khác (sửa ảnh, video từ ảnh, phóng to, giọng đọc, sửa dị dạng, giữ nhân vật) được thêm khi đã chạy thật trên GPU.</p>
 </section>
-{% if not gpu_enabled %}<p class="section-note">GPU provider off · library only. Thư viện dùng được; chạy workflow cần GPU provider và rental ready.</p>{% endif %}
-<section class="card" data-tabs data-initial-tab="workflow-library"><nav class="tabs" aria-label="ComfyUI views"><a href="#workflow-library" data-tab="workflow-library">Thư viện workflow</a><a href="#workflow-runs" data-tab="workflow-runs">Lượt chạy</a></nav>
-<section id="workflow-library" data-tab-panel aria-label="Workflow library">
-  <div class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>Thư viện</h2></div><span class="muted small">{{ library|length }} workflow</span></div>
+<section class="card">
+  <div class="section-heading"><div><h2>Workflow của bạn</h2></div><span class="small muted">{{ library|length }} workflow</span></div>
+  <nav class="filter-row" aria-label="Lọc loại workflow">
+    <a class="filter{% if not kind %} active{% endif %}" href="/comfyui/workflows"{% if not kind %} aria-current="true"{% endif %}>Tất cả</a>
+    {% for key, label in kinds.items() %}<a class="filter{% if kind == key %} active{% endif %}" href="/comfyui/workflows?kind={{ key }}"{% if kind == key %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
   <div class="table-scroll"><table>
-    <thead><tr><th>Workflow</th><th>Revision</th><th>Dạng</th><th>Trạng thái</th><th>SHA-256 file gốc</th></tr></thead>
+    <thead><tr><th>Workflow</th><th>Loại</th><th>Revision</th><th>Chạy được?</th><th>Lần chạy gần nhất</th></tr></thead>
     <tbody>
-      {% for item in library %}{% set w = item.latest %}
-      <tr><td><a href="/comfyui/workflows/{{ w.workflow_id }}">{{ w.name }}</a><br><small class="muted">{{ w.workflow_id }}</small></td>
-        <td>{{ w.revision }} / {{ item.revisions }}</td><td>{{ w.format }}{% if w.runnable %} · chạy được{% endif %}</td>
-        <td><span class="chip {{ 'ok' if w.status == 'approved' else 'warn' }}">{{ w.status }}</span></td><td><code>{{ w.source_sha256[:16] }}…</code></td></tr>
-      {% else %}<tr><td colspan="5" class="muted small">Chưa có workflow.</td></tr>{% endfor %}
+      {% for item in library %}{% set w = item.latest %}{% set ready = item.readiness %}
+      <tr><td><a class="text-link" href="/comfyui/workflows/{{ w.workflow_id }}"><strong>{{ w.name }}</strong></a></td>
+        <td>{% if w.kind %}<span class="type-pill">{{ kinds[w.kind] }}</span>{% else %}<span class="muted small">Chưa gắn</span>{% endif %}</td>
+        <td>{{ w.revision }}{% if item.revisions > 1 %} <span class="muted small">/ {{ item.revisions }}</span>{% endif %}</td>
+        <td><span class="chip {{ ready[1] }}">{{ ready[0] }}</span></td>
+        <td class="small muted">{% if item.last_run %}<a href="/comfyui/runs/{{ item.last_run.run_id }}">{{ item.last_run.run_id }}</a> · {{ run_labels.get(item.last_run.status, item.last_run.status) }}{% else %}Chưa chạy{% endif %}</td></tr>
+      {% else %}<tr><td colspan="5" class="muted small">{% if kind %}Chưa có workflow loại {{ kinds[kind] }}. <a href="/comfyui/workflows">Xem tất cả</a>{% else %}Chưa có workflow. Bấm Nhập workflow, hoặc lưu từ ComfyUI trên máy GPU.{% endif %}</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </section>
-<section id="workflow-runs" data-tab-panel aria-label="Recent runs">
-  <p class="eyebrow">RUNS</p><h2>Lượt chạy gần đây</h2>
+<section class="card">
+  <div class="section-heading"><div><h2>Lượt chạy gần đây</h2></div><span class="small muted">tối đa 20</span></div>
   <div class="table-scroll"><table>
-    <thead><tr><th>Run</th><th>Workflow</th><th>Rental</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Run</th><th>Workflow</th><th>Máy</th><th>Trạng thái</th></tr></thead>
     <tbody>
       {% for r in runs %}
-      <tr><td><a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a></td><td>{{ r.workflow_id }} rev {{ r.revision }}</td><td><a href="/gpu/instances/{{ r.rental_id }}">{{ r.rental_id }}</a></td><td>{{ r.status }}{% if r.error_code %} · {{ r.error_code }}{% endif %}</td></tr>
+      <tr><td><a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a>{% if r.group_id %} <a class="small muted" href="/comfyui/groups/{{ r.group_id }}">lượt {{ r.attempt }}</a>{% endif %}</td><td>{{ names.get(r.workflow_id, r.workflow_id) }} · rev {{ r.revision }}</td><td><a href="/gpu/instances/{{ r.rental_id }}">{{ r.rental_id }}</a></td><td>{{ run_labels.get(r.status, r.status) }}{% if r.error_code %} · {{ r.error_code }}{% endif %}</td></tr>
       {% else %}<tr><td colspan="4" class="muted small">Chưa có.</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </section>
-</section>
-<dialog class="dialog" id="import-workflow" aria-labelledby="import-workflow-title"><div class="dialog-heading"><h2 id="import-workflow-title">Nhập workflow JSON</h2><a class="button" href="#main" data-close-dialog aria-label="Đóng">{{ icon("close") }}</a></div>
-
-  <p class="section-note">GUI JSON (<em>Save</em>) cho phép trích dependency; API JSON (<em>Export (API)</em>) là bản chạy được nhưng không có metadata model/node, nên luôn <code>needs_review</code> tới khi có manifest khai tay và đã duyệt. Mỗi lần nhập là một revision bất biến.</p>
+<dialog class="dialog" id="import-workflow" aria-labelledby="import-workflow-title"><div class="dialog-heading"><h2 id="import-workflow-title">Nhập workflow · bước 1/2</h2><a class="button" href="#main" data-close-dialog aria-label="Đóng">{{ icon("close") }}</a></div>
+  <p class="section-note">Chọn file ComfyUI xuất ra. Bản <em>Save</em> (GUI) cho Igniterra đọc dependency; bản <em>Export (API)</em> là bản chạy được. Có cả hai thì chọn cả hai. Bước 2 hiện kết quả kiểm trước khi lưu; chưa có gì được lưu ở bước này.</p>
   <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Tên <input name="name" maxlength="200"></label>
-    <label>Workflow JSON (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
-    <label>Kèm bản Export (API) nếu file trên là GUI <input type="file" name="api_file" accept=".json,application/json"></label>
-    <button class="button" type="submit">Nhập</button>
+    <label>Tên (tùy chọn) <input name="name" maxlength="200"></label>
+    <label>File workflow (Save hoặc Export API) <input type="file" name="file" accept=".json,application/json" required></label>
+    <label>Kèm bản Export (API) nếu file trên là bản Save <input type="file" name="api_file" accept=".json,application/json"></label>
+    <button class="button primary" type="submit">Kiểm tra</button>
   </form>
 </dialog>
-
-<details class="card"><summary>Profile ảnh · FLUX.2 Klein 4B</summary><section class="card">
-  <p class="eyebrow">IMAGE PROFILE</p><h2>FLUX.2 Klein 4B distilled</h2>
-  <p>Workflow text-to-image và một character sheet tham chiếu, model ghim revision và SHA-256.
-    Nhập profile chỉ tạo bản khai chờ duyệt. Việc thuê GPU, tải model và chạy cần thao tác riêng.</p>
+<dialog class="dialog" id="use-flux" aria-labelledby="use-flux-title"><div class="dialog-heading"><h2 id="use-flux-title">Dùng mẫu FLUX.2 Klein 4B</h2><a class="button" href="#main" data-close-dialog aria-label="Đóng">{{ icon("close") }}</a></div>
+  <p>Nhập hai workflow (từ chữ và có ảnh tham chiếu) cùng manifest model đã ghim. Nhập không thuê máy, không tải model và không tốn phí; bạn duyệt dependency ở trang workflow trước khi chạy.</p>
   <form method="post" action="/comfyui/image-profile" class="stack-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label><input type="checkbox" name="confirm"> Xác nhận nhập hai workflow và manifest model để xem xét</label>
-    <button class="button" type="submit">Nhập profile FLUX</button>
+    <label><input type="checkbox" name="confirm"> Nhập hai workflow và manifest để xem xét</label>
+    <button class="button primary" type="submit">Nhập mẫu</button>
   </form>
-  <p><a href="/monitor">Mở Monitor →</a></p>
-</section>
-</details>
+</dialog>
 {% endblock %}

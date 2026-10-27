@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Literal
 
@@ -69,10 +70,21 @@ class WorkflowRevision(BaseModel):
     version: int = 0
     note: str | None = None
     created_at: datetime
+    kind: str | None = None              # nhãn loại (studio.comfyui.inputs.KINDS); None: revision cũ, chưa gắn
+    inputs: list[dict] = []              # input mapping (S17); đổi mapping là revision mới
+    inputs_approved_at: datetime | None = None
 
     @property
     def status(self) -> WorkflowStatus:
-        return self.manifest_status if self.manifest_sha256 and self.manifest_status else "needs_review"
+        """Manifest quyết định; mapping chưa duyệt kéo revision về ``pending_review`` dù manifest đã duyệt."""
+        status = self.manifest_status if self.manifest_sha256 and self.manifest_status else "needs_review"
+        if status == "approved" and self.inputs and self.inputs_approved_at is None:
+            return "pending_review"
+        return status
+
+    @property
+    def inputs_pending(self) -> bool:
+        return bool(self.inputs) and self.inputs_approved_at is None
 
     @property
     def runnable(self) -> bool:
@@ -101,6 +113,51 @@ class Run(BaseModel):
     created_at: datetime
     updated_at: datetime
     finished_at: datetime | None = None
+    inputs_json: str | None = None       # giá trị đã gửi theo mapping (provenance; S19 hiện văn bản gốc)
+    group_id: str | None = None          # nhóm lượt tự kiểm (S18)
+    attempt: int | None = None
+    verdict_json: str | None = None      # kết quả chấm lượt này (model vision hoặc người duyệt)
+
+    @property
+    def inputs(self) -> dict:
+        return json.loads(self.inputs_json) if self.inputs_json else {}
+
+    @property
+    def verdict(self) -> dict | None:
+        return json.loads(self.verdict_json) if self.verdict_json else None
+
+    @property
+    def gpu_seconds(self) -> float | None:
+        """Thời gian từ lúc gửi tới lúc xong: cơ sở của ước tính chi phí lượt (không phải hóa đơn)."""
+        if self.submitted_at is None or self.finished_at is None:
+            return None
+        return max(0.0, (self.finished_at - self.submitted_at).total_seconds())
+
+
+GroupStatus = Literal["running", "awaiting_review", "passed", "exhausted", "capped", "stopped"]
+GROUP_OPEN = ("running", "awaiting_review")
+
+
+class AttemptGroup(BaseModel):
+    """Nhóm lượt tự kiểm và chạy lại (10 · Tự kiểm và chạy lại; S18). Mỗi lượt là một run thường."""
+
+    group_id: str
+    workflow_id: str
+    revision: int
+    rental_id: str
+    inputs_json: str                     # input lượt 1; lượt sau chỉ đổi seed
+    judge: Literal["vision", "manual"]
+    max_attempts: int
+    cap_usd: float
+    est_attempt_usd: float               # ước tính mỗi lượt lúc bấm Chạy
+    spent_usd: float = 0.0               # ước tính đã dùng: thời gian GPU × giá giờ + phí chấm
+    attempts: int = 0
+    status: GroupStatus
+    stop_reason: str | None = None
+    chosen_run_id: str | None = None
+    version: int = 0
+    created_at: datetime
+    updated_at: datetime
 
 
 class RunOutput(BaseModel):

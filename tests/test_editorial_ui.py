@@ -95,7 +95,7 @@ def test_monitor_refresh_now_keeps_auto_refresh_mode(env):
 
 def test_comfyui_library_title_is_text_and_dialog_is_unique(env):
     page = TestClient(create_app(env.config)).get("/comfyui/workflows").text
-    assert "<title>ComfyUI Workflows · Igniterra</title>" in page
+    assert "<title>Thư viện workflow · ComfyUI · Igniterra</title>" in page
     assert page.count('id="import-workflow"') == 1
 
 

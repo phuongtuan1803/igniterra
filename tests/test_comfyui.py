@@ -70,6 +70,7 @@ class Comfy:
         self.files: dict[str, tuple[bytes, str]] = {OUTPUT["filename"]: (PNG, "image/png")}
         self.view_mode = "ok"              # ok | error | truncate
         self.saved: dict[str, bytes] = {}  # workflow đã Save trong ComfyUI gốc (user/default/workflows)
+        self.uploads: list[tuple[str, bytes]] = []
         self.views = 0
         self.lock = threading.Lock()
 
@@ -122,6 +123,16 @@ class Handler(BaseHTTPRequestHandler):
                                                  "vram_total": 24 * 1024 ** 3}]})
         if url.path == "/object_info":
             return self.reply(200, STATE.object_info)
+        if url.path == "/upload/image" and self.command == "POST":
+            from email import policy
+            from email.parser import BytesParser
+
+            message = BytesParser(policy=policy.default).parsebytes(
+                b"Content-Type: " + self.headers["Content-Type"].encode() + b"\r\n\r\n" + raw)
+            parts = {part.get_param("name", header="content-disposition"): part for part in message.iter_parts()}
+            name = parts["image"].get_filename()
+            STATE.uploads.append((name, parts["image"].get_payload(decode=True)))
+            return self.reply(200, {"name": name, "subfolder": "", "type": "input"})
         if url.path == "/prompt" and self.command == "POST":
             body = json.loads(raw)
             prompt_id = body["prompt_id"]
@@ -782,11 +793,17 @@ def test_web_routes_require_csrf_and_confirmation(env, fc, server):
     files = {"file": ("flux.json", json.dumps(API_PROMPT).encode(), "application/json")}
     assert client.post("/comfyui/workflows", data={"csrf": "wrong"}, files=files).status_code == 403
     response = client.post("/comfyui/workflows", data={"csrf": csrf, "name": "flux"}, files=files)
-    assert response.status_code == 303 and "needs_review" in response.headers["location"]
+    stage = response.headers["location"]
+    assert response.status_code == 303 and stage.startswith("/comfyui/import/st_") and svc.library() == []
+    check = client.get(stage).text                                              # S15: chưa lưu gì
+    assert "BƯỚC 2/2" in check and "Có bản chạy được (API)" in check and "Lưu vào thư viện" in check
+    assert client.post(stage, data={"csrf": "x", "action": "save"}).status_code == 403
+    saved = client.post(stage, data={"csrf": csrf, "action": "save", "name": "flux", "kind": "t2i"})
     [item] = svc.library()
     workflow_id = item["latest"].workflow_id
+    assert saved.headers["location"].startswith(f"/comfyui/workflows/{workflow_id}?revision=1")
     html = client.get(f"/comfyui/workflows/{workflow_id}").text
-    assert "needs_review" in html and "comfyui manifest attach" in html and 'name="run_id"' not in html
+    assert "chưa khai dependency" in html and "Khai manifest" in html and "<fieldset disabled" in html
 
     record = svc.attach_manifest(workflow_id, 1, WorkflowManifest(models=[MODEL]))
     svc.approve_manifest(record.manifest_sha256)

@@ -1,15 +1,6 @@
 /* Chỉ thêm những gì UI hiện tại chưa có class; mỗi quy tắc ở đây là phần app sẽ phải thêm vào style.css. */
-.input-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-.attempts{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}
-.attempts li{display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;align-items:start;border:1px solid var(--line,#e5e8e2);border-radius:11px;padding:10px;background:#fff}
-.thumb-box{aspect-ratio:3/4;border-radius:8px;background:linear-gradient(160deg,#e9dccd,#c9a98f);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700}
-.thumb-box.bad{background:linear-gradient(160deg,#e9c9c6,#b0736e)}
-.thumb-box.ok{background:linear-gradient(160deg,#cfe3d6,#6f9c80)}
 .gate-list{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .gate-list li{display:flex;gap:12px;align-items:flex-start}
 .gate-list .step-num{flex:none}
-.template-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
-.template-card{border:1px solid var(--line,#e5e8e2);border-radius:12px;padding:14px;background:#fff;display:grid;gap:6px}
-.wave{height:44px;border-radius:9px;background:repeating-linear-gradient(90deg,#b35f42 0 3px,transparent 3px 7px);opacity:.35}
 .goal-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-@media(max-width:850px){.goal-grid{grid-template-columns:1fr}.input-row{grid-template-columns:1fr}}
+@media(max-width:850px){.goal-grid{grid-template-columns:1fr}}

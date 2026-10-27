@@ -384,10 +384,13 @@ def worker(store: Store, config: dict, once: bool = False, task_id: str | None =
     for requeued in store.requeue_running():
         log.info("%s: running → pending (worker khởi động lại)", requeued)
     series.recover_series_jobs(store, config)
+    from studio.comfyui import service as comfy_service
     from studio.gpu import service as gpu_service
 
     guard_stop = threading.Event()
     guard = gpu_service.start_guard(store, config, stop=guard_stop) if not once and not task_id else None
+    watch = (comfy_service.start_watch(store, config, gpu_service.from_config(store, config), stop=guard_stop)
+             if not once and not task_id else None)
     try:
         while True:
             job = None if task_id else store.claim_series_job()
@@ -405,5 +408,6 @@ def worker(store: Store, config: dict, once: bool = False, task_id: str | None =
             time.sleep(float(config["worker"]["poll_s"]))
     finally:
         guard_stop.set()
-        if guard is not None:
-            guard.join(timeout=1)
+        for thread in (guard, watch):
+            if thread is not None:
+                thread.join(timeout=1)

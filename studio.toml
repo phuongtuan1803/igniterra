@@ -72,3 +72,7 @@ reference_revision = 1
 model = "FLUX.2-klein-4b-fp8"
 timeout_s = 600
 poll_s = 2
+
+[comfyui.judge]                 # chấm lượt tự kiểm (S18) bằng model vision qua OmniRoute
+model = ""                      # để trống: chỉ tự duyệt; chọn model vision từ /v1/models của OmniRoute
+cost_usd = 0.002                # ước tính phí một lần chấm, cộng vào trần phí của nhóm lượt

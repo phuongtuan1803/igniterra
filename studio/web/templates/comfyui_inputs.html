@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Khai input · {{ record.name }}{% endblock %}
+{% block body %}
+<div class="page-header"><div><p class="eyebrow">COMFYUI / WORKFLOW / NÂNG CAO</p><h1>Khai input cho form chạy</h1><p class="page-subtitle muted">{{ record.name }} · revision {{ record.revision }}. Chỉ những ô khai ở đây mới hiện trên form chạy.</p></div><a class="button" href="/comfyui/workflows/{{ record.workflow_id }}?revision={{ record.revision }}">← Workflow</a></div>
+<p class="section-note">Lưu mapping tạo revision {{ next_revision }} và cần duyệt lại. Revision {{ record.revision }} và các run cũ giữ nguyên.</p>
+<section class="card">
+  <form method="post" action="/comfyui/workflows/{{ record.workflow_id }}/inputs" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="revision" value="{{ record.revision }}">
+    <div class="table-scroll"><table class="mapping-table">
+      <thead><tr><th>Tên ô trên form</th><th>Kiểu</th><th>Node · input</th><th>Bắt buộc</th><th>Giới hạn</th></tr></thead>
+      <tbody>
+        {% for row in rows %}{% set i = loop.index %}
+        <tr>
+          <td><input type="text" name="label_{{ i }}" maxlength="60" value="{{ row.label or '' }}" aria-label="Tên ô {{ i }}" placeholder="Ví dụ: Mô tả cảnh"></td>
+          <td><select name="kind_{{ i }}" aria-label="Kiểu ô {{ i }}">{% for key, label in field_kinds.items() %}<option value="{{ key }}"{% if key == row.kind %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+          <td><select name="target_{{ i }}" aria-label="Node cho ô {{ i }}"><option value="">Chưa chọn</option>{% for c in candidates %}{% set value = c.node ~ "|" ~ c.input %}<option value="{{ value }}"{% if row.node == c.node and row.input == c.input %} selected{% endif %}>{{ c.node }} · {{ c.class_type }}.{{ c.input }} (hiện: {{ c.value }})</option>{% endfor %}</select></td>
+          <td><label class="checkbox-row small"><input type="checkbox" name="required_{{ i }}"{% if row.required %} checked{% endif %}> Có</label></td>
+          <td class="small"><input type="text" name="limit_{{ i }}" maxlength="400" value="{{ limit_text(row) }}" aria-label="Giới hạn ô {{ i }}" placeholder="chữ: 600 · số: 1–4 · giọng: a, b">{% if row.key %}<span class="muted">{{ limits(row) }}</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="small muted">Danh sách node · input đọc từ bản API của revision này; chỉ có input là giá trị (không phải dây nối giữa các node). Kiểu phải hợp với giá trị đang có: chữ, ảnh, nhân vật, giọng đọc cho giá trị chữ; số, seed cho giá trị số. Giới hạn: số ký tự tối đa cho ô chữ, khoảng <code>từ–tới</code> cho ô số, danh sách giọng cách nhau dấu phẩy cho ô giọng đọc. Dòng để trống tên bị bỏ qua.</p>
+    <div class="row"><a class="button" href="/comfyui/workflows/{{ record.workflow_id }}/inputs?revision={{ record.revision }}&amp;extra={{ extra + 2 }}">{{ icon("plus") }} Thêm ô</a><button class="button primary" type="submit">Lưu thành revision {{ next_revision }}</button></div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Kiểm tra & Lưu · ComfyUI{% endblock %}
+{% block body %}
+<div class="page-header"><div><p class="eyebrow">COMFYUI / NHẬP · BƯỚC 2/2</p><h1>Kiểm tra &amp; Lưu</h1><p class="page-subtitle muted">{{ view.name or "workflow" }}{% if view.origin %} · {{ view.origin }}{% endif %}. Lưu không tốn phí và không thuê GPU.</p></div><a class="button" href="{{ back_url }}">← Bước 1: Chọn file</a></div>
+{% if view.duplicates %}{% set dup = view.duplicates[0] %}
+<div class="alert">{{ icon("alert") }}<div><strong>Đã có workflow cùng nội dung</strong><p class="small">“{{ dup.name }}” revision {{ dup.revision }} có cùng {{ "file" if dup.source_sha256 == view.source_sha256 else "bản API" }}{% if view.duplicates|length > 1 %} (và {{ view.duplicates|length - 1 }} revision khác){% endif %}. Mở bản đang có để tránh trùng, hoặc lưu thành bản riêng nếu bạn cố ý.</p></div><a class="button" href="/comfyui/workflows/{{ dup.workflow_id }}?revision={{ dup.revision }}">Mở bản đang có</a></div>
+{% endif %}
+<div class="panel-grid">
+<section class="card">
+  <p class="eyebrow">KẾT QUẢ KIỂM</p><h2>Workflow đọc được</h2>
+  <ol class="provision-steps">
+    <li><span class="step-num{% if view.has_api %} done{% endif %}">{% if view.has_api %}{{ icon("check") }}{% else %}1{% endif %}</span><div><strong>{% if view.has_api %}Có bản chạy được (API){% else %}Chưa có bản chạy được{% endif %}</strong><p>{% if view.format == "api" %}File là Export (API); không có thông tin dependency.{% elif view.has_api %}Có cả bản Save (GUI) và bản API.{% else %}Đây là bản Save. Muốn chạy có kiểm thì nhập thêm bản Export (API) sau.{% endif %}</p></div></li>
+    <li><span class="step-num">2</span><div><strong>Cần duyệt dependency</strong><p>{% if view.models or view.custom_nodes %}{{ view.models }} model, {{ view.custom_nodes }} custom node. {% endif %}{% if view.gaps %}Còn {{ view.gaps|length }} chỗ cần khai thêm trước khi duyệt. {% endif %}Bạn duyệt ở trang workflow sau khi lưu.</p></div></li>
+    <li><span class="step-num done">{{ icon("check") }}</span><div><strong>Loại: {{ kinds[view.kind] }}</strong><p>{% if view.kind_from %}Đoán từ node {{ view.kind_from }}.{% else %}Không thấy node đặc trưng nên đoán là Ảnh từ chữ.{% endif %} Sửa nếu sai.</p></div></li>
+  </ol>
+</section>
+<section class="card">
+  <form method="post" action="/comfyui/import/{{ view.stage_id }}" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if view.target %}<p class="small">Lưu thành revision mới của <a href="/comfyui/workflows/{{ view.target.workflow_id }}">{{ view.target.name }}</a>; các revision cũ giữ nguyên.</p>{% else %}
+    <label>Tên <input type="text" name="name" maxlength="200" value="{{ view.name }}"></label>{% endif %}
+    <label>Loại <select name="kind">{% for key, label in kinds.items() %}<option value="{{ key }}"{% if key == view.kind %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Ghi chú (tùy chọn) <textarea name="note" maxlength="500"></textarea></label>
+    <div class="row">
+      {% if view.duplicates %}<button class="button primary" type="submit" name="action" value="keep">Vẫn lưu thành bản riêng</button>{% else %}<button class="button primary" type="submit" name="action" value="save">Lưu vào thư viện</button>{% endif %}
+      <button class="button" type="submit" name="action" value="cancel">Hủy</button>
+    </div>
+    <p class="small muted">Lưu tạo một revision không sửa được. Không thuê máy, không tải model, không tốn phí.</p>
+  </form>
+</section>
+</div>
+{% if view.gaps %}<details class="status-detail"><summary>Còn thiếu để duyệt ({{ view.gaps|length }})</summary><ul class="small">{% for g in view.gaps %}<li>{{ g }}</li>{% endfor %}</ul></details>{% endif %}
+<details class="status-detail"><summary>Nâng cao: SHA-256, class_type, file gốc</summary><p class="small muted"><code>source {{ view.source_sha256[:4] }}…{{ view.source_sha256[-4:] }}</code>{% if view.api_sha256 %} · <code>api {{ view.api_sha256[:4] }}…{{ view.api_sha256[-4:] }}</code>{% endif %} · {{ view.file_bytes }} byte · {{ view.class_types|join(", ") }}</p></details>
+{% endblock %}

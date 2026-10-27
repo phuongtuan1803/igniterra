@@ -132,9 +132,15 @@ def test_save_from_machine_web_flow(env, fc, server):
     assert 'value="portrait-fix.json"' in listing and '<option value="new">Workflow mới</option>' in listing
     form = {"csrf": csrf_of(listing), "path": "portrait-fix.json", "target": "new"}
     assert client.post(f"/gpu/instances/{rental_id}/workflows/import", data={**form, "csrf": "sai"}).status_code == 403
-    saved = client.post(f"/gpu/instances/{rental_id}/workflows/import", data=form)
+    staged = client.post(f"/gpu/instances/{rental_id}/workflows/import", data=form)
+    assert staged.status_code == 303 and re.match(r"/comfyui/import/st_[0-9a-f]{12}$", staged.headers["location"])
+    check = client.get(staged.headers["location"]).text                    # S15: nguồn là máy nào, file nào
+    assert f"lưu từ máy {rental_id}: portrait-fix.json" in check and "Chưa có bản chạy được" in check
+    saved = client.post(staged.headers["location"], data={"csrf": form["csrf"], "action": "save", "kind": "fix"})
     assert saved.status_code == 303 and re.match(r"/comfyui/workflows/wf_[0-9a-f]+\?revision=1", saved.headers["location"])
     assert client.get(saved.headers["location"]).status_code == 200
+    [item] = client.app.state.comfy.library()
+    assert item["latest"].kind == "fix" and item["latest"].note == f"lưu từ máy {rental_id}: portrait-fix.json"
 
     fc.token = "sai"                                       # máy không đọc được: quay về trang máy, có lỗi
     failed = client.get(f"/gpu/instances/{rental_id}/workflows")
