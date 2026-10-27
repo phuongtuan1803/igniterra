@@ -22,10 +22,10 @@
 <section class="card">
   <form class="stack-form">
     <label>Tên dễ nhớ <input type="text" name="name" value="VPS Hà Nội · A5000"></label>
-    <label>Địa chỉ ComfyUI <input type="text" name="url" value="https://gpu-hn.example.vn:8188"><span class="small muted">Phải là https, hoặc địa chỉ nội bộ (LAN, Tailscale).</span></label>
-    <label>Token hoặc mật khẩu truy cập <input type="password" name="token" value="••••••••••••"><span class="small muted">Lưu trong data/secrets, không hiện lại, không ghi vào log.</span></label>
+    <label>Địa chỉ ComfyUI <input type="text" name="url" value="https://gpu-hn.example.vn:8188"><span class="small muted">Phải là https, hoặc địa chỉ nội bộ (LAN, Tailscale, localhost).</span></label>
+    <label>Token hoặc mật khẩu truy cập <input type="password" name="token" value="••••••••••••"><span class="small muted">Lưu trong data/gpu/ quyền 600, không hiện lại, không ghi vào log.</span></label>
     <label>Giá USD/giờ (tùy chọn) <input type="number" name="hourly" value="0.20"><span class="small muted">Chỉ để hiện ước tính, chưa tính vào ngân sách. Để trống nếu máy không tính theo giờ.</span></label>
-    <div class="row"><button type="button"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-refresh"></use></svg> Kiểm tra kết nối</button><button type="button" class="primary">Lưu máy</button></div>
+    <div class="row"><button type="button"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-refresh"></use></svg> Kiểm tra kết nối</button><button type="button" class="primary">Kiểm tra và lưu máy</button></div>
   </form>
 </section>
 <section class="card">

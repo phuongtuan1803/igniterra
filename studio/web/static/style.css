@@ -259,7 +259,7 @@ main>.card{margin-bottom:20px}
 .dialog::backdrop{background:#182c2266}.dialog:target:not([open]){display:block;position:static;margin:22px auto}
 .dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:20px}.dialog-heading h2{margin:0}
 .loading-indicator{display:none;color:var(--muted);font-size:12px}.htmx-request .loading-indicator,.htmx-request.loading-indicator{display:inline-block}
-[aria-busy=true]{cursor:progress}.flash{overflow-wrap:anywhere}.form-error{color:var(--bad)}
+[aria-busy=true]{cursor:progress}.flash{overflow-wrap:anywhere}.form-error{color:var(--bad);overflow-wrap:anywhere}
 @media(min-width:891px) and (max-width:1220px){.app-shell{grid-template-columns:216px minmax(0,1fr)}.app-sidebar{padding-left:10px;padding-right:10px}.page-container{padding:29px 25px 55px}.storyboard-layout{grid-template-columns:minmax(0,1.2fr) minmax(295px,1fr)}}
 @media(max-width:890px){.app-shell{display:block}.app-sidebar{position:fixed;inset:0 auto 0 0;width:245px;height:100dvh;min-height:0;padding:24px 14px;overflow-y:auto;z-index:30;transform:translateX(-105%);visibility:hidden;background:var(--nav);transition:transform .2s,visibility .2s}
 .app-sidebar.open{transform:translateX(0);visibility:visible}.nav-caption,.sidebar-foot{display:flex}.nav-menu{display:grid;gap:2px;margin:0}.nav-item{padding:10px 13px}.nav-close{display:inline-flex;position:absolute;top:3px;right:3px;border:0;background:transparent;min-height:30px;padding:4px}
@@ -305,3 +305,4 @@ code,.data-trail{overflow-wrap:anywhere}th{white-space:nowrap}.table-scroll,.wid
 @media(max-width:620px){
 .offer-table,.offer-table tbody,.offer-table tr,.offer-table td{display:block;width:100%}.offer-table thead{display:none}.offer-table tbody{display:grid;gap:12px}.offer-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:1px solid var(--line);border-radius:10px;padding:13px}.offer-table td{padding:0;border:0;min-width:0}.offer-table td:first-child,.offer-table td:last-child{grid-column:1/-1}.offer-table .offer-rent{min-width:0}.mobile-label{display:block;font-size:10px;color:var(--muted);margin-bottom:3px}
 }
+.type-pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;color:var(--muted);background:#fff;white-space:nowrap}

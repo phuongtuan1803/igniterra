@@ -61,6 +61,7 @@ OUTPUT = {"filename": "igniterra_00001_.png", "subfolder": "", "type": "output"}
 class Comfy:
     def __init__(self):
         self.token: str | None = None
+        self.open = False                  # trả lời cả request không token (máy cố định trên LAN)
         self.object_info: dict = json.loads(json.dumps(OBJECT_INFO))
         self.prompt_mode = "ok"            # ok | slow_ok (nhận rồi mất response) | lost (mất cả request) | reject
         self.posts: list[dict] = []
@@ -111,8 +112,13 @@ class Handler(BaseHTTPRequestHandler):
     def handle_any(self):
         url = urlparse(self.path)
         raw = self.rfile.read(int(self.headers.get("content-length", 0) or 0))
-        if STATE.token is None or self.headers.get("authorization") != f"Bearer {STATE.token}":
+        authed = STATE.token is not None and self.headers.get("authorization") == f"Bearer {STATE.token}"
+        if not authed and not STATE.open:
             return self.reply(401, {"error": "unauthorized"})
+        if url.path == "/system_stats":
+            return self.reply(200, {"system": {"comfyui_version": "0.3.99", "python_version": "3.12.7 (main)"},
+                                    "devices": [{"name": "cuda:0 NVIDIA RTX A5000 : cudaMallocAsync", "type": "cuda",
+                                                 "vram_total": 24 * 1024 ** 3}]})
         if url.path == "/object_info":
             return self.reply(200, STATE.object_info)
         if url.path == "/prompt" and self.command == "POST":

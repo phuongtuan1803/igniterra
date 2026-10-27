@@ -1,5 +1,4 @@
 /* Chỉ thêm những gì UI hiện tại chưa có class; mỗi quy tắc ở đây là phần app sẽ phải thêm vào style.css. */
-.type-pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line,#e5e8e2);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;color:var(--muted,#6e7772);background:#fff;white-space:nowrap}
 .input-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .attempts{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}
 .attempts li{display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;align-items:start;border:1px solid var(--line,#e5e8e2);border-radius:11px;padding:10px;background:#fff}

@@ -55,6 +55,9 @@ def label_for(rental_id: str) -> str:
 class Capabilities(BaseModel):
     supports_stop: bool
     price_components: tuple[str, ...] = ("compute",)   # compute, storage, inet_up, inet_down
+    display_name: str = ""              # tên hiện trên trang /gpu (cột Loại)
+    web_username: str | None = None     # user Basic Auth của ComfyUI gốc trên máy thuê; mật khẩu là WEB_PASSWORD
+    self_signed_tls: bool = False       # cổng web của máy dùng chứng chỉ tự ký: trình duyệt cảnh báo lần đầu
 
 
 class OfferFilters(BaseModel):

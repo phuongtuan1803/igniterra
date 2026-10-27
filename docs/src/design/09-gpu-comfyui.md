@@ -20,7 +20,7 @@ rev:
 
 <!-- id:s1.b1 -->
 > [!IMPORTANT]
-> `studio/gpu/` và `studio/comfyui/` đã triển khai lát A–E; mặc định `[gpu] provider = "none"`. Bật provider và thuê thật chỉ trong phạm vi chi phí đã được người vận hành duyệt. Cách chạy, giới hạn và bằng chứng nằm trong [runbook Slice E](../../runbooks/gpu-slice-e.md).
+> `studio/gpu/` và `studio/comfyui/` đã triển khai lát A–E; mặc định `[gpu] provider = "none"`; `"fixed"` chỉ dùng máy cố định của người vận hành, không thuê ([10 · Máy GPU](10-ux-beginner.md#s4)). Bật provider và thuê thật chỉ trong phạm vi chi phí đã được người vận hành duyệt. Cách chạy, giới hạn và bằng chứng nằm trong [runbook Slice E](../../runbooks/gpu-slice-e.md).
 
 <!-- id:s1.b2 -->
 - **GPU Rentals**: tìm offer, thuê on-demand, theo dõi provisioning, chi phí ước tính, stop/destroy. Là module hạ tầng, không phải provider nội dung thứ sáu.

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Thêm máy cố định · GPU{% endblock %}
+{% block body %}
+<div class="page-header"><div><p class="eyebrow">GPU / MÁY CỐ ĐỊNH</p><h1>Thêm máy cố định</h1><p class="page-subtitle muted">Dùng cho VPS có GPU đã cài ComfyUI. Không tốn phí khi thêm.</p></div><a class="button" href="/gpu">← Máy GPU</a></div>
+<div class="panel-grid">
+<section class="card">
+  <form method="post" action="/gpu/hosts" class="stack-form" id="fixed-host-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="rental_id" value="{{ new_rental_id }}">
+    <label for="host-name">Tên dễ nhớ</label>
+    <input id="host-name" type="text" name="name" maxlength="60" required value="{{ form.name or '' }}" placeholder="VPS Hà Nội · A5000">
+    <label for="host-url">Địa chỉ ComfyUI</label>
+    <input id="host-url" type="text" inputmode="url" name="url" required value="{{ form.url or '' }}" placeholder="https://gpu.example.vn:8188">
+    <span class="small muted">Phải là https, hoặc địa chỉ nội bộ (LAN, Tailscale, localhost).</span>
+    <label for="host-token">Token hoặc mật khẩu truy cập</label>
+    <input id="host-token" type="password" name="token" autocomplete="off">
+    <span class="small muted">Gửi dạng <code>Authorization: Bearer</code>. Lưu trong <code>data/gpu/</code> quyền 600, không hiện lại, không ghi vào log. Bỏ trống chỉ được với địa chỉ nội bộ.</span>
+    <label for="host-hourly">Giá USD/giờ (tùy chọn)</label>
+    <input id="host-hourly" type="number" name="hourly" min="0" max="100" step="0.01" value="{{ form.hourly or '' }}">
+    <span class="small muted">Chỉ để hiện, không tính vào ngân sách. Để trống nếu máy không tính theo giờ.</span>
+    <div class="row">
+      <button class="button" type="submit" name="intent" value="check" hx-post="/gpu/hosts" hx-include="#fixed-host-form" hx-vals='{"intent": "check"}' hx-target="#host-check" hx-swap="innerHTML">{{ icon('refresh') }} Kiểm tra kết nối</button>
+      <button class="button primary" type="submit" name="intent" value="save">Kiểm tra và lưu máy</button>
+    </div>
+  </form>
+</section>
+<section class="card" aria-live="polite" id="host-check">
+  {% include "_gpu_host_check.html" %}
+</section>
+</div>
+{% endblock %}

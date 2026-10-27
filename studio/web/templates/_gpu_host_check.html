@@ -1,0 +1,17 @@
+{% from "_macros.html" import icon %}
+<p class="eyebrow">KẾT QUẢ KIỂM TRA</p>
+{% if check_error %}
+<h2>Chưa kết nối được</h2>
+<p class="form-error" role="alert">{{ check_error }}</p>
+{% elif check %}
+<h2>Kết nối được</h2>
+<ol class="provision-steps">
+  <li><span class="step-num done">{{ icon('check') }}</span><div><strong>{% if check.anonymous_open %}Không cần token (địa chỉ nội bộ){% else %}Từ chối khi không có token{% endif %}</strong><p>{% if check.anonymous_open %}Ai vào được mạng nội bộ này đều chạy được ComfyUI trên máy.{% else %}Đúng như mong đợi.{% endif %}</p></div></li>
+  <li><span class="step-num done">{{ icon('check') }}</span><div><strong>/system_stats trả lời</strong><p>ComfyUI {{ check.comfyui_version }} · Python {{ check.python_version }}</p></div></li>
+  <li><span class="step-num done">{{ icon('check') }}</span><div><strong>GPU</strong><p>{{ check.num_gpus }}× {{ check.gpu_name }} · {{ "%g"|format(check.gpu_ram_gb) }} GB VRAM</p></div></li>
+</ol>
+{% else %}
+<h2>Chưa kiểm</h2>
+<p class="muted small">Bấm Kiểm tra kết nối. Studio chỉ gọi <code>/system_stats</code> hai lần: một lần không token để chắc máy không mở công khai, một lần có token.</p>
+{% endif %}
+<p class="section-note">Igniterra không cài model hay custom node lên máy cố định. Workflow thiếu gì sẽ bị chặn trước khi chạy và báo danh sách để bạn cài tay.</p>
