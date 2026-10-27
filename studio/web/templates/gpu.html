@@ -22,7 +22,7 @@
 <nav class="tabs" aria-label="GPU views"><a href="#gpu-rentals" data-tab="gpu-rentals">Máy của tôi</a>{% if gpu.can_rent %}<a href="#gpu-offers" data-tab="gpu-offers">Tìm GPU</a>{% endif %}</nav>
 <div id="gpu-rentals" data-tab-panel>
   <section class="production-list">
-    <div class="section-heading"><div><p class="eyebrow">YOUR MACHINES</p><h2>Danh sách máy</h2></div><span class="muted small">{{ machines|length }} máy</span></div>
+    <div class="section-heading"><div><p class="eyebrow">YOUR MACHINES</p><h2>Danh sách máy</h2></div><span class="muted small">{{ machines|length }} máy{% if show_hidden %} đã ẩn · <a href="/gpu">← Về danh sách</a>{% elif hidden_count %} · <a href="/gpu?hidden=1">Máy đã ẩn ({{ hidden_count }})</a>{% endif %}</span></div>
     <div class="table-scroll rental-table">
       <table class="production-table">
         <thead><tr><th>Máy</th><th>Loại</th><th>Trạng thái</th><th>Giá mỗi giờ</th><th>Ước tính đã dùng</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
@@ -34,7 +34,9 @@
             <td>{{ rental_chip(r.status) }}{% if not is_fixed and r.status in billable %} <span class="chip warn">có thể đang tính phí</span>{% endif %}</td>
             <td class="cost-cell">{% if is_fixed %}{% if r.offer.dph_total %}${{ "%.2f"|format(r.offer.dph_total) }}/giờ <span class="small muted">(tự khai, ngoài ngân sách)</span>{% else %}Không tính{% endif %}{% else %}${{ "%.3f"|format(r.offer.dph_total) }}/giờ{% endif %}</td>
             <td class="cost-cell">{% if is_fixed %}—{% else %}${{ "%.3f"|format(rental_costs[r.rental_id].accrued_est) }}{% endif %}</td>
-            <td>{% if r.status in ("ready", "busy") %}<a class="button primary" href="/gpu/instances/{{ r.rental_id }}/comfyui" target="_blank" rel="noopener noreferrer">{{ icon('arrow') }} Mở ComfyUI</a> {% endif %}<a class="text-link" href="/gpu/instances/{{ r.rental_id }}" aria-label="Chi tiết {{ r.rental_id }}">Chi tiết →</a></td>
+            <td>{% if r.status in ("ready", "busy") %}<a class="button primary" href="/gpu/instances/{{ r.rental_id }}/comfyui" target="_blank" rel="noopener noreferrer">{{ icon('arrow') }} Mở ComfyUI</a> {% endif %}<a class="text-link" href="/gpu/instances/{{ r.rental_id }}" aria-label="Chi tiết {{ r.rental_id }}">Chi tiết →</a>
+              {% if show_hidden %}<form method="post" action="/gpu/instances/{{ r.rental_id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit" aria-label="Khôi phục {{ r.rental_id }}">Khôi phục</button></form>
+              {% elif r.status in hideable %}<form method="post" action="/gpu/instances/{{ r.rental_id }}/hide"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit" aria-label="Ẩn {{ r.rental_id }}">Ẩn</button></form>{% endif %}</td>
           </tr>
           {% else %}
           <tr><td colspan="6"><div class="empty-state"><strong>Chưa có máy GPU.</strong><p>{% if gpu.can_rent %}Chọn Tìm GPU để thuê, hoặc {% endif %}Thêm máy cố định nếu bạn có VPS có GPU đã cài ComfyUI.</p></div></td></tr>

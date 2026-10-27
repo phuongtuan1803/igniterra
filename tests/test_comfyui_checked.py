@@ -553,3 +553,68 @@ def test_web_audio_result_and_use_for_scene(env, web, fc, server):
     (env.store.path.parent / output.path).write_bytes(wav_bytes(2.0))       # file đổi sau khi kiểm
     refused = web.post(f"/comfyui/runs/{run.run_id}/use", data={"csrf": web.csrf, "target": f"{task_id}/s04"})
     assert "err=" in refused.headers["location"]
+
+
+# ------------------------------------------------------------ ẩn và khôi phục (workflow, task, máy GPU)
+
+
+def test_hiding_a_workflow_keeps_data_and_blocks_runs(env, svc, gpu, fake_gpu, fc, server):
+    workflow_id, _ = approved(svc, PROMPT)
+    rental_id = ready_rental(gpu, fake_gpu, fc, server)
+    svc.hide_workflow(workflow_id)
+    assert svc.library() == [] and [i["latest"].workflow_id for i in svc.library(hidden=True)] == [workflow_id]
+    assert [i["latest"].workflow_id for i in svc.library(hidden=None)] == [workflow_id]
+    assert svc.revision(workflow_id).status == "approved"          # dữ liệu còn nguyên
+    with pytest.raises(ComfyServiceError, match="đang ẩn"):
+        svc.start_run(svc.new_run_id(), workflow_id, 1, rental_id, {})
+    svc.restore_workflow(workflow_id)
+    assert len(svc.library()) == 1 and svc.library(hidden=True) == []
+    svc.start_run(svc.new_run_id(), workflow_id, 1, rental_id, {})
+
+
+def test_workflow_with_unfinished_run_cannot_be_hidden(env, svc, gpu, fake_gpu, fc, server):
+    workflow_id, _ = approved(svc, PROMPT)
+    svc.start_run(svc.new_run_id(), workflow_id, 1, ready_rental(gpu, fake_gpu, fc, server), {})
+    with pytest.raises(ComfyServiceError, match="chưa xong"):
+        svc.hide_workflow(workflow_id)
+    assert len(svc.library()) == 1
+
+
+def test_web_hide_and_restore_workflow_requires_csrf(web):
+    workflow_id, _ = approved(web.app.state.comfy, PROMPT)
+    assert web.post(f"/comfyui/workflows/{workflow_id}/hide", data={}).status_code == 403
+    response = web.post(f"/comfyui/workflows/{workflow_id}/hide", data={"csrf": web.csrf})
+    assert response.status_code == 303 and "msg=" in response.headers["location"]
+    assert "Không có workflow nào" not in web.get("/comfyui/workflows?hidden=1").text
+    assert workflow_id in web.get("/comfyui/workflows?hidden=1").text
+    assert workflow_id not in web.get("/comfyui/workflows").text
+    assert "Khôi phục workflow" in web.get(f"/comfyui/workflows/{workflow_id}").text
+    web.post(f"/comfyui/workflows/{workflow_id}/restore", data={"csrf": web.csrf})
+    assert workflow_id in web.get("/comfyui/workflows").text
+
+
+def test_web_hides_finished_tasks_but_not_running_ones(env, web):
+    done, busy = env.new_task(), env.new_task()
+    assert env.store.claim_one(busy) and env.store.set_status(done, "completed")
+    refused = web.post(f"/tasks/{busy}/hide", data={"csrf": web.csrf})
+    assert "err=" in refused.headers["location"] and busy in web.get("/").text
+    assert web.post(f"/tasks/{done}/hide", data={}).status_code == 403
+    assert "msg=" in web.post(f"/tasks/{done}/hide", data={"csrf": web.csrf}).headers["location"]
+    assert f"/tasks/{done}\"" not in web.get("/").text and f"/tasks/{done}\"" in web.get("/?hidden=1").text
+    web.post(f"/tasks/{done}/restore", data={"csrf": web.csrf})
+    assert f"/tasks/{done}\"" in web.get("/").text
+    assert web.post("/tasks/t_9999/hide", data={"csrf": web.csrf}).status_code == 404
+
+
+def test_only_destroyed_or_failed_machines_can_be_hidden(env, gpu, fake_gpu, fc, server):
+    from studio.gpu.service import GPUServiceError
+
+    rental_id = ready_rental(gpu, fake_gpu, fc, server)
+    with pytest.raises(GPUServiceError, match="chỉ ẩn được"):
+        gpu.hide(rental_id)
+    rental = gpu.rental(rental_id)
+    assert env.store.transition_rental(rental_id, rental.version, "destroyed", expect="ready")
+    gpu.hide(rental_id)
+    assert rental_id in gpu.hidden_ids() and gpu.rental(rental_id).status == "destroyed"   # sổ chi phí còn
+    gpu.restore(rental_id)
+    assert rental_id not in gpu.hidden_ids()

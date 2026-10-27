@@ -103,17 +103,44 @@ def create_app(config: dict | None = None) -> FastAPI:
     # ------------------------------------------------------------ Tasks
 
     @app.get("/", response_class=HTMLResponse)
-    def tasks_page(request: Request, q: str = "", status: str = "all"):
-        tasks = [views.task_summary(store, data_dir, t) for t in store.tasks()]
+    def tasks_page(request: Request, q: str = "", status: str = "all", hidden: int = 0):
+        gone = store.hidden_ids("task")
+        tasks = [views.task_summary(store, data_dir, t) for t in store.tasks() if (t["id"] in gone) == bool(hidden)]
         briefs = sorted((Path(config["root"]) / "briefs").glob("*.json"))
         groups = {"all": None, "review": {"waiting"}, "running": {"running", "pending"},
                   "done": {"completed"}, "failed": {"failed"}}
         status = status if status in groups else "all"
         visible = [t for t in tasks if (groups[status] is None or t["status"] in groups[status])
                    and q.casefold() in f"{t.get('title') or ''} {t['id']} {t.get('series') or ''}".casefold()]
-        return page(request, "tasks.html", tasks=visible, all_tasks=tasks, q=q, status=status,
+        return page(request, "tasks.html", tasks=visible, all_tasks=tasks, q=q, status=status, show_hidden=bool(hidden),
+                    hidden_count=len(gone), csrf=csrf,
                     attention=[t for t in tasks if t["status"] in ("waiting", "failed")],
                     briefs=[b.name for b in briefs], series=list_series(data_dir))
+
+    async def task_visibility(request: Request, task_id: str, action: str):
+        """Ẩn hoặc khôi phục task trong danh sách; dữ liệu, log và chi phí giữ nguyên. Task đang chạy thì không ẩn."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        try:
+            task = store.task(task_id)
+        except KeyError:
+            return Response(status_code=404)
+        if action == "hide":
+            if task["status"] in ("running", "pending"):
+                return back("/", err=f"{task_id} đang {task['status']}; đợi xong hoặc dừng trước khi ẩn", request=request)
+            store.hide_item("task", task_id)
+            return back("/", msg=f"Đã ẩn {task_id}", request=request)
+        store.restore_item("task", task_id)
+        return back("/?hidden=1" if form.get("from") == "hidden" else "/", msg=f"Đã khôi phục {task_id}", request=request)
+
+    @app.post("/tasks/{task_id}/hide")
+    async def task_hide(request: Request, task_id: str):
+        return await task_visibility(request, task_id, "hide")
+
+    @app.post("/tasks/{task_id}/restore")
+    async def task_restore(request: Request, task_id: str):
+        return await task_visibility(request, task_id, "restore")
 
     @app.post("/tasks")
     def create_task(request: Request, brief_file: str = Form(""), brief_json: str = Form(""), series: str = Form(""),
@@ -354,10 +381,16 @@ def create_app(config: dict | None = None) -> FastAPI:
     @app.get("/gpu", response_class=HTMLResponse)
     def gpu_page(request: Request):
         filters, offers, offer_error = gpu_offers(request.query_params)
-        rentals = gpu.rentals() if gpu else []
-        fixed = gpu.fixed_hosts() if gpu else []
+        show_hidden = request.query_params.get("hidden") == "1"
+        gone = gpu.hidden_ids() if gpu else set()
+        rentals_all = gpu.rentals() if gpu else []
+        fixed_all = gpu.fixed_hosts(include_removed=show_hidden) if gpu else []
+        rentals = [r for r in rentals_all if (r.rental_id in gone) == show_hidden]
+        fixed = [r for r in fixed_all if (r.rental_id in gone) == show_hidden]
+        hidden_count = len([r for r in rentals_all + fixed_all if r.rental_id in gone])
         manifest = gpu.approved_manifest() if gpu else None
         return page(request, "gpu.html", gpu=gpu, rentals=rentals, fixed=fixed, machines=rentals + fixed,
+                    show_hidden=show_hidden, hidden_count=hidden_count, hideable=gpu.HIDEABLE if gpu else (),
                     provider_name=gpu.provider.capabilities().display_name if gpu else "",
                     filters=filters, offers=offers,
                     offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE, manifest=manifest,
@@ -397,6 +430,7 @@ def create_app(config: dict | None = None) -> FastAPI:
             return Response("không có rental", status_code=404)
         operations = data["operations"]
         return page(request, "gpu_rental.html", **data, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
+                    hidden=rental_id in gpu.hidden_ids(), hideable=gpu.HIDEABLE,
                     transitions=TRANSITIONS, supports_stop=gpu.supports_stop,
                     last_destroy=next((op for op in reversed(operations) if op["action"] == "destroy"), None),
                     stop_unknown=any(op["action"] == "stop" and op["status"] == "unknown" for op in operations),
@@ -455,7 +489,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         ``remove`` gỡ máy cố định khỏi danh sách. ``login`` hiện user/mật khẩu ComfyUI của máy thuê ngay trong
         response (không redirect, không cache), để mật khẩu không nằm trong URL hay lịch sử trình duyệt.
         """
-        if action not in ("reconcile", "stop", "destroy", "remove", "login"):
+        if action not in ("reconcile", "stop", "destroy", "remove", "login", "hide", "restore"):
             return Response(status_code=404)
         form = await request.form()
         if not gpu_csrf_ok(form):
@@ -471,6 +505,13 @@ def create_app(config: dict | None = None) -> FastAPI:
             response = gpu_rental_view(request, rental_id, web_login=login)
             response.headers["Cache-Control"] = "no-store"
             return response
+        if action in ("hide", "restore"):
+            try:
+                getattr(gpu, action)(rental_id)
+            except (gpu_service.GPUServiceError, KeyError) as exc:
+                return back(url, err=str(exc)[:500], request=request)
+            return back("/gpu" if action == "hide" else url, msg="Đã ẩn máy" if action == "hide" else "Đã khôi phục máy",
+                        request=request)
         if action != "reconcile" and form.get("confirm") != "on":
             return back(url, err=f"{action} cần xác nhận", request=request)
         try:
@@ -501,7 +542,9 @@ def create_app(config: dict | None = None) -> FastAPI:
             items.append({"run": run, "name": revision.name, "origin": origin})
         rentals = [{"rental": r, "cost": gpu.cost(r.rental_id), "breaches": gpu.breaches(r),
                     "unverified": gpu.unverified_runs(r.rental_id)} for r in gpu.rentals()] if gpu else []
-        tasks = [views.task_summary(store, data_dir, t) for t in store.tasks() if not task or t["id"] == task]
+        gone_tasks = store.hidden_ids("task")
+        tasks = [views.task_summary(store, data_dir, t) for t in store.tasks()
+                 if (t["id"] == task if task else t["id"] not in gone_tasks)]
         return page(request, "monitor.html", items=items, rentals=rentals, tasks=tasks,
                     attention_tasks=[t for t in tasks if t["status"] in ("waiting", "failed")],
                     auto_refresh=None if request.query_params.get("refresh") == "off" else 5, task_filter=task)
@@ -532,12 +575,13 @@ def create_app(config: dict | None = None) -> FastAPI:
                                  limit_text=comfy_service.limit_text)
 
     @app.get("/comfyui/workflows", response_class=HTMLResponse)
-    def comfy_library(request: Request, kind: str | None = None):
-        """S14: một thư viện, lọc theo loại."""
+    def comfy_library(request: Request, kind: str | None = None, hidden: int = 0):
+        """S14: một thư viện, lọc theo loại; ``hidden=1`` xem các workflow đã ẩn."""
         kind = kind if kind in comfy_service.KINDS else None
-        names = {item["latest"].workflow_id: item["latest"].name for item in comfy.library()}
-        return page(request, "comfyui.html", library=comfy.library(kind), kind=kind, csrf=csrf, names=names,
-                    runs=comfy.runs()[:20], gpu_enabled=gpu is not None)
+        names = {item["latest"].workflow_id: item["latest"].name for item in comfy.library(hidden=None)}
+        return page(request, "comfyui.html", library=comfy.library(kind, hidden=bool(hidden)), kind=kind, csrf=csrf,
+                    names=names, runs=comfy.runs()[:20], gpu_enabled=gpu is not None, show_hidden=bool(hidden),
+                    hidden_count=len(comfy.library(hidden=True)))
 
     @app.post("/comfyui/workflows")
     async def comfy_import(request: Request):
@@ -637,6 +681,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         defaults = {f["key"]: prompt.get(f["node"], {}).get("inputs", {}).get(f["input"]) for f in record.inputs}
         known = {m["rental"].rental_id for m in machines}
         return page(request, "comfyui_workflow.html", record=record, latest=comfy.revision(workflow_id),
+                    hidden=comfy.hidden(workflow_id),
                     revisions=comfy.revisions(workflow_id),
                     manifest=comfy.manifest(record.manifest_sha256) if record.manifest_sha256 else None,
                     manifest_view=manifest_view, runs=runs, machines=machines, defaults=defaults,
@@ -647,6 +692,29 @@ def create_app(config: dict | None = None) -> FastAPI:
                     max_attempts=comfy_service.MAX_ATTEMPTS, max_cap=comfy_service.MAX_CAP_USD,
                     judge_enabled=comfy.judge_enabled, autofix_open=record.kind == "fix",
                     new_run_id=comfy.new_run_id(), csrf=csrf, gpu_enabled=gpu is not None)
+
+    @app.post("/comfyui/workflows/{workflow_id}/hide")
+    async def comfy_hide(request: Request, workflow_id: str):
+        """Ẩn workflow khỏi thư viện; không xóa revision, run hay bằng chứng."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        try:
+            comfy.hide_workflow(workflow_id)
+        except (comfy_service.ComfyServiceError, KeyError) as exc:
+            return back(f"/comfyui/workflows/{workflow_id}", err=str(exc)[:500], request=request)
+        return back("/comfyui/workflows", msg="Đã ẩn workflow; xem lại ở Mục đã ẩn", request=request)
+
+    @app.post("/comfyui/workflows/{workflow_id}/restore")
+    async def comfy_restore(request: Request, workflow_id: str):
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        try:
+            comfy.restore_workflow(workflow_id)
+        except (comfy_service.ComfyServiceError, KeyError) as exc:
+            return back(f"/comfyui/workflows/{workflow_id}", err=str(exc)[:500], request=request)
+        return back(f"/comfyui/workflows/{workflow_id}", msg="Đã khôi phục workflow", request=request)
 
     @app.post("/comfyui/workflows/{workflow_id}/approve")
     async def comfy_approve(request: Request, workflow_id: str):

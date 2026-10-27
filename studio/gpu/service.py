@@ -1334,6 +1334,24 @@ class GPUService:
         """Máy thuê của provider hiện tại. Guardrail, đối soát và orphan chỉ đi qua danh sách này."""
         return [_rental(row) for row in self.store.rentals() if row["provider_key"] == self.provider_key]
 
+    HIDEABLE = ("draft", "create_failed", "destroyed")
+
+    def hidden_ids(self) -> set[str]:
+        return self.store.hidden_ids("rental")
+
+    def hide(self, rental_id: str) -> Rental:
+        """Ẩn máy cũ khỏi danh sách. Chỉ máy đã chắc chắn không còn instance (destroyed, create_failed, draft); sổ chi phí giữ nguyên."""
+        rental = self.rental(rental_id)
+        if rental.status not in self.HIDEABLE:
+            raise GPUServiceError(f"{rental_id} đang {rental.status}; chỉ ẩn được máy đã destroyed hoặc tạo lỗi")
+        self.store.hide_item("rental", rental_id)
+        return rental
+
+    def restore(self, rental_id: str) -> Rental:
+        rental = self.rental(rental_id)
+        self.store.restore_item("rental", rental_id)
+        return rental
+
     def fixed_hosts(self, *, include_removed: bool = False) -> list[Rental]:
         return [_rental(row) for row in self.store.rentals()
                 if row["provider_key"] == FIXED and (include_removed or row["status"] != "destroyed")]

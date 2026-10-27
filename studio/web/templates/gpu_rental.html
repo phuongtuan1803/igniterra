@@ -15,7 +15,7 @@
 {% else %}
 <div class="page-header">
   <div><p class="eyebrow">GPU RENTALS / {{ rental.rental_id }}</p><h1>{{ rental.offer.num_gpus }}× {{ rental.offer.gpu_name }}</h1><div class="muted small">{{ rental.rental_id }} · {{ rental.provider_key }}{% if rental.provider_instance_id %} · instance {{ rental.provider_instance_id }}{% endif %} · label <code>{{ rental.label }}</code></div></div>
-  <a class="button" href="/gpu">← Tất cả GPU</a>
+  <div class="row"><a class="button" href="/gpu">← Tất cả GPU</a>{% if hidden %}<form method="post" action="/gpu/instances/{{ rental.rental_id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit">Khôi phục máy</button></form>{% elif rental.status in hideable %}<form method="post" action="/gpu/instances/{{ rental.rental_id }}/hide"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit">Ẩn máy</button></form>{% endif %}</div>
 </div>
 <div class="status">
   {{ rental_chip(rental.status) }}
