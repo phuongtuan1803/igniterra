@@ -116,6 +116,20 @@ def check_output_ref(filename: str, subfolder: str, folder_type: str) -> None:
         raise ComfyUIRejected(f"type output lạ: {folder_type!r}")
 
 
+REF_MAX_BYTES = 64 * 1024 * 1024
+REF_MEDIA = {"png": ("png", "image/png"), "jpeg": ("jpg", "image/jpeg"), "webp": ("webp", "image/webp")}
+
+
+def ref_image_name(data: bytes) -> tuple[str, str]:
+    """(tên file trên máy, media type) của ảnh input: tên theo SHA-256 nên biết trước khi upload và upload lại an toàn."""
+    from studio.comfyui.runs import sniff
+
+    suffix, media = REF_MEDIA.get(sniff(data[:64]), (None, None))
+    if suffix is None:
+        raise ComfyUIRejected("ảnh tham chiếu phải là PNG, JPEG hoặc WebP")
+    return f"igniterra_ref_{hashlib.sha256(data).hexdigest()}.{suffix}", media
+
+
 def _clean_userdata_path(path: str) -> bool:
     parts = path.replace("\\", "/").split("/")
     return bool(path) and not path.startswith("/") and all(part not in ("", ".", "..") for part in parts)
@@ -307,18 +321,12 @@ class ComfyUIRuntime:
 
         Chỉ gửi PNG/JPEG/WebP, tối đa 64 MiB. Response phải trả đúng tên và thư mục do studio chọn.
         """
-        from studio.comfyui.runs import sniff
-
-        if path.stat().st_size > 64 * 1024 * 1024:
+        if path.stat().st_size > REF_MAX_BYTES:
             raise ComfyUIRejected("ảnh tham chiếu lớn hơn 64 MiB")
         data = path.read_bytes()
-        kind = sniff(data[:64])
-        suffix, media = {"png": ("png", "image/png"), "jpeg": ("jpg", "image/jpeg"),
-                         "webp": ("webp", "image/webp")}.get(kind, (None, None))
-        if suffix is None:
-            raise ComfyUIRejected("ảnh tham chiếu phải là PNG, JPEG hoặc WebP")
+        name, media = ref_image_name(data)
         # LoadImage.INPUT_TYPES liệt kê file ở input root, không liệt kê thư mục con.
-        name, folder = f"igniterra_ref_{hashlib.sha256(data).hexdigest()}.{suffix}", ""
+        folder = ""
         try:
             response = requests.post(f"{self.base_url}/upload/image", files={"image": (name, data, media)},
                                      data={"type": "input", "subfolder": folder, "overwrite": "true"},

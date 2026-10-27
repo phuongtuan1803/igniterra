@@ -152,11 +152,12 @@ def extract_gui(data: dict) -> dict:
             "class_types": sorted(types)}
 
 
-def check_object_info(prompt: dict, object_info: dict) -> tuple[list[str], list[str]]:
+def check_object_info(prompt: dict, object_info: dict, skip: set[tuple[str, str]] = frozenset()) -> tuple[list[str], list[str]]:
     """Kiểm prompt với ``/object_info`` của runtime (G07, nửa run): (class_type thiếu, input không hợp lệ).
 
     Input COMBO (lựa chọn liệt kê, ví dụ tên file model) có giá trị không nằm trong danh sách runtime báo là
-    thiếu model trên máy: chặn trước khi submit, khỏi chờ ComfyUI trả ``node_errors``.
+    thiếu model trên máy: chặn trước khi submit, khỏi chờ ComfyUI trả ``node_errors``. ``skip``: (node, input) là ảnh
+    input studio sẽ upload ngay trước khi gửi, nên chưa có trong danh sách của máy.
     """
     missing = sorted({t for t in class_types(prompt) if t not in object_info})
     invalid = []
@@ -168,6 +169,8 @@ def check_object_info(prompt: dict, object_info: dict) -> tuple[list[str], list[
         for group in ("required", "optional"):
             declared.update((spec.get("input") or {}).get(group) or {})
         for name, value in (node.get("inputs") or {}).items():
+            if (node_id, name) in skip:
+                continue
             choices = _combo(declared.get(name))
             if choices is not None and isinstance(value, str) and value not in choices:
                 invalid.append(f"node {node_id} ({node['class_type']}).{name} = {value!r} không có trên runtime")

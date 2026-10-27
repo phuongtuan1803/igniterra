@@ -1,10 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block title %}{{ run.run_id }} · ComfyUI{% endblock %}
 {% block body %}
 <div class="page-header">
   <div><p class="eyebrow">08 / COMFYUI RUN</p><h1>{{ revision.name }} · rev {{ run.revision }}</h1><div class="muted small">{{ run.run_id }} · rental <a href="/gpu/instances/{{ run.rental_id }}">{{ run.rental_id }}</a>{% if rental %} ({{ rental.status }}){% endif %} · prompt_id <code>{{ run.prompt_id or "—" }}</code></div></div>
   <div class="row"><a class="button" href="/comfyui/workflows/{{ run.workflow_id }}?revision={{ run.revision }}">← Workflow</a><a class="button" href="/monitor">Monitor</a></div>
 </div>
+{% if run.group_id %}<p class="section-note">Lượt {{ run.attempt }} của <a href="/comfyui/groups/{{ run.group_id }}">nhóm tự kiểm {{ run.group_id }}</a>.</p>{% endif %}
 {% if origin %}<p class="section-note">Keyframe cho <a href="/tasks/{{ origin.task_id }}?scene={{ origin.scene }}">{{ origin.task_id }} · {{ origin.scene }}</a>, attempt {{ origin.attempt }} · <a href="/monitor?task={{ origin.task_id }}">Monitor task</a>.</p>{% endif %}
 {% if auto_refresh %}<p class="small muted">Tự cập nhật mỗi 5 giây theo trạng thái worker đã ghi. Chưa có số đo node đang chạy nếu runtime chỉ trả queue.</p>{% endif %}
 <div class="status">
@@ -27,6 +29,33 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <button class="button" type="submit">Tải lại output</button>
 </form>
+{% endif %}
+{% if audio %}
+<div class="panel-grid">
+<section class="card" aria-label="Giọng đọc">
+  <p class="eyebrow">OUTPUT</p><h2>{{ audio.filename }}</h2>
+  <div class="wave" aria-hidden="true"></div>
+  <audio controls preload="metadata" src="/files/{{ audio.path }}" aria-label="Nghe giọng đọc"></audio>
+  <p class="small muted">{% if audio_info.seconds %}{{ "%.1f"|format(audio_info.seconds)|replace(".", ",") }} giây · {% endif %}{{ audio_info.format }}{% if audio_info.detail %} {{ audio_info.detail }}{% endif %} · SHA-256 <code>{{ audio.sha256[:4] }}…{{ audio.sha256[-4:] }}</code> đã kiểm</p>
+  {% if scenes %}
+  <form method="post" action="/comfyui/runs/{{ run.run_id }}/use" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Scene <select name="target">{% for s in scenes %}<option value="{{ s.value }}">{{ s.label }}</option>{% endfor %}</select></label>
+    <div class="row"><button class="button primary" type="submit">{{ icon("film") }} Dùng cho scene</button><a class="button" href="/files/{{ audio.path }}" download>{{ icon("download") }} Tải file</a></div>
+  </form>
+  {% else %}<div class="row"><a class="button" href="/files/{{ audio.path }}" download>{{ icon("download") }} Tải file</a></div><p class="small muted">Chưa có task nào có storyboard để gắn giọng đọc.</p>{% endif %}
+</section>
+<section class="card" aria-label="Đầu vào">
+  <p class="eyebrow">ĐẦU VÀO</p><h2>Văn bản đã đọc</h2>
+  {% for f in shown_inputs if f.kind == "text" %}<p>{{ f.value }}</p>{% else %}<p class="muted small">Run này không khai ô chữ; văn bản nằm cố định trong workflow.</p>{% endfor %}
+  <p class="small muted">{% for f in shown_inputs if f.kind != "text" %}{{ f.label }}: {{ f.value }}{% if not loop.last %} · {% endif %}{% endfor %}{% if words %}{% if shown_inputs|rejectattr("kind", "equalto", "text")|list %} · {% endif %}{{ words }} từ{% if audio_info.seconds %} (khoảng {{ "%.1f"|format(words / audio_info.seconds)|replace(".", ",") }} từ/giây){% endif %}{% endif %}</p>
+</section>
+</div>
+{% elif shown_inputs %}
+<section class="card" aria-label="Đầu vào">
+  <p class="eyebrow">ĐẦU VÀO</p><h2>Giá trị đã gửi</h2>
+  <ul class="small">{% for f in shown_inputs %}<li>{{ f.label }}: {{ f.value }}</li>{% endfor %}</ul>
+</section>
 {% endif %}
 <section class="card" aria-label="Outputs">
   <p class="eyebrow">OUTPUT</p><h2>Output ({{ outputs|selectattr("status", "equalto", "verified")|list|length }}/{{ outputs|length }} đã kiểm)</h2>

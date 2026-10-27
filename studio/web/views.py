@@ -128,3 +128,107 @@ def detail(store: Store, config: dict, task_id: str) -> dict:
     return {"task": task, "steps": steps, "events": events, "orphans": orphans, "log": log_tail,
             "unknown": unknown, "total_usd": usd, "unpriced": missing, "renders": td.render_revisions(),
             "plans": td.plan_revisions()}
+
+
+RUN_LABELS = {"checking": "đang kiểm", "submitting": "đang gửi", "submit_unknown": "chưa rõ đã gửi", "queued": "đang chờ",
+              "running": "đang chạy", "downloading": "đang tải output", "output_failed": "tải output lỗi",
+              "succeeded": "đã kiểm", "failed": "lỗi", "blocked": "bị chặn", "abandoned": "đã bỏ"}
+GROUP_LABELS = {"running": "Đang chạy", "awaiting_review": "Chờ bạn duyệt", "passed": "Đạt", "exhausted": "Hết lượt",
+                "capped": "Chạm trần chi phí", "stopped": "Đã dừng"}
+
+
+def usd(value: float | None) -> str:
+    """Chi phí ước tính: số nhỏ hơn 0,001 USD hiện là "dưới $0.001", không phải "$0.000"."""
+    if value is None:
+        return "—"
+    if value < 0.001:
+        return "dưới $0.001"
+    return f"${value:.3f}"
+
+
+def machine_label(rental) -> str:
+    """Tên máy cho người mới: tên tự đặt (máy cố định) hoặc GPU, loại máy và giá."""
+    if rental.provider_key == "fixed":
+        price = f" · ${rental.offer.dph_total:.2f}/giờ" if rental.offer.dph_total else ""
+        return f"{rental.offer.offer_id} · Cố định{price}"
+    return f"{rental.offer.num_gpus}× {rental.offer.gpu_name} · Thuê · ${rental.offer.dph_total:.3f}/giờ"
+
+
+def workflow_gates(record, machines: list, runs: list, checked: str | None = None) -> list[dict]:
+    """Bốn cổng trước khi chạy (S16); cổng chưa đạt có một nút tới chỗ sửa. ``checked``: máy vừa qua nút Kiểm máy."""
+    base = f"/comfyui/workflows/{record.workflow_id}?revision={record.revision}"
+    deps = len(record.draft.get("models") or []), len(record.draft.get("custom_nodes") or [])
+    if record.status == "approved":
+        dep = {"ok": True, "title": "Dependency đã duyệt",
+               "detail": f"{deps[0]} model, {deps[1]} custom node" if any(deps) else "Chỉ dùng node lõi ComfyUI"}
+    elif record.status == "pending_review":
+        what = "input mapping" if record.inputs_pending and record.manifest_status == "approved" else "dependency"
+        dep = {"ok": False, "title": "Chờ duyệt", "detail": f"Đọc {what} rồi bấm Duyệt", "fix": base + "#deps",
+               "fix_label": "Xem và duyệt"}
+    else:
+        dep = {"ok": False, "title": "Chưa khai đủ dependency", "detail": "Igniterra không đoán dependency; cần manifest",
+               "fix": base + "#deps", "fix_label": "Khai manifest"}
+    blocked = next((r for r in runs if r.revision == record.revision and r.error_code in ("missing_class_type", "invalid_input")), None)
+    latest_run = next((r for r in runs if r.revision == record.revision), None)
+    machine_ok = bool(checked) or blocked is None or (latest_run is not None and latest_run.run_id != blocked.run_id
+                                                      and latest_run.status == "succeeded")
+    return [
+        {"ok": record.runnable, "title": "Có bản chạy được" if record.runnable else "Chưa có bản chạy được",
+         "detail": f"API JSON trong revision {record.revision}" if record.runnable else "Mới có bản Save (GUI)",
+         "fix": base + "#new-revision", "fix_label": "Nhập bản Export (API)"},
+        dep,
+        {"ok": bool(machines), "title": "Có máy sẵn sàng" if machines else "Chưa có máy sẵn sàng",
+         "detail": f"{len(machines)} máy ready" if machines else "Thuê máy hoặc thêm máy cố định",
+         "fix": "/gpu", "fix_label": "Mở máy GPU"},
+        {"ok": machine_ok, "title": "Máy có đủ node và model" if machine_ok else "Lần trước máy thiếu node hoặc model",
+         "detail": (f"Đã kiểm {checked}: đủ" if checked else "Kiểm /object_info lúc bấm Chạy; thiếu thì chặn trước khi gửi")
+         if machine_ok else (blocked.detail or "")[:160],
+         "fix": f"/comfyui/runs/{blocked.run_id}" if blocked else None, "fix_label": "Xem chỗ thiếu", "check": True},
+    ]
+
+
+def audio_info(path: Path, media_type: str) -> dict:
+    """Thời lượng và định dạng của output giọng đọc (S19). WAV đọc từ header; định dạng khác chỉ ghi loại."""
+    import wave
+
+    fmt = {"audio/wav": "WAV", "audio/mpeg": "MP3", "audio/flac": "FLAC", "audio/ogg": "OGG"}.get(media_type, media_type)
+    if media_type != "audio/wav":
+        return {"format": fmt, "seconds": None, "detail": ""}
+    try:
+        with wave.open(str(path), "rb") as handle:
+            rate, frames, channels = handle.getframerate(), handle.getnframes(), handle.getnchannels()
+    except (wave.Error, OSError, EOFError):
+        return {"format": fmt, "seconds": None, "detail": ""}
+    layout = {1: "mono", 2: "stereo"}.get(channels, f"{channels} kênh")
+    return {"format": fmt, "seconds": frames / rate if rate else None,
+            "detail": f"{rate / 1000:g} kHz {layout}".replace(".", ",")}
+
+
+def shown_inputs(record, run) -> list[dict]:
+    """Giá trị run đã gửi theo mapping của revision, dạng đọc được (ảnh: tên file, nhân vật: tên)."""
+    values = run.inputs
+    shown = []
+    for field in record.inputs:
+        if field["key"] not in values:
+            continue
+        value = values[field["key"]]
+        if isinstance(value, dict):
+            value = value.get("ref") or Path(value.get("path", "")).name
+        shown.append({"label": field["label"], "kind": field["kind"], "value": value})
+    return shown
+
+
+def scene_targets(store: Store, data_dir: Path) -> list[dict]:
+    """Scene của các task đã có storyboard, cho nút Dùng cho scene (S19)."""
+    targets = []
+    for task in store.tasks():
+        if not task.get("plan_rev"):
+            continue
+        try:
+            plan = TaskDir(data_dir, task["id"]).plan(task["plan_rev"])
+        except (OSError, ValueError):
+            continue
+        for scene in plan.scenes:
+            targets.append({"value": f"{task['id']}/{scene.id}",
+                            "label": f"{task['id']} · {scene.id} · {(scene.narration or '')[:50]}"})
+    return targets

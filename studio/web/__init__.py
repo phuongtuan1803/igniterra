@@ -22,6 +22,7 @@ from fastapi import FastAPI, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 
 from studio import config as studio_config
 from studio import costs, providers
@@ -523,14 +524,22 @@ def create_app(config: dict | None = None) -> FastAPI:
     def comfy_home():
         return RedirectResponse("/comfyui/workflows", status_code=303)
 
+    templates.env.globals.update(kinds=comfy_service.KINDS, field_kinds=comfy_service.FIELD_KINDS,
+                                 run_labels=views.RUN_LABELS, group_labels=views.GROUP_LABELS,
+                                 machine_label=views.machine_label, usd=views.usd, limits=comfy_service.field_limits,
+                                 limit_text=comfy_service.limit_text)
+
     @app.get("/comfyui/workflows", response_class=HTMLResponse)
-    def comfy_library(request: Request):
-        return page(request, "comfyui.html", library=comfy.library(), csrf=csrf,
+    def comfy_library(request: Request, kind: str | None = None):
+        """S14: một thư viện, lọc theo loại."""
+        kind = kind if kind in comfy_service.KINDS else None
+        names = {item["latest"].workflow_id: item["latest"].name for item in comfy.library()}
+        return page(request, "comfyui.html", library=comfy.library(kind), kind=kind, csrf=csrf, names=names,
                     runs=comfy.runs()[:20], gpu_enabled=gpu is not None)
 
     @app.post("/comfyui/workflows")
     async def comfy_import(request: Request):
-        """Nhập workflow (GUI hoặc API JSON, kèm bản API tùy chọn) thành revision mới; cần CSRF token."""
+        """Bước 1 của nhập (GUI hoặc API JSON, kèm bản API tùy chọn): kiểm file, giữ tạm, sang S15; cần CSRF token."""
         form = await request.form()
         if not gpu_csrf_ok(form):
             return Response("CSRF token sai; tải lại trang", status_code=403)
@@ -541,13 +550,43 @@ def create_app(config: dict | None = None) -> FastAPI:
             return back(url, err="chọn file workflow JSON", request=request)
         raw = await source.read()
         api_raw = await api.read() if api is not None and hasattr(api, "read") and api.filename else None
+        name = str(form.get("name", "")) or (source.filename or "").removesuffix(".json")
         try:
-            record = comfy.import_workflow(str(form.get("name", "")) or (source.filename or ""), raw, api_raw=api_raw,
-                                           workflow_id=workflow_id, note=str(form.get("note", "")) or None)
+            stage_id = comfy.stage_import(name, raw, api_raw=api_raw, workflow_id=workflow_id)
         except comfy_service.ComfyServiceError as exc:
             return back(url, err=str(exc)[:500], request=request)
+        return back(f"/comfyui/import/{stage_id}", request=request)
+
+    @app.get("/comfyui/import/{stage_id}", response_class=HTMLResponse)
+    def comfy_import_check(request: Request, stage_id: str):
+        """S15: kết quả kiểm, loại đoán được, cảnh báo trùng trong cả thư viện."""
+        try:
+            view = comfy.staged(stage_id)
+        except comfy_service.ComfyServiceError as exc:
+            return back("/comfyui/workflows", err=str(exc)[:500], request=request)
+        origin = view.get("origin") or ""
+        back_url = (f"/gpu/instances/{origin.split()[3].rstrip(':')}/workflows" if origin.startswith("lưu từ máy ")
+                    else f"/comfyui/workflows/{view['workflow_id']}" if view.get("workflow_id") else "/comfyui/workflows")
+        return page(request, "comfyui_import.html", view=view, csrf=csrf, back_url=back_url)
+
+    @app.post("/comfyui/import/{stage_id}")
+    async def comfy_import_save(request: Request, stage_id: str):
+        """Bước 2: lưu thành revision bất biến (save), lưu dù trùng (keep) hoặc hủy (cancel); cần CSRF token."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        action = str(form.get("action", "save"))
+        if action == "cancel":
+            comfy.discard_stage(stage_id)
+            return back("/comfyui/workflows", msg="Đã hủy, không lưu gì", request=request)
+        try:
+            record = comfy.commit_stage(stage_id, name=str(form.get("name", "")) or None,
+                                        kind=str(form.get("kind", "")) or None, note=str(form.get("note", "")) or None,
+                                        keep_duplicate=action == "keep")
+        except comfy_service.ComfyServiceError as exc:
+            return back(f"/comfyui/import/{stage_id}", err=str(exc)[:500], request=request)
         return back(f"/comfyui/workflows/{record.workflow_id}?revision={record.revision}",
-                    msg=f"{record.workflow_id} rev {record.revision}: {record.status}", request=request)
+                    msg=f"Đã lưu {record.name} revision {record.revision}; không tốn phí", request=request)
 
     @app.get("/gpu/instances/{rental_id}/workflows", response_class=HTMLResponse)
     def machine_workflows(request: Request, rental_id: str):
@@ -573,39 +612,212 @@ def create_app(config: dict | None = None) -> FastAPI:
         url = f"/gpu/instances/{rental_id}/workflows"
         target = str(form.get("target", "new"))
         try:
-            record = comfy.import_from_machine(rental_id, str(form.get("path", "")),
-                                               workflow_id=None if target == "new" else target)
+            stage_id = comfy.stage_from_machine(rental_id, str(form.get("path", "")),
+                                                workflow_id=None if target == "new" else target)
         except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError, KeyError) as exc:
             return back(url, err=str(exc)[:500], request=request)
-        return back(f"/comfyui/workflows/{record.workflow_id}?revision={record.revision}",
-                    msg=f"Đã lưu {record.name} rev {record.revision} ({record.status}); không tốn phí", request=request)
+        return back(f"/comfyui/import/{stage_id}", request=request)
 
     @app.get("/comfyui/workflows/{workflow_id}", response_class=HTMLResponse)
-    def comfy_workflow_page(request: Request, workflow_id: str, revision: int | None = None):
+    def comfy_workflow_page(request: Request, workflow_id: str, revision: int | None = None, checked: str | None = None):
+        """S16: bốn cổng, form chỉ gồm ô đã khai, chọn máy, ước tính, tự kiểm; dependency và duyệt (F04)."""
         try:
             record = comfy.revision(workflow_id, revision)
         except comfy_service.ComfyServiceError:
             return Response("không có workflow", status_code=404)
-        return page(request, "comfyui_workflow.html", record=record, revisions=comfy.revisions(workflow_id),
+        manifest_view = comfy.manifest_view(record)
+        machines = comfy.machine_options(workflow_id) if gpu is not None else []
+        runs = comfy.runs(workflow_id=workflow_id)
+        try:
+            prompt = comfy.api_prompt(record) if record.runnable else {}
+        except comfy_service.ComfyServiceError:
+            prompt = {}
+        defaults = {f["key"]: prompt.get(f["node"], {}).get("inputs", {}).get(f["input"]) for f in record.inputs}
+        known = {m["rental"].rental_id for m in machines}
+        return page(request, "comfyui_workflow.html", record=record, latest=comfy.revision(workflow_id),
+                    revisions=comfy.revisions(workflow_id),
                     manifest=comfy.manifest(record.manifest_sha256) if record.manifest_sha256 else None,
-                    manifest_view=comfy.manifest_view(record), runs=comfy.runs(workflow_id=workflow_id),
-                    rentals=comfy.ready_rentals(), new_run_id=comfy.new_run_id(), csrf=csrf, gpu_enabled=gpu is not None)
+                    manifest_view=manifest_view, runs=runs, machines=machines, defaults=defaults,
+                    gates=views.workflow_gates(record, machines, runs, checked if checked in known else None),
+                    license_warnings=comfy_service.license_warnings(manifest_view) if manifest_view else [],
+                    characters=comfy.characters() if any(f["kind"] == "character" for f in record.inputs) else [],
+                    seed_field=comfy_service.seed_field(record.inputs), seed_max=comfy_service.SEED_MAX,
+                    max_attempts=comfy_service.MAX_ATTEMPTS, max_cap=comfy_service.MAX_CAP_USD,
+                    judge_enabled=comfy.judge_enabled, autofix_open=record.kind == "fix",
+                    new_run_id=comfy.new_run_id(), csrf=csrf, gpu_enabled=gpu is not None)
 
-    @app.post("/comfyui/workflows/{workflow_id}/runs")
-    async def comfy_start_run(request: Request, workflow_id: str):
-        """Chạy revision đã duyệt trên rental ``ready``; cần CSRF, ô xác nhận và run_id sinh trước (nonce)."""
+    @app.post("/comfyui/workflows/{workflow_id}/approve")
+    async def comfy_approve(request: Request, workflow_id: str):
+        """Duyệt manifest và input mapping trên web (F04); cần CSRF và ô đã đọc, license cần xác nhận riêng."""
         form = await request.form()
         if not gpu_csrf_ok(form):
             return Response("CSRF token sai; tải lại trang", status_code=403)
-        url = f"/comfyui/workflows/{workflow_id}"
+        revision = str(form.get("revision", ""))
+        url = f"/comfyui/workflows/{workflow_id}?revision={revision}"
+        if form.get("confirm") != "on":
+            return back(url, err="đánh dấu đã đọc dependency trước khi duyệt", request=request)
+        try:
+            record = comfy.approve_revision(workflow_id, int(revision), accept_licenses=form.get("accept_licenses") == "on")
+        except (comfy_service.ComfyServiceError, ValueError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(url, msg=f"Đã duyệt revision {record.revision}", request=request)
+
+    @app.post("/comfyui/workflows/{workflow_id}/manifest")
+    async def comfy_attach_manifest(request: Request, workflow_id: str):
+        """Gắn manifest JSON khai tay cho revision ``needs_review``; vào chờ duyệt, chưa chạy được."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        revision = str(form.get("revision", ""))
+        url = f"/comfyui/workflows/{workflow_id}?revision={revision}"
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            return back(url, err="chọn file manifest JSON", request=request)
+        raw = await upload.read()
+        try:
+            manifest = comfy_service.parse_manifest(raw[:1_000_000])
+            comfy.attach_manifest(workflow_id, int(revision), manifest, note="khai trên web")
+        except ValidationError as exc:
+            return back(url, err=f"manifest không đọc được: {exc.errors()[0]['msg']}"[:500], request=request)
+        except (comfy_service.ComfyServiceError, ValueError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(url + "#deps", msg="Đã gắn manifest; đọc rồi bấm Duyệt", request=request)
+
+    @app.post("/comfyui/workflows/{workflow_id}/check")
+    async def comfy_check_machine(request: Request, workflow_id: str):
+        """Cổng 4: đọc /object_info của máy đã chọn (GET tới máy, không chạy gì)."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        revision, rental_id = str(form.get("revision", "")), str(form.get("rental_id", ""))
+        url = f"/comfyui/workflows/{workflow_id}?revision={revision}"
+        try:
+            missing, invalid = comfy.check_machine(workflow_id, int(revision), rental_id)
+        except (comfy_service.ComfyServiceError, ValueError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        if missing or invalid:
+            what = ("thiếu node: " + ", ".join(missing)) if missing else ("thiếu model hoặc giá trị: " + "; ".join(invalid[:5]))
+            return back(url, err=f"Máy {rental_id} {what}"[:500], request=request)
+        return back(url + f"&checked={rental_id}", msg=f"Máy {rental_id} có đủ node và model", request=request)
+
+    @app.get("/comfyui/workflows/{workflow_id}/inputs", response_class=HTMLResponse)
+    def comfy_inputs_page(request: Request, workflow_id: str, revision: int | None = None, extra: int = 0):
+        """S17: khai ô cho form chạy; chọn node · input từ API JSON."""
+        try:
+            record = comfy.revision(workflow_id, revision)
+            prompt = comfy.api_prompt(record)
+        except comfy_service.ComfyServiceError as exc:
+            return back(f"/comfyui/workflows/{workflow_id}", err=str(exc)[:500], request=request)
+        extra = max(0, min(extra, comfy_service.MAX_FIELDS))
+        blank = max(extra, 0 if record.inputs else 3) + 1
+        rows = [*record.inputs, *({} for _ in range(min(blank, comfy_service.MAX_FIELDS - len(record.inputs))))]
+        return page(request, "comfyui_inputs.html", record=record, rows=rows, extra=extra, csrf=csrf,
+                    candidates=comfy_service.candidates(prompt), next_revision=comfy.revision(workflow_id).revision + 1)
+
+    @app.post("/comfyui/workflows/{workflow_id}/inputs")
+    async def comfy_inputs_save(request: Request, workflow_id: str):
+        """Lưu mapping thành revision mới (cần duyệt lại); cần CSRF token."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        revision = str(form.get("revision", ""))
+        url = f"/comfyui/workflows/{workflow_id}/inputs?revision={revision}"
+        fields = []
+        try:
+            for i in range(1, comfy_service.MAX_FIELDS + 2):
+                label = str(form.get(f"label_{i}", "")).strip()
+                if not label:
+                    continue
+                kind = str(form.get(f"kind_{i}", ""))
+                node, _, name = str(form.get(f"target_{i}", "")).partition("|")
+                fields.append({"label": label, "kind": kind, "node": node, "input": name,
+                               "required": form.get(f"required_{i}") == "on",
+                               **comfy_service.parse_limit(kind, str(form.get(f"limit_{i}", "")))})
+            record = comfy.save_inputs(workflow_id, int(revision), fields)
+        except (comfy_service.InputError, comfy_service.ComfyServiceError, ValueError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(f"/comfyui/workflows/{workflow_id}?revision={record.revision}#deps",
+                    msg=f"Đã lưu mapping thành revision {record.revision}; đọc rồi bấm Duyệt", request=request)
+
+    @app.post("/comfyui/workflows/{workflow_id}/runs")
+    async def comfy_start_run(request: Request, workflow_id: str):
+        """Chạy revision đã duyệt với các ô đã khai, trên máy ``ready``; cần CSRF, ô xác nhận và run_id sinh trước
+        (nonce). Bật tự kiểm thì mở nhóm lượt có trần chi phí."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        revision = str(form.get("revision", ""))
+        url = f"/comfyui/workflows/{workflow_id}?revision={revision}"
         if form.get("confirm") != "on":
             return back(url, err="chạy workflow cần xác nhận (GPU đang tính phí)", request=request)
         try:
-            run = comfy.start_run(str(form.get("run_id", "")), workflow_id, int(form.get("revision", "")),
-                                  str(form.get("rental_id", "")))
+            record = comfy.revision(workflow_id, int(revision))
+            values = {}
+            for field in record.inputs:
+                raw = form.get(f"in_{field['key']}")
+                if field["kind"] == "image":
+                    data = await raw.read() if raw is not None and hasattr(raw, "read") and raw.filename else b""
+                    if data:
+                        values[field["key"]] = comfy.save_input_image(data)
+                elif raw is not None:
+                    values[field["key"]] = str(raw)
+            run_id, rental_id = str(form.get("run_id", "")), str(form.get("rental_id", ""))
+            if form.get("autofix") == "on":
+                group = comfy.start_group(run_id, workflow_id, record.revision, rental_id, values,
+                                          judge=str(form.get("judge", "manual")),
+                                          max_attempts=int(form.get("max_attempts") or 3),
+                                          cap_usd=float(form.get("cap_usd") or 0.10))
+                return back(f"/comfyui/groups/{group.group_id}", msg=f"Đã mở lượt 1/{group.max_attempts}", request=request)
+            run = comfy.start_run(run_id, workflow_id, record.revision, rental_id, values)
         except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError, ValueError) as exc:
             return back(url, err=str(exc)[:500], request=request)
-        return back(f"/comfyui/runs/{run.run_id}", msg=f"{run.run_id}: {run.status}", request=request)
+        return back(f"/comfyui/runs/{run.run_id}", msg=f"{run.run_id}: {views.RUN_LABELS.get(run.status, run.status)}",
+                    request=request)
+
+    @app.get("/comfyui/groups/{group_id}", response_class=HTMLResponse)
+    def comfy_group_page(request: Request, group_id: str):
+        """S18: các lượt, chi phí đã dùng trên trần, lý do dừng, chọn kết quả."""
+        try:
+            group = comfy.group(group_id)
+        except comfy_service.ComfyServiceError:
+            return Response("không có nhóm lượt", status_code=404)
+        record = comfy.revision(group.workflow_id, group.revision)
+        seed = comfy_service.seed_field(record.inputs)
+        rental = gpu.rental(group.rental_id) if gpu is not None else None
+        runs = comfy.group_runs(group_id)
+        attempts = [{"run": r, "image": comfy.verified_output(r.run_id, "image"),
+                     "seed": r.inputs.get(seed["key"]) if seed else None,
+                     "usd": (rental.offer.dph_total if rental else 0) * (r.gpu_seconds or 0) / 3600} for r in runs]
+        return page(request, "comfyui_group.html", group=group, record=record, attempts=attempts, runs=runs, csrf=csrf,
+                    machine=views.machine_label(rental) if rental else group.rental_id,
+                    chosen=next((r for r in runs if r.run_id == group.chosen_run_id), None),
+                    gpu_seconds=sum(r.gpu_seconds or 0 for r in runs),
+                    auto_refresh=10 if group.status == "running" else None)
+
+    @app.post("/comfyui/groups/{group_id}/{action}")
+    async def comfy_group_action(request: Request, group_id: str, action: str):
+        """refresh (một lượt poll của nhóm) | review (tự duyệt lượt mới nhất) | choose | stop; cần CSRF token."""
+        if action not in ("refresh", "review", "choose", "stop"):
+            return Response(status_code=404)
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        url = f"/comfyui/groups/{group_id}"
+        run_id = str(form.get("run_id", ""))
+        try:
+            if action == "refresh":
+                for run in comfy.group_runs(group_id):
+                    comfy.refresh(run.run_id)
+                group = comfy.advance(group_id)
+            elif action == "review":
+                group = comfy.review(group_id, run_id, form.get("verdict") == "pass", str(form.get("note", "")))
+            elif action == "choose":
+                group = comfy.choose(group_id, run_id)
+            else:
+                group = comfy.stop_group(group_id)
+        except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(url, msg=views.GROUP_LABELS[group.status], request=request)
 
     @app.get("/comfyui/runs/{run_id}", response_class=HTMLResponse)
     def comfy_run_page(request: Request, run_id: str):
@@ -614,25 +826,52 @@ def create_app(config: dict | None = None) -> FastAPI:
         except comfy_service.ComfyServiceError:
             return Response("không có run", status_code=404)
         origin = views.comfy_origin(data["revision"].note)
-        return page(request, "comfyui_run.html", **data, csrf=csrf, origin=origin,
+        audio = comfy.verified_output(run_id, "audio")
+        shown = views.shown_inputs(data["revision"], data["run"])
+        text = " ".join(f["value"] for f in shown if f["kind"] == "text")
+        return page(request, "comfyui_run.html", **data, csrf=csrf, origin=origin, audio=audio, shown_inputs=shown,
+                    audio_info=views.audio_info(data_dir / audio.path, audio.media_type) if audio else None,
+                    words=len(text.split()) if audio else 0,
+                    scenes=views.scene_targets(store, data_dir) if audio else [],
                     auto_refresh=5 if data["run"].status in ("checking", "submitting", "submit_unknown", "queued",
                                                            "running", "downloading") else None)
 
     @app.post("/comfyui/runs/{run_id}/{action}")
     async def comfy_run_action(request: Request, run_id: str, action: str):
-        """refresh (một lượt poll) | retry-download; cần CSRF token."""
+        """refresh (một lượt poll) | retry-download | use (giọng đọc cho scene); cần CSRF token."""
         handlers = {"refresh": comfy.refresh, "retry-download": comfy.retry_download}
-        if action not in handlers:
+        if action not in (*handlers, "use"):
             return Response(status_code=404)
         form = await request.form()
         if not gpu_csrf_ok(form):
             return Response("CSRF token sai; tải lại trang", status_code=403)
+        if action == "use":
+            return comfy_run_use(request, run_id, form)
         url = f"/comfyui/runs/{run_id}"
         try:
             run = handlers[action](run_id)
+            if run.group_id:
+                comfy.advance(run.group_id)
         except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError) as exc:
             return back(url, err=str(exc)[:500], request=request)
         return back(url, msg=f"{run_id}: {run.status}", request=request)
+
+    def comfy_run_use(request: Request, run_id: str, form) -> Response:
+        """S19: gắn giọng đọc đã kiểm SHA-256 vào một scene (ứng viên voice của Storyboard)."""
+        url = f"/comfyui/runs/{run_id}"
+        task_id, _, scene = str(form.get("target", "")).partition("/")
+        audio = comfy.verified_output(run_id, "audio")
+        if audio is None:
+            return back(url, err="chưa có giọng đọc đã kiểm SHA-256 để dùng", request=request)
+        path = safe_path(data_dir, audio.path)
+        if path is None or comfy_service.file_sha256(path) != audio.sha256:
+            return back(url, err="file giọng đọc không khớp SHA-256 đã kiểm", request=request)
+        try:
+            candidate = actions().upload(task_id, scene, "voice", path, f"comfyui:{run_id}",
+                                         f"tự tạo bằng ComfyUI, run {run_id}", True)
+        except (ActionError, ValueError, KeyError, OSError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(f"/tasks/{task_id}?scene={scene}", msg=f"Đã thêm giọng đọc {candidate} cho {scene}", request=request)
 
     # ------------------------------------------------------------ files
 
