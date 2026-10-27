@@ -517,6 +517,8 @@ def create_app(config: dict | None = None) -> FastAPI:
             result = comfy.import_image_profile(HERE.parent.parent / "workflows" / "flux2-klein-4b")
         except (comfy_service.ComfyServiceError, ValueError, OSError) as exc:
             return back("/comfyui/workflows", err=str(exc)[:500], request=request)
+        if all(result[k]["reused"] for k in ("text2image", "reference")):
+            return back("/comfyui/workflows", msg="Mẫu đã có trong thư viện, không nhập thêm.", request=request)
         return back("/comfyui/workflows", msg=f"Đã nhập profile; manifest {result['manifest_sha256']} chờ duyệt. "
                     "Nhập ID hai workflow và rental ready vào Settings để dùng ComfyImage.", request=request)
 

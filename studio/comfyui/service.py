@@ -376,9 +376,16 @@ class ComfyService:
             raise ComfyServiceError("profile không đạt: " + "; ".join(problems))
         result = {}
         for name in ("text2image", "reference"):
-            record = self.import_workflow(f"FLUX.2 Klein 4B · {name}", (folder / f"{name}.json").read_bytes())
+            raw = (folder / f"{name}.json").read_bytes()
+            parsed = self._parse(raw, None)
+            existing = self.duplicates(parsed["source_sha256"], parsed["api_sha256"])
+            if existing:                     # đã có bản cùng nội dung: dùng lại, không nhân bản (F21)
+                record = max(existing, key=lambda r: r.created_at)
+                result[name] = {"workflow_id": record.workflow_id, "revision": record.revision, "reused": True}
+                continue
+            record = self.import_workflow(f"FLUX.2 Klein 4B · {name}", raw)
             record = self.attach_manifest(record.workflow_id, record.revision, manifest)
-            result[name] = {"workflow_id": record.workflow_id, "revision": record.revision}
+            result[name] = {"workflow_id": record.workflow_id, "revision": record.revision, "reused": False}
         result["manifest_sha256"] = manifest.sha256()
         return result
 

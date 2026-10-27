@@ -207,6 +207,16 @@ def test_template_must_be_approved_before_binding(env):
         service.bind_image_inputs(profile['text2image']['workflow_id'], 1, {'4': {'text': 'robot'}}, 'request')
 
 
+def test_importing_the_sample_twice_reuses_existing_workflows(env):
+    service = cs.ComfyService(env.store, None)
+    first = service.import_image_profile(PROFILE)
+    again = service.import_image_profile(PROFILE)
+    assert not first['text2image']['reused'] and again['text2image']['reused'] and again['reference']['reused']
+    assert again['text2image']['workflow_id'] == first['text2image']['workflow_id']
+    assert again['reference']['workflow_id'] == first['reference']['workflow_id']
+    assert len(service.library()) == 2
+
+
 def test_timeout_keeps_pending_run_without_second_submit(setup_image, tmp_path):
     adapter, service, gpu, config, state = setup_image
     state.mode = 'pending'
