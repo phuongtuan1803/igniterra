@@ -1,0 +1,21 @@
+<div class="page-header"><div><p class="eyebrow">GPU / MÁY CỐ ĐỊNH</p><h1>Thêm máy cố định</h1><p class="page-subtitle muted">Dùng cho VPS có GPU đã cài ComfyUI. Không tốn phí khi thêm.</p></div><a class="button" href="#">← Máy GPU</a></div>
+<div class="panel-grid">
+<section class="card">
+  <form class="stack-form">
+    <label>Tên dễ nhớ <input type="text" name="name" value="VPS Hà Nội · A5000"></label>
+    <label>Địa chỉ ComfyUI <input type="text" name="url" value="https://gpu-hn.example.vn:8188"><span class="small muted">Phải là https, hoặc địa chỉ nội bộ (LAN, Tailscale).</span></label>
+    <label>Token hoặc mật khẩu truy cập <input type="password" name="token" value="••••••••••••"><span class="small muted">Lưu trong data/secrets, không hiện lại, không ghi vào log.</span></label>
+    <label>Giá USD/giờ (tùy chọn) <input type="number" name="hourly" value="0.20"><span class="small muted">Chỉ để ước tính chi phí. Để trống nếu máy không tính theo giờ.</span></label>
+    <div class="row"><button type="button">{{icon:refresh}} Kiểm tra kết nối</button><button type="button" class="primary">Lưu máy</button></div>
+  </form>
+</section>
+<section class="card">
+  <p class="eyebrow">KẾT QUẢ KIỂM TRA</p><h2>Kết nối được</h2>
+  <ol class="provision-steps">
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Từ chối khi không có token</strong><p>HTTP 401, đúng như mong đợi</p></div></li>
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>/system_stats trả lời</strong><p>ComfyUI 0.3.x · Python 3.12</p></div></li>
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>GPU</strong><p>NVIDIA RTX A5000 · 24 GB VRAM</p></div></li>
+  </ol>
+  <p class="section-note">Igniterra không cài model hay custom node lên máy cố định. Workflow thiếu gì sẽ bị chặn trước khi chạy và báo danh sách để bạn cài tay.</p>
+</section>
+</div>

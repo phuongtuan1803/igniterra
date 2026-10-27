@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S15-import-check Nhập workflow: Kiểm tra & Lưu · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>ComfyUI Workflows</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">COMFYUI / NHẬP · BƯỚC 2/2</p><h1>Kiểm tra &amp; Lưu</h1><p class="page-subtitle muted">portrait-fix.json · lấy từ máy r_8508e104d4d4. Lưu không tốn phí và không thuê GPU.</p></div><a class="button" href="#">← Bước 1: Chọn file</a></div>
+<div class="alert"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-alert"></use></svg><div><strong>Đã có workflow cùng nội dung</strong><p class="small">“Sửa mặt · thử” revision 2 có cùng SHA-256. Mở bản đang có để tránh trùng, hoặc lưu thành bản riêng nếu bạn cố ý.</p></div><a class="button" href="#">Mở bản đang có</a></div>
+<div class="panel-grid">
+<section class="card">
+  <p class="eyebrow">KẾT QUẢ KIỂM</p><h2>Workflow đọc được</h2>
+  <ol class="provision-steps">
+    <li><span class="step-num done"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg></span><div><strong>Có bản chạy được (API)</strong><p>ComfyUI lưu kèm cả bản GUI</p></div></li>
+    <li><span class="step-num">2</span><div><strong>Cần duyệt dependency</strong><p>2 model, 1 custom node (Impact Pack). Bạn duyệt ở trang workflow sau khi lưu.</p></div></li>
+    <li><span class="step-num done"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg></span><div><strong>Loại: Sửa dị dạng</strong><p>Đoán từ node FaceDetailer. Sửa nếu sai.</p></div></li>
+  </ol>
+</section>
+<section class="card">
+  <form class="stack-form">
+    <label>Tên <input type="text" name="name" value="Sửa mặt và tay"></label>
+    <label>Loại <select name="kind"><option>Sửa dị dạng</option><option>Ảnh từ chữ</option><option>Sửa ảnh</option><option>Video từ ảnh</option><option>Phóng to</option><option>Giọng đọc</option><option>Giữ nhân vật</option></select></label>
+    <label>Ghi chú (tùy chọn) <textarea name="note">Bản sửa từ ComfyUI gốc, thêm hand detailer</textarea></label>
+    <div class="row"><button type="button" class="primary">Lưu thành bản riêng</button><button type="button">Hủy</button></div>
+  </form>
+</section>
+</div>
+<details class="status-detail"><summary>Nâng cao: SHA-256, class_type, file gốc</summary><p class="small muted"><code>source 4be1…9a2c</code> · <code>api 77d0…e1f3</code> · CheckpointLoaderSimple, FaceDetailer, UltralyticsDetectorProvider, SAMLoader, SaveImage</p></details>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>

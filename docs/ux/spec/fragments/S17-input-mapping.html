@@ -1,0 +1,14 @@
+<div class="page-header"><div><p class="eyebrow">COMFYUI / WORKFLOW / NÂNG CAO</p><h1>Khai input cho form chạy</h1><p class="page-subtitle muted">Giữ nhân vật Bé Na · revision 1. Chỉ những ô khai ở đây mới hiện trên form chạy.</p></div><a class="button" href="#">← Workflow</a></div>
+<p class="section-note">Lưu mapping tạo revision 2 và cần duyệt lại. Revision 1 và các run cũ giữ nguyên.</p>
+<section class="card">
+  <div class="table-scroll"><table>
+    <thead><tr><th>Tên ô trên form</th><th>Kiểu</th><th>Node · input</th><th>Bắt buộc</th><th>Giới hạn</th></tr></thead>
+    <tbody>
+      <tr><td>Nhân vật</td><td><span class="type-pill">Nhân vật</span></td><td><select name="m1" aria-label="Node cho Nhân vật"><option>12 · LoadImage.image (ảnh tham chiếu)</option></select></td><td>Có</td><td class="small">Ảnh đã duyệt của Series</td></tr>
+      <tr><td>Mô tả cảnh</td><td><span class="type-pill">Chữ</span></td><td><select name="m2" aria-label="Node cho Mô tả cảnh"><option>6 · CLIPTextEncode.text</option></select></td><td>Có</td><td class="small">1–600 ký tự</td></tr>
+      <tr><td>Seed</td><td><span class="type-pill">Số</span></td><td><select name="m3" aria-label="Node cho Seed"><option>3 · KSampler.seed</option></select></td><td>Không</td><td class="small">0–2³²</td></tr>
+      <tr><td>Số ảnh</td><td><span class="type-pill">Số</span></td><td><select name="m4" aria-label="Node cho Số ảnh"><option>5 · EmptyLatentImage.batch_size</option></select></td><td>Không</td><td class="small">1–4</td></tr>
+    </tbody>
+  </table></div>
+  <div class="row"><button type="button">{{icon:plus}} Thêm ô</button><button type="button" class="primary">Lưu thành revision 2</button></div>
+</section>

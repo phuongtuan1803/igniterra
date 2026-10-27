@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S20-missing-deps Thiếu model trên máy · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>ComfyUI Workflows</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">COMFYUI / RUN CR_9A01C2</p><h1>Đọc tiếng Việt · bị chặn</h1><div class="muted small">revision 2 · 1× RTX 4090 · chưa gửi prompt, chưa tốn phí chạy</div></div><a class="button" href="#">← Workflow</a></div>
+<div class="alert red"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-alert"></use></svg><div><strong>Máy thiếu 1 custom node và 1 model</strong><p class="small">Kiểm /object_info của máy trước khi gửi. Igniterra không gửi prompt khi còn thiếu.</p></div></div>
+<section class="card">
+  <div class="table-scroll"><table>
+    <thead><tr><th>Thiếu</th><th>Loại</th><th>Nguồn đã duyệt</th><th>Dung lượng</th></tr></thead>
+    <tbody>
+      <tr><td><code>TTSVietnameseLoader</code></td><td>custom node</td><td class="small">github.com/… @ 3e9a1c0</td><td>—</td></tr>
+      <tr><td><code>tts-vi-base.safetensors</code></td><td>model</td><td class="small">huggingface.co/… · SHA-256 đã ghim</td><td>1,3 GB</td></tr>
+    </tbody>
+  </table></div>
+</section>
+<div class="panel-grid">
+<section class="card">
+  <p class="eyebrow">MÁY THUÊ</p><h2>Thêm vào gói cài đặt GPU</h2>
+  <p class="small muted">Tạo provisioning manifest mới gồm các dependency đã duyệt của workflow này. Manifest mới chờ bạn duyệt; máy thuê sau sẽ tự cài. Máy đang chạy không được cài thêm.</p>
+  <div class="row"><button type="button" class="primary">Tạo gói cài đặt mới</button><a class="button" href="#">Thuê máy với gói mới</a></div>
+</section>
+<section class="card">
+  <p class="eyebrow">MÁY CỐ ĐỊNH</p><h2>Cài tay trên VPS</h2>
+  <p class="small muted">Igniterra không cài lên máy cố định. Sao chép lệnh dưới đây, chạy trên VPS rồi bấm Kiểm tra lại.</p>
+  <pre>cd ComfyUI/custom_nodes &amp;&amp; git clone … &amp;&amp; git checkout 3e9a1c0</pre>
+  <button type="button"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-refresh"></use></svg> Kiểm tra lại</button>
+</section>
+</div>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>

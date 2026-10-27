@@ -1,0 +1,29 @@
+<div class="page-header"><div><p class="eyebrow">COMFYUI / WORKFLOW</p><h1>Giữ nhân vật Bé Na</h1><div class="muted small"><span class="type-pill">Giữ nhân vật</span> revision 1 · đã duyệt</div></div><a class="button" href="#">← Thư viện</a></div>
+<div class="panel-grid workflow-layout">
+<section class="card">
+  <p class="eyebrow">TRƯỚC KHI CHẠY</p><h2>Bốn điều kiện</h2>
+  <ol class="provision-steps">
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Có bản chạy được</strong><p>API JSON trong revision 1</p></div></li>
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Dependency đã duyệt</strong><p>3 model, 2 custom node</p></div></li>
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Có máy sẵn sàng</strong><p>2 máy ready</p></div></li>
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Máy có đủ node và model</strong><p>Kiểm /object_info lúc bấm Chạy</p></div></li>
+  </ol>
+</section>
+<section class="card">
+  <p class="eyebrow">CHẠY CÓ KIỂM</p><h2>Nhập và chạy</h2>
+  <form class="stack-form">
+    <label>Nhân vật (từ Series) <select name="character"><option>Bé Na · Series “Chuyện nhà Na” · 3 ảnh đã duyệt</option></select></label>
+    <label>Mô tả cảnh <textarea name="prompt">Bé Na cầm đèn lồng đứng trước cổng chùa, buổi tối, ánh vàng ấm</textarea></label>
+    <div class="input-row"><label>Seed <input type="number" name="seed" value="421337"></label><label>Số ảnh <input type="number" name="count" value="1"></label></div>
+    <label>Máy <select name="machine"><option>1× RTX 4090 · Thuê · $0.350/giờ</option><option>VPS Hà Nội · A5000 · Cố định · $0.20/giờ</option></select></label>
+    <details open><summary>Tự kiểm và chạy lại khi lỗi</summary>
+      <label><input type="checkbox" name="autofix" checked> Bật tự kiểm</label>
+      <div class="input-row"><label>Số lượt tối đa <input type="number" name="max_attempts" value="3"></label><label>Trần chi phí (USD) <input type="number" name="cap" value="0.10"></label></div>
+      <label>Cách kiểm <select name="judge"><option>Model vision chấm mặt, tay, giống nhân vật</option><option>Tôi tự duyệt từng lượt</option></select></label>
+    </details>
+    <p class="section-note">Ước tính: khoảng 40 giây GPU mỗi lượt, khoảng $0.004 mỗi lượt, tối đa $0.10. Đây là ước tính, không phải hóa đơn.</p>
+    <label><input type="checkbox" name="confirm"> Tôi đồng ý máy GPU tính phí trong lúc chạy</label>
+    <button type="button" class="primary">{{icon:play}} Chạy</button>
+  </form>
+</section>
+</div>

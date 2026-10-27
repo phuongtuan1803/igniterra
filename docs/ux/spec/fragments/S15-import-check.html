@@ -1,0 +1,21 @@
+<div class="page-header"><div><p class="eyebrow">COMFYUI / NHẬP · BƯỚC 2/2</p><h1>Kiểm tra &amp; Lưu</h1><p class="page-subtitle muted">portrait-fix.json · lấy từ máy r_8508e104d4d4. Lưu không tốn phí và không thuê GPU.</p></div><a class="button" href="#">← Bước 1: Chọn file</a></div>
+<div class="alert">{{icon:alert}}<div><strong>Đã có workflow cùng nội dung</strong><p class="small">“Sửa mặt · thử” revision 2 có cùng SHA-256. Mở bản đang có để tránh trùng, hoặc lưu thành bản riêng nếu bạn cố ý.</p></div><a class="button" href="#">Mở bản đang có</a></div>
+<div class="panel-grid">
+<section class="card">
+  <p class="eyebrow">KẾT QUẢ KIỂM</p><h2>Workflow đọc được</h2>
+  <ol class="provision-steps">
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Có bản chạy được (API)</strong><p>ComfyUI lưu kèm cả bản GUI</p></div></li>
+    <li><span class="step-num">2</span><div><strong>Cần duyệt dependency</strong><p>2 model, 1 custom node (Impact Pack). Bạn duyệt ở trang workflow sau khi lưu.</p></div></li>
+    <li><span class="step-num done">{{icon:check}}</span><div><strong>Loại: Sửa dị dạng</strong><p>Đoán từ node FaceDetailer. Sửa nếu sai.</p></div></li>
+  </ol>
+</section>
+<section class="card">
+  <form class="stack-form">
+    <label>Tên <input type="text" name="name" value="Sửa mặt và tay"></label>
+    <label>Loại <select name="kind"><option>Sửa dị dạng</option><option>Ảnh từ chữ</option><option>Sửa ảnh</option><option>Video từ ảnh</option><option>Phóng to</option><option>Giọng đọc</option><option>Giữ nhân vật</option></select></label>
+    <label>Ghi chú (tùy chọn) <textarea name="note">Bản sửa từ ComfyUI gốc, thêm hand detailer</textarea></label>
+    <div class="row"><button type="button" class="primary">Lưu thành bản riêng</button><button type="button">Hủy</button></div>
+  </form>
+</section>
+</div>
+<details class="status-detail"><summary>Nâng cao: SHA-256, class_type, file gốc</summary><p class="small muted"><code>source 4be1…9a2c</code> · <code>api 77d0…e1f3</code> · CheckpointLoaderSimple, FaceDetailer, UltralyticsDetectorProvider, SAMLoader, SaveImage</p></details>

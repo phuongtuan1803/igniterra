@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S16-workflow-run Chạy có kiểm · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>ComfyUI Workflows</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">COMFYUI / WORKFLOW</p><h1>Giữ nhân vật Bé Na</h1><div class="muted small"><span class="type-pill">Giữ nhân vật</span> revision 1 · đã duyệt</div></div><a class="button" href="#">← Thư viện</a></div>
+<div class="panel-grid workflow-layout">
+<section class="card">
+  <p class="eyebrow">TRƯỚC KHI CHẠY</p><h2>Bốn điều kiện</h2>
+  <ol class="provision-steps">
+    <li><span class="step-num done"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg></span><div><strong>Có bản chạy được</strong><p>API JSON trong revision 1</p></div></li>
+    <li><span class="step-num done"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg></span><div><strong>Dependency đã duyệt</strong><p>3 model, 2 custom node</p></div></li>
+    <li><span class="step-num done"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg></span><div><strong>Có máy sẵn sàng</strong><p>2 máy ready</p></div></li>
+    <li><span class="step-num done"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg></span><div><strong>Máy có đủ node và model</strong><p>Kiểm /object_info lúc bấm Chạy</p></div></li>
+  </ol>
+</section>
+<section class="card">
+  <p class="eyebrow">CHẠY CÓ KIỂM</p><h2>Nhập và chạy</h2>
+  <form class="stack-form">
+    <label>Nhân vật (từ Series) <select name="character"><option>Bé Na · Series “Chuyện nhà Na” · 3 ảnh đã duyệt</option></select></label>
+    <label>Mô tả cảnh <textarea name="prompt">Bé Na cầm đèn lồng đứng trước cổng chùa, buổi tối, ánh vàng ấm</textarea></label>
+    <div class="input-row"><label>Seed <input type="number" name="seed" value="421337"></label><label>Số ảnh <input type="number" name="count" value="1"></label></div>
+    <label>Máy <select name="machine"><option>1× RTX 4090 · Thuê · $0.350/giờ</option><option>VPS Hà Nội · A5000 · Cố định · $0.20/giờ</option></select></label>
+    <details open><summary>Tự kiểm và chạy lại khi lỗi</summary>
+      <label><input type="checkbox" name="autofix" checked> Bật tự kiểm</label>
+      <div class="input-row"><label>Số lượt tối đa <input type="number" name="max_attempts" value="3"></label><label>Trần chi phí (USD) <input type="number" name="cap" value="0.10"></label></div>
+      <label>Cách kiểm <select name="judge"><option>Model vision chấm mặt, tay, giống nhân vật</option><option>Tôi tự duyệt từng lượt</option></select></label>
+    </details>
+    <p class="section-note">Ước tính: khoảng 40 giây GPU mỗi lượt, khoảng $0.004 mỗi lượt, tối đa $0.10. Đây là ước tính, không phải hóa đơn.</p>
+    <label><input type="checkbox" name="confirm"> Tôi đồng ý máy GPU tính phí trong lúc chạy</label>
+    <button type="button" class="primary"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-play"></use></svg> Chạy</button>
+  </form>
+</section>
+</div>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S18-run-autofix Run có tự kiểm và chạy lại · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>ComfyUI Workflows</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">COMFYUI / RUN CR_7C2D91</p><h1>Giữ nhân vật Bé Na · tự kiểm</h1><div class="muted small">revision 1 · 1× RTX 4090 · bắt đầu 11:31</div></div><a class="button" href="#">← Workflow</a></div>
+<div class="status"><span class="chip ok">Đạt ở lượt 2</span> <span class="small muted">Dừng vì: lượt 2 đạt. Còn 1 lượt chưa dùng.</span></div>
+<section class="metrics" aria-label="Tổng quan run">
+  <div class="metric-card"><span class="eyebrow">LƯỢT</span><strong>2 / 3</strong><span>Dừng khi đạt</span></div>
+  <div class="metric-card"><span class="eyebrow">CHI PHÍ ƯỚC TÍNH</span><strong>$0.008</strong><span>Trần $0.10</span></div>
+  <div class="metric-card"><span class="eyebrow">THỜI GIAN GPU</span><strong>81 giây</strong><span>2 lượt</span></div>
+  <div class="metric-card"><span class="eyebrow">OUTPUT</span><strong>Đã kiểm</strong><span>SHA-256 khớp</span></div>
+</section>
+<section class="card">
+  <h2>Các lượt</h2>
+  <ol class="attempts">
+    <li><div class="thumb-box bad">Lượt 1</div><div><strong>Lỗi: bàn tay trái 6 ngón</strong><p class="small muted">seed 421337 · 39 giây · $0.004 · kiểm bằng model vision</p><p class="small">Chạy lại với seed mới. Cùng prompt, cùng ảnh tham chiếu.</p></div></li>
+    <li><div class="thumb-box ok">Lượt 2</div><div><strong>Đạt: mặt giống nhân vật, tay bình thường</strong><p class="small muted">seed 908112 · 42 giây · $0.004 · output đã tải và kiểm SHA-256</p><div class="row"><a class="button primary" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-check"></use></svg> Dùng kết quả này</a><a class="button" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-download"></use></svg> Tải ảnh</a></div></div></li>
+  </ol>
+  <p class="small muted">Tự kiểm chỉ chạy lại khi lượt trước có kết quả rõ ràng. Nếu ComfyUI không xác nhận đã nhận prompt (submit_unknown), Igniterra dừng và đối soát, không gửi lại.</p>
+</section>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>
