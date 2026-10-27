@@ -13,6 +13,8 @@ Bộ tài liệu thiết kế của hệ thống sản xuất video AI (core t�
 | [07 · Triển khai và vận hành](src/design/07-operations.md) | Triển khai, bí mật, nâng cấp MPT, quan sát, sao lưu, bảo mật, rủi ro, runbook |
 | [08 · Lộ trình theo decision gate](src/design/08-roadmap.md) | Gate 2–4, test T01–T12, thứ tự triển khai GPU thuê, quyết định còn mở |
 | [09 · GPU thuê và ComfyUI](src/design/09-gpu-comfyui.md) | Gate 4: GPUProvider, Vast.ai, provisioning, ComfyUI workflow, guardrail và G01–G12 |
+| [10 · UX cho người mới và ComfyUI](src/design/10-ux-beginner.md) | Hành trình J01–J15, máy thuê và máy cố định, hai chế độ ComfyUI, tự kiểm và chạy lại, lộ trình giai đoạn 0–6 |
+| [Màn hình chuẩn UX](ux/spec/README.md) | 14 màn hình chuẩn ở 1440/768/390 px, checklist và cách review giao diện bằng AI |
 | [Runbook Slice E](runbooks/gpu-slice-e.md) | Kiểm thử, thuê thật trong trần chi phí, xác nhận destroy và giới hạn còn lại |
 | [ADR](src/adr/index.md) | Sổ quyết định; 0001–0003 bị loại theo ADD-003, 0004–0006 đã duyệt |
 

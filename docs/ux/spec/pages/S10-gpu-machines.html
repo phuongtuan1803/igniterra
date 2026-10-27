@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S10-gpu-machines Máy GPU · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>GPU</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">INFRASTRUCTURE / GPU</p><h1>Máy GPU</h1><p class="page-subtitle muted">Máy thuê theo giờ trên Vast.ai và máy cố định (VPS có GPU) dùng chung một danh sách.</p></div><div class="row"><a class="button" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-plus"></use></svg> Thêm máy cố định</a><a class="button primary" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-search"></use></svg> Tìm GPU thuê</a></div></div>
+<section class="metrics" aria-label="Tổng quan GPU">
+  <div class="metric-card important"><span class="eyebrow">MÁY THUÊ CÓ THỂ ĐANG TÍNH PHÍ</span><strong class="metric-warning">1</strong><span>Chưa xác nhận destroyed</span></div>
+  <div class="metric-card"><span class="eyebrow">SẴN SÀNG</span><strong>2</strong><span>1 thuê · 1 cố định</span></div>
+  <div class="metric-card"><span class="eyebrow">CHI PHÍ ƯỚC TÍNH HÔM NAY</span><strong>$0.41</strong><span>Ước tính, không phải hóa đơn</span></div>
+  <div class="metric-card"><span class="eyebrow">ĐANG CHẠY</span><strong>0</strong><span>Một run mỗi máy</span></div>
+</section>
+<section class="card">
+  <div class="section-heading"><div><h2>Danh sách máy</h2></div></div>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Máy</th><th>Loại</th><th>Trạng thái</th><th>Giá</th><th>Hạn idle</th><th>Thao tác</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1× RTX 4090</strong><div class="small muted">r_8508e104d4d4</div></td><td><span class="type-pill">Thuê · Vast.ai</span></td><td><span class="chip ok">ready</span> <span class="chip warn">đang tính phí</span></td><td>$0.350/giờ</td><td>còn 22 phút</td><td><a class="button primary" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-arrow"></use></svg> Mở ComfyUI</a></td></tr>
+      <tr><td><strong>VPS Hà Nội · A5000</strong><div class="small muted">h_hn-a5000</div></td><td><span class="type-pill">Cố định · VPS</span></td><td><span class="chip ok">ready</span></td><td>$0.20/giờ (tự khai)</td><td>Không áp dụng</td><td><a class="button primary" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-arrow"></use></svg> Mở ComfyUI</a></td></tr>
+      <tr><td><strong>1× RTX 3090</strong><div class="small muted">r_1c03aa9e7b10</div></td><td><span class="type-pill">Thuê · Vast.ai</span></td><td><span class="chip">destroyed</span></td><td>—</td><td>—</td><td><a class="button" href="#">Chi tiết</a></td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">Máy cố định không có Stop/Destroy: Igniterra không quản lý vòng đời của nó, chỉ kết nối tới ComfyUI trên máy.</p>
+</section>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>

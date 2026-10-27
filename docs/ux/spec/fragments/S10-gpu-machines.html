@@ -1,0 +1,19 @@
+<div class="page-header"><div><p class="eyebrow">INFRASTRUCTURE / GPU</p><h1>Máy GPU</h1><p class="page-subtitle muted">Máy thuê theo giờ trên Vast.ai và máy cố định (VPS có GPU) dùng chung một danh sách.</p></div><div class="row"><a class="button" href="#">{{icon:plus}} Thêm máy cố định</a><a class="button primary" href="#">{{icon:search}} Tìm GPU thuê</a></div></div>
+<section class="metrics" aria-label="Tổng quan GPU">
+  <div class="metric-card important"><span class="eyebrow">MÁY THUÊ CÓ THỂ ĐANG TÍNH PHÍ</span><strong class="metric-warning">1</strong><span>Chưa xác nhận destroyed</span></div>
+  <div class="metric-card"><span class="eyebrow">SẴN SÀNG</span><strong>2</strong><span>1 thuê · 1 cố định</span></div>
+  <div class="metric-card"><span class="eyebrow">CHI PHÍ ƯỚC TÍNH HÔM NAY</span><strong>$0.41</strong><span>Ước tính, không phải hóa đơn</span></div>
+  <div class="metric-card"><span class="eyebrow">ĐANG CHẠY</span><strong>0</strong><span>Một run mỗi máy</span></div>
+</section>
+<section class="card">
+  <div class="section-heading"><div><h2>Danh sách máy</h2></div></div>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Máy</th><th>Loại</th><th>Trạng thái</th><th>Giá</th><th>Hạn idle</th><th>Thao tác</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1× RTX 4090</strong><div class="small muted">r_8508e104d4d4</div></td><td><span class="type-pill">Thuê · Vast.ai</span></td><td><span class="chip ok">ready</span> <span class="chip warn">đang tính phí</span></td><td>$0.350/giờ</td><td>còn 22 phút</td><td><a class="button primary" href="#">{{icon:arrow}} Mở ComfyUI</a></td></tr>
+      <tr><td><strong>VPS Hà Nội · A5000</strong><div class="small muted">h_hn-a5000</div></td><td><span class="type-pill">Cố định · VPS</span></td><td><span class="chip ok">ready</span></td><td>$0.20/giờ (tự khai)</td><td>Không áp dụng</td><td><a class="button primary" href="#">{{icon:arrow}} Mở ComfyUI</a></td></tr>
+      <tr><td><strong>1× RTX 3090</strong><div class="small muted">r_1c03aa9e7b10</div></td><td><span class="type-pill">Thuê · Vast.ai</span></td><td><span class="chip">destroyed</span></td><td>—</td><td>—</td><td><a class="button" href="#">Chi tiết</a></td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">Máy cố định không có Stop/Destroy: Igniterra không quản lý vòng đời của nó, chỉ kết nối tới ComfyUI trên máy.</p>
+</section>

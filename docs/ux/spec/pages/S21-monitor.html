@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S21-monitor Monitor · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>Monitor</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">MONITOR</p><h1>Monitor</h1><p class="page-subtitle muted">Đọc dữ liệu đã lưu. Không gọi provider khi mở trang.</p></div><div class="row"><a class="button" href="#"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-refresh"></use></svg> Làm mới bây giờ</a><label><input type="checkbox" name="auto" checked> Tự cập nhật mỗi 5 giây</label></div></div>
+<section class="card">
+  <h2>Cần xử lý trước</h2>
+  <div class="activity-list">
+    <div class="activity-item"><span class="activity-icon"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-clock"></use></svg></span><div><strong>1× RTX 4090 hết hạn idle sau 6 phút</strong><p class="small muted">Máy sẽ bị destroy. Workflow chưa lưu về thư viện sẽ mất.</p></div><a class="button" href="#">Mở máy</a></div>
+    <div class="activity-item"><span class="activity-icon"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-alert"></use></svg></span><div><strong>Run cr_9a01c2 bị chặn: thiếu model</strong><p class="small muted">Chưa tốn phí chạy.</p></div><a class="button" href="#">Xem cách sửa</a></div>
+    <div class="activity-item"><span class="activity-icon"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-dollar"></use></svg></span><div><strong>Task t_0412 chờ duyệt keyframes</strong><p class="small muted">Duyệt xong worker tiếp tục và có thể tốn phí.</p></div><a class="button" href="#">Mở storyboard</a></div>
+  </div>
+</section>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>

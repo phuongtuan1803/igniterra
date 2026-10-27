@@ -274,6 +274,7 @@ Giao diện chạy ở `127.0.0.1` hoặc sau Tailscale/basic auth; API key khô
 <!-- id:s9.b1 -->
 - GPU Rentals (`/gpu`) và ComfyUI (`/comfyui/workflows`) đã có theo [09](09-gpu-comfyui.md#s7). `/monitor` giải quyết nhu cầu theo dõi keyframe ComfyImage cùng task/scene và rental, không cần đi lần lượt qua từng workflow.
 
+<!-- id:s9.b2 -->
 - Không dashboard thống kê: `costs.jsonl` và `jq` đủ cho báo cáo tháng.
 - Không workflow editor: danh sách bước là mã Python; ComfyUI workflow chỉ nhập, duyệt và chạy, sửa graph mở ComfyUI gốc.
 - Không thay trình dựng phim: chỉnh nhịp từng khung phải sửa dữ liệu rồi render lại, hoặc xuất timeline sang trình dựng ngoài.

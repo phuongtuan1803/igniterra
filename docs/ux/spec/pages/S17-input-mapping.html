@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S17-input-mapping Khai input cho workflow · Igniterra UX chuẩn</title>
+<link rel="stylesheet" href="/studio/web/static/style.css">
+<link rel="stylesheet" href="/docs/ux/spec/spec.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Điều hướng">
+    <a class="brand" href="#"><span class="brand-symbol" aria-hidden="true"><span>i</span></span><span><span class="brand-wordmark">igniterra</span><span class="brand-sub" style="display:block">CREATIVE OPERATIONS</span></span></a>
+    <nav class="nav-menu" aria-label="Workspace"><div class="nav-caption">PRODUCTION</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-grid"></use></svg><span>Bắt đầu</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg><span>Tasks</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-stack"></use></svg><span>Series Bible</span></a><div class="nav-caption">INFRASTRUCTURE</div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg><span>GPU</span></a><a href="#" class="nav-item active" aria-current="page"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg><span>ComfyUI Workflows</span></a><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg><span>Monitor</span></a><div class="nav-divider"></div><a href="#" class="nav-item "><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-settings"></use></svg><span>Settings</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span><div><strong>Local workspace</strong><small>Trạng thái từ dữ liệu studio</small></div></div>
+  </aside>
+  <div class="app-content">
+    <header class="utility-bar"><div class="utility-start"><button type="button" class="menu-button" aria-label="Mở điều hướng"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-menu"></use></svg></button><span>Studio <span class="utility-slash">/</span> <b>ComfyUI Workflows</b></span></div><span class="utility-mode">LOCAL STUDIO</span></header>
+    <main id="main" class="page-container" tabindex="-1">
+<div class="page-header"><div><p class="eyebrow">COMFYUI / WORKFLOW / NÂNG CAO</p><h1>Khai input cho form chạy</h1><p class="page-subtitle muted">Giữ nhân vật Bé Na · revision 1. Chỉ những ô khai ở đây mới hiện trên form chạy.</p></div><a class="button" href="#">← Workflow</a></div>
+<p class="section-note">Lưu mapping tạo revision 2 và cần duyệt lại. Revision 1 và các run cũ giữ nguyên.</p>
+<section class="card">
+  <div class="table-scroll"><table>
+    <thead><tr><th>Tên ô trên form</th><th>Kiểu</th><th>Node · input</th><th>Bắt buộc</th><th>Giới hạn</th></tr></thead>
+    <tbody>
+      <tr><td>Nhân vật</td><td><span class="type-pill">Nhân vật</span></td><td><select name="m1" aria-label="Node cho Nhân vật"><option>12 · LoadImage.image (ảnh tham chiếu)</option></select></td><td>Có</td><td class="small">Ảnh đã duyệt của Series</td></tr>
+      <tr><td>Mô tả cảnh</td><td><span class="type-pill">Chữ</span></td><td><select name="m2" aria-label="Node cho Mô tả cảnh"><option>6 · CLIPTextEncode.text</option></select></td><td>Có</td><td class="small">1–600 ký tự</td></tr>
+      <tr><td>Seed</td><td><span class="type-pill">Số</span></td><td><select name="m3" aria-label="Node cho Seed"><option>3 · KSampler.seed</option></select></td><td>Không</td><td class="small">0–2³²</td></tr>
+      <tr><td>Số ảnh</td><td><span class="type-pill">Số</span></td><td><select name="m4" aria-label="Node cho Số ảnh"><option>5 · EmptyLatentImage.batch_size</option></select></td><td>Không</td><td class="small">1–4</td></tr>
+    </tbody>
+  </table></div>
+  <div class="row"><button type="button"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-plus"></use></svg> Thêm ô</button><button type="button" class="primary">Lưu thành revision 2</button></div>
+</section>
+
+    </main>
+  </div>
+</div>
+<nav class="mobile-nav" aria-label="Truy cập nhanh"><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-film"></use></svg>Tasks</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-cpu"></use></svg>GPU</a><a href="#" class="active"><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-flow"></use></svg>ComfyUI</a><a href="#" class=""><svg class="ico" aria-hidden="true" focusable="false"><use href="/studio/web/static/icons.svg#ic-monitor"></use></svg>Monitor</a></nav>
+</body>
+</html>
