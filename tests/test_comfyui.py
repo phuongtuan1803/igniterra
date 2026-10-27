@@ -16,7 +16,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import pytest
 from conftest import approve_gpu_manifest
@@ -69,6 +69,7 @@ class Comfy:
         self.history: dict[str, dict] = {}
         self.files: dict[str, tuple[bytes, str]] = {OUTPUT["filename"]: (PNG, "image/png")}
         self.view_mode = "ok"              # ok | error | truncate
+        self.saved: dict[str, bytes] = {}  # workflow đã Save trong ComfyUI gốc (user/default/workflows)
         self.views = 0
         self.lock = threading.Lock()
 
@@ -133,6 +134,17 @@ class Handler(BaseHTTPRequestHandler):
             if STATE.prompt_mode in ("slow_ok", "lost"):
                 time.sleep(1.5)            # quá timeout của client: response mất
             return self.reply(200, {"prompt_id": prompt_id, "number": len(STATE.posts), "node_errors": {}})
+        if url.path == "/history":
+            keys = list(STATE.history)[-int(parse_qs(url.query).get("max_items", ["0"])[0] or 0):]
+            return self.reply(200, {key: STATE.history[key] for key in keys})
+        if url.path == "/api/userdata":
+            return self.reply(200, [{"path": p, "size": len(b), "modified": 1_793_000_000 + i}
+                                    for i, (p, b) in enumerate(STATE.saved.items())])
+        if url.path.startswith("/api/userdata/"):
+            name = unquote(url.path.removeprefix("/api/userdata/")).removeprefix("workflows/")
+            if name not in STATE.saved:
+                return self.reply(404, {"error": "not found"})
+            return self.reply(200, STATE.saved[name])
         if url.path.startswith("/history/"):
             prompt_id = url.path.removeprefix("/history/")
             return self.reply(200, {prompt_id: STATE.history[prompt_id]} if prompt_id in STATE.history else {})

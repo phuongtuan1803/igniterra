@@ -33,6 +33,7 @@ import requests
 SMOKE_PREFIX = "igniterra_smoke"
 VIEW_MAX_BYTES = 10 * 1024 * 1024
 DOWNLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024       # output video lớn nhất nhận về (2 GiB)
+WORKFLOW_MAX_BYTES = 5 * 1024 * 1024               # workflow JSON đọc từ userdata của ComfyUI gốc
 SAFE_NAME = re.compile(r"[A-Za-z0-9._-]{1,200}")
 SAFE_SUBFOLDER = re.compile(r"(?:[A-Za-z0-9._-]{1,100}(?:/[A-Za-z0-9._-]{1,100}){0,4})?")
 FOLDER_TYPES = ("output", "temp")
@@ -113,6 +114,11 @@ def check_output_ref(filename: str, subfolder: str, folder_type: str) -> None:
         raise ComfyUIRejected(f"subfolder output lạ: {subfolder!r}")
     if folder_type not in FOLDER_TYPES:
         raise ComfyUIRejected(f"type output lạ: {folder_type!r}")
+
+
+def _clean_userdata_path(path: str) -> bool:
+    parts = path.replace("\\", "/").split("/")
+    return bool(path) and not path.startswith("/") and all(part not in ("", ".", "..") for part in parts)
 
 
 class Download:
@@ -223,6 +229,56 @@ class ComfyUIRuntime:
 
     def queue(self) -> dict:
         return self._json(self._get("/queue"), "GET /queue")
+
+    def busy_elsewhere(self) -> bool:
+        """Hàng đợi có job (đang chạy hoặc chờ), bất kể ai gửi: dấu hiệu máy đang được dùng trong ComfyUI gốc."""
+        data = self.queue()
+        return any(data.get(key) for key in ("queue_running", "queue_pending"))
+
+    def history_head(self) -> str | None:
+        """``prompt_id`` mới nhất trong ``/history`` (``max_items=1``); None khi chưa chạy gì. Đổi giữa hai lượt đọc nghĩa
+        là đã có job chạy xong trong lúc đó."""
+        data = self._json(self._get("/history", {"max_items": 1}), "GET /history")
+        keys = [key for key in data if isinstance(key, str)]
+        return keys[-1] if keys else None
+
+    def saved_workflows(self) -> list[dict]:
+        """Workflow người dùng đã Save trong ComfyUI gốc: ``GET /api/userdata?dir=workflows`` (thư mục
+        ``user/default/workflows``). Mỗi mục: ``path`` (tương đối trong thư mục đó), ``size``, ``modified`` (epoch giây)."""
+        response = self._get("/api/userdata", {"dir": "workflows", "recurse": "true", "split": "false",
+                                               "full_info": "true"})
+        try:
+            data = response.json()
+        except ValueError:
+            raise ComfyUIUnavailable(f"GET /api/userdata: không phải JSON: {response.text[:300]}") from None
+        if not isinstance(data, list):
+            raise ComfyUIUnavailable(f"GET /api/userdata: cần list, nhận {type(data).__name__}")
+        items = []
+        for item in data:
+            entry = item if isinstance(item, dict) else {"path": item}
+            path = str(entry.get("path") or "")
+            if not path.endswith(".json") or not _clean_userdata_path(path):
+                continue
+            items.append({"path": path, "size": entry.get("size"), "modified": entry.get("modified")})
+        return sorted(items, key=lambda i: -(i["modified"] or 0))
+
+    def read_saved_workflow(self, path: str, max_bytes: int = WORKFLOW_MAX_BYTES) -> bytes:
+        """Nội dung một workflow đã Save: ``GET /api/userdata/workflows%2F<path>``, có trần dung lượng."""
+        if not path.endswith(".json") or not _clean_userdata_path(path):
+            raise ComfyUIRejected(f"đường dẫn workflow lạ: {path!r}")
+        response = self._get("/api/userdata/" + quote(f"workflows/{path}", safe=""), stream=True)
+        chunks, size = [], 0
+        try:
+            for chunk in response.iter_content(64 * 1024):
+                size += len(chunk)
+                if size > max_bytes:
+                    raise ComfyUIRejected(f"workflow {path} lớn hơn {max_bytes} byte")
+                chunks.append(chunk)
+        except requests.exceptions.RequestException as exc:
+            raise ComfyUIUnavailable(f"GET /api/userdata {path}: {exc}") from None
+        finally:
+            response.close()
+        return b"".join(chunks)
 
     def in_queue(self, prompt_id: str) -> bool:
         return self.queue_state(prompt_id) is not None

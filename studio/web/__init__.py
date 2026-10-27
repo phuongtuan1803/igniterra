@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+from datetime import datetime, timezone
 import os
 import secrets
 import tempfile
@@ -52,6 +53,8 @@ def create_app(config: dict | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     templates = Jinja2Templates(directory=HERE / "templates")
     templates.env.filters["tojson_pretty"] = lambda v: json.dumps(v, ensure_ascii=False, indent=2)
+    templates.env.filters["utc_time"] = lambda epoch: datetime.fromtimestamp(float(epoch), timezone.utc).strftime(
+        "%Y-%m-%d %H:%M")
     auth = os.environ.get("STUDIO_BASIC_AUTH", "")
 
     def actions() -> Actions:
@@ -545,6 +548,37 @@ def create_app(config: dict | None = None) -> FastAPI:
             return back(url, err=str(exc)[:500], request=request)
         return back(f"/comfyui/workflows/{record.workflow_id}?revision={record.revision}",
                     msg=f"{record.workflow_id} rev {record.revision}: {record.status}", request=request)
+
+    @app.get("/gpu/instances/{rental_id}/workflows", response_class=HTMLResponse)
+    def machine_workflows(request: Request, rental_id: str):
+        """S13: workflow đã Save trong ComfyUI gốc trên máy; chỉ GET tới máy, không tốn phí."""
+        if gpu is None:
+            return Response(status_code=404)
+        try:
+            rental = gpu.rental(rental_id)
+            files = comfy.machine_workflows(rental_id)
+        except KeyError:
+            return Response("không có máy", status_code=404)
+        except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError) as exc:
+            return back(f"/gpu/instances/{rental_id}", err=str(exc)[:500], request=request)
+        return page(request, "gpu_workflows.html", rental=rental, files=files, csrf=csrf,
+                    library=sorted(comfy.library(), key=lambda item: item["latest"].name.lower()))
+
+    @app.post("/gpu/instances/{rental_id}/workflows/import")
+    async def machine_workflow_import(request: Request, rental_id: str):
+        """Lưu workflow đã chọn thành workflow mới hoặc revision mới (không ghi đè revision cũ); cần CSRF token."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        url = f"/gpu/instances/{rental_id}/workflows"
+        target = str(form.get("target", "new"))
+        try:
+            record = comfy.import_from_machine(rental_id, str(form.get("path", "")),
+                                               workflow_id=None if target == "new" else target)
+        except (comfy_service.ComfyServiceError, gpu_service.GPUServiceError, KeyError) as exc:
+            return back(url, err=str(exc)[:500], request=request)
+        return back(f"/comfyui/workflows/{record.workflow_id}?revision={record.revision}",
+                    msg=f"Đã lưu {record.name} rev {record.revision} ({record.status}); không tốn phí", request=request)
 
     @app.get("/comfyui/workflows/{workflow_id}", response_class=HTMLResponse)
     def comfy_workflow_page(request: Request, workflow_id: str, revision: int | None = None):

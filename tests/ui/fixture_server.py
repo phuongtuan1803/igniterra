@@ -121,6 +121,9 @@ def rent():
 ready = rent()
 gpu.reconcile(ready.rental_id)
 assert gpu.rental(ready.rental_id).status == "ready"
+runtime_fixture.STATE.saved = {name: json.dumps({"last_node_id": 1, "links": [], "version": 0.4, "nodes": [
+    {"id": 1, "type": "SaveImage", "properties": {"cnr_id": "comfy-core", "ver": "0.3.60"}}]}).encode()
+    for name in ("portrait-fix.json", "flux-klein-test.json", "tts/vi-draft.json")}
 fixed = gpu.add_fixed_host(gpu.new_rental_id(), "VPS Hà Nội · A5000", f"http://{address}", FIXED_TOKEN, 0.2)
 revision = comfy.import_workflow("Browser approved workflow", json.dumps(runtime_fixture.API_PROMPT).encode())
 revision = comfy.attach_manifest(revision.workflow_id, revision.revision, WorkflowManifest(models=[runtime_fixture.MODEL]))
