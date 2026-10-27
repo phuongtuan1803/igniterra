@@ -2,7 +2,7 @@
 id: IGN-UX
 title: Igniterra — UX cho người mới và ComfyUI độc lập
 type: design
-ver: "1.1"
+ver: "1.2"
 status: draft
 date: 2026-10-27
 owner: Tuan
@@ -11,6 +11,7 @@ kv: [[Trạng thái, "Thiết kế; giai đoạn 0 (tài liệu); chưa có code
 rev:
   - ["1.0", 2026-10-27, "Chuyển đề xuất UX v2.1 vào bộ thiết kế: thu gọn phạm vi, thêm J06–J15, máy cố định, hai chế độ ComfyUI, tự kiểm và chạy lại, loại workflow, màn hình chuẩn và quy trình review bằng AI"]
   - ["1.1", 2026-10-27, "Tuan chốt: máy cố định chưa tính vào ngân sách; đề xuất VieNeu-TTS cho giọng đọc và cách chấm lượt tự kiểm"]
+  - ["1.2", 2026-10-27, "Tuan chốt Q-UX-01 (VieNeu-TTS) và Q-UX-02 (model vision qua OmniRoute, người chọn kết quả cuối)"]
 ---
 
 <!-- id:s1 -->
@@ -204,7 +205,7 @@ next -> run
 <!-- id:s6.b3 -->
 - Mỗi lượt là một run bình thường, có `run_id` riêng, nên mọi guard hiện có vẫn đúng: một run mỗi máy, nonce chống bấm hai lần, không gửi lại khi kết quả không rõ.
 - Trần phí và số lượt tối đa nhập trên form (S16) và lưu cùng nhóm lượt. Chi phí mỗi lượt là ước tính theo thời gian GPU, ghi rõ không phải hóa đơn.
-- Cách kiểm: model vision qua OmniRoute (đã có cho LLM và ảnh), hoặc người dùng tự duyệt từng lượt. Model vision cụ thể và tiêu chí "đạt" là câu hỏi mở ở [mục cuối](#s13).
+- Cách kiểm: model vision qua OmniRoute (đã có cho LLM và ảnh), hoặc người dùng tự duyệt từng lượt. Cách chấm đã chốt ở [mục cuối](#s13); model vision cụ thể chọn ở giai đoạn 3.
 - Workflow mẫu "Sửa dị dạng" (giai đoạn 4) dùng detailer, để lượt đầu đã ít lỗi.
 
 <!-- id:s7 -->
@@ -221,7 +222,7 @@ Table: Loại workflow Tuan cần, input và output
 | Sửa ảnh | ảnh, prompt, độ mạnh | PNG/JPEG |  |
 | Video từ ảnh | ảnh, mô tả chuyển động, thời lượng | MP4/WEBM | `runs.py` đã nhận video; chưa nối `VideoProvider` |
 | Phóng to | ảnh, hệ số | PNG |  |
-| Giọng đọc | văn bản tiếng Việt, giọng, tốc độ | WAV/MP3/FLAC | Cần thêm output audio vào `runtime.py` và `runs.py`; model chưa chọn |
+| Giọng đọc | văn bản tiếng Việt, giọng, tốc độ | WAV/MP3/FLAC | Cần thêm output audio vào `runtime.py` và `runs.py`; model VieNeu-TTS (đã chốt) |
 | Sửa dị dạng | ảnh, vùng (mặt, tay) | PNG | Detailer; dùng chung vòng tự kiểm |
 | Giữ nhân vật | nhân vật từ Series, prompt, seed | PNG | Ảnh tham chiếu đã duyệt thành input; như character sheet của ComfyImage |
 
@@ -355,24 +356,15 @@ Table: Giai đoạn, mỗi giai đoạn một PR
 | 6 | Brief Library, màn Bắt đầu, Series cho người mới, motion trong Storyboard | S00, S01 qua checklist |
 
 <!-- id:s13 -->
-## Câu hỏi còn mở
+## Quyết định đã chốt
 
 <!-- id:s13.b1 -->
-```q
-Q-UX-01 · Model đọc tiếng Việt cho workflow giọng đọc?
-1. VieNeu-TTS (Apache 2.0, 24 kHz, có giọng mẫu và clone giọng) qua node VieNeu TTS của pack ComfyUI-HMT-Ultimate; Tuan chạy thử trên GPU trước khi làm mẫu
-2. F5-TTS Vietnamese (giọng tốt nhưng license CC-BY-NC-SA, chỉ dùng phi thương mại)
-3. Giữ Edge TTS hiện tại cho video; workflow giọng đọc chỉ là tùy chọn thêm
-rec: 1
-```
+> [!IMPORTANT]
+> Q-UX-01 đã chốt (Tuan, 2026-10-27): workflow giọng đọc dùng VieNeu-TTS qua node VieNeu TTS của ComfyUI-HMT-Ultimate. Chất lượng giọng kiểm ở giai đoạn 4 trên GPU thật.
 
 <!-- id:s13.b2 -->
-```q
-Q-UX-02 · Lượt tự kiểm được chấm bằng gì?
-1. Model vision qua OmniRoute chấm theo bảng tiêu chí cố định, trả JSON (mặt, tay, giống nhân vật, lỗi hình); người dùng vẫn chọn kết quả cuối
-2. Chỉ người dùng tự duyệt từng lượt
-rec: 1
-```
+> [!IMPORTANT]
+> Q-UX-02 đã chốt (Tuan, 2026-10-27): lượt tự kiểm được chấm bằng model vision qua OmniRoute theo bảng tiêu chí cố định, trả JSON (mặt, tay, giống nhân vật, lỗi hình); người dùng chọn kết quả cuối. Model cụ thể chọn ở giai đoạn 3.
 
 <!-- id:s13.b3 -->
 > [!IMPORTANT]
