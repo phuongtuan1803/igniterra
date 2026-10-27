@@ -16,7 +16,7 @@
 {% if waiting %}<div class="alert">{{ icon('alert') }}<div><strong>{{ waiting|length }} task đang chờ bạn quyết định</strong><p>Mở storyboard để kiểm tra gate hoặc xử lý trạng thái đang chờ.</p></div><a class="button" href="/tasks/{{ waiting[0].id }}">Xem storyboard →</a></div>{% endif %}
 <div class="dashboard-grid">
   <section class="card production-list">
-    <div class="section-heading"><div><h2>Danh sách sản xuất</h2><p class="small muted" style="margin:5px 0 0">Chọn task để tiếp tục đúng công đoạn.</p></div><span class="muted small">{{ tasks|length }} / {{ all_tasks|length }} task</span></div>
+    <div class="section-heading"><div><h2>Danh sách sản xuất</h2><p class="small muted" style="margin:5px 0 0">Chọn task để tiếp tục đúng công đoạn.</p></div><span class="muted small">{{ tasks|length }} / {{ all_tasks|length }} task{% if show_hidden %} đã ẩn · <a href="/">← Về danh sách</a>{% elif hidden_count %} · <a href="/?hidden=1">Task đã ẩn ({{ hidden_count }})</a>{% endif %}</span></div>
     <nav class="filter-row" aria-label="Lọc task">
       {% for key, label in [('all','Tất cả'),('review','Cần duyệt'),('running','Đang xử lý'),('done','Hoàn tất'),('failed','Có lỗi')] %}
       <a class="filter {{ 'active' if status == key }}" href="/?status={{ key }}&amp;q={{ q|urlencode }}" {% if status == key %}aria-current="true"{% endif %}>{{ label }}</a>
@@ -32,7 +32,9 @@
             <td><a class="story-title" href="/tasks/{{ t.id }}">{{ t.title or t.id }}</a><small class="cell-sub">{{ t.id }}{% if t.series %} · {{ t.series }}{% endif %}{% if t.brief_id %} · {{ t.brief_id }}{% endif %}</small></td>
             <td>{{ status_chip(t) }}</td><td class="small muted">{{ t.current_step or '—' }}</td>
             <td class="cost-cell">{{ usd(t.usd, t.unpriced) }}</td>
-            <td><a class="text-link" href="/tasks/{{ t.id }}">Xem →</a><br><a class="small muted" href="/tasks/{{ t.id }}/detail" aria-label="Chi tiết {{ t.id }}">Log &amp; chi phí</a></td>
+            <td><a class="text-link" href="/tasks/{{ t.id }}">Xem →</a><br><a class="small muted" href="/tasks/{{ t.id }}/detail" aria-label="Chi tiết {{ t.id }}">Log &amp; chi phí</a>
+              {% if show_hidden %}<form method="post" action="/tasks/{{ t.id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="from" value="hidden"><button class="button" type="submit" aria-label="Khôi phục {{ t.id }}">Khôi phục</button></form>
+              {% elif t.status not in ("running", "pending") %}<form method="post" action="/tasks/{{ t.id }}/hide"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit" aria-label="Ẩn {{ t.id }}">Ẩn</button></form>{% endif %}</td>
           </tr>
           {% else %}<tr><td colspan="5"><div class="empty-state"><strong>{{ 'Không tìm thấy task phù hợp.' if all_tasks else 'Câu chuyện bắt đầu từ đây.' }}</strong><p>{{ 'Thử từ khóa hoặc trạng thái khác.' if all_tasks else 'Tạo task từ brief có sẵn hoặc JSON.' }}</p></div></td></tr>{% endfor %}
         </tbody>

@@ -2,7 +2,7 @@
 id: IGN-UX
 title: Igniterra — UX cho người mới và ComfyUI độc lập
 type: design
-ver: "1.5"
+ver: "1.6"
 status: draft
 date: 2026-10-27
 owner: Tuan
@@ -15,6 +15,7 @@ rev:
   - ["1.3", 2026-10-27, "Giai đoạn 1 có code: máy cố định, provider \"fixed\", nút Mở ComfyUI, hiện mật khẩu máy thuê qua POST; F09 và F10 đã sửa"]
   - ["1.4", 2026-10-27, "Giai đoạn 2 có code: idle tính theo job trong ComfyUI gốc, Lưu workflow từ máy qua userdata API"]
   - ["1.5", 2026-10-27, "Giai đoạn 3 có code: nhập hai bước, duyệt trên web, input mapping, form chạy có kiểm, tự kiểm nhiều lượt, nghe thử giọng đọc; F04, F20 và F21 đã sửa"]
+  - ["1.6", 2026-10-27, "Ẩn và khôi phục workflow, task, máy GPU cũ; Dùng mẫu không nhân bản workflow đã có (F23, F24)"]
 ---
 
 <!-- id:s1 -->
@@ -258,6 +259,7 @@ Cách giai đoạn 3 làm:
 - Mapping chỉ khai được input literal (không phải dây nối giữa các node), chọn từ danh sách đọc trong API JSON. Lưu mapping tạo revision mới, revision đó chờ duyệt lại.
 - Duyệt trên web (S16) duyệt cả manifest lẫn mapping, vẫn kiểm SHA-256 và cảnh báo license như CLI.
 - Ảnh input được kiểm loại và cỡ, lưu theo SHA-256, tải lên máy với tên `igniterra_ref_<sha>` ngay trước khi gửi prompt. Ô ảnh và nhân vật được bỏ qua khi so COMBO với `/object_info`, vì tên file chỉ có sau khi tải lên.
+- Ẩn và khôi phục: workflow, task và máy GPU cũ ẩn khỏi danh sách bằng nút Ẩn, xem lại ở "Mục đã ẩn" và Khôi phục được. Chỉ ẩn, không xóa: revision, run, log, sổ chi phí và bằng chứng SHA-256 giữ nguyên. Không ẩn được workflow còn lượt chạy hoặc nhóm tự kiểm đang mở, task đang chạy hoặc chờ chạy, máy chưa destroyed. Workflow đang ẩn không chạy được cho tới khi khôi phục. Đổi tên và ghi chú workflow chưa có; đổi nội dung vẫn là nhập revision mới.
 - Output audio (S19) được nghe thử, kiểm SHA-256 lại trước khi gắn làm giọng đọc cho một scene.
 
 <!-- id:s8 -->
@@ -364,6 +366,8 @@ Table: Phát hiện còn hiệu lực
 | F19 | `Scene.mode = "motion"` chỉ có adapter `video.fake` | `studio/providers/__init__.py` | Sau giai đoạn 3: `VideoProvider` qua ComfyService |
 | F21 | Chống trùng chỉ so với revision mới nhất của cùng workflow | `ComfyService.import_workflow` | Đã sửa ở giai đoạn 3: cảnh báo trùng toàn thư viện (S15), không tự xóa, có test |
 | F04 | Duyệt manifest workflow phải dùng CLI | `comfyui_workflow.html` | Đã sửa ở giai đoạn 3: duyệt trên web, giữ kiểm SHA và license, có test |
+| F23 | Nút Dùng mẫu mỗi lần bấm nhập thêm hai workflow giống hệt | `ComfyService.import_image_profile` | Đã sửa: dùng lại workflow cùng nội dung ở bất kỳ đâu trong thư viện, báo "đã có", có test |
+| F24 | Không có cách bỏ workflow, task, máy GPU cũ khỏi danh sách | `studio/web/templates` | Đã sửa: ẩn và khôi phục (không xóa dữ liệu), có test |
 | F01 | Chưa có thư viện Brief; tạo task cần JSON đầy đủ | `POST /tasks` chỉ nhận `brief_file` hoặc `brief_json` | Giai đoạn 6: S01 |
 | F12 | Upload ảnh nhân vật không kiểm nội dung trước khi lưu | `series.py` `upload_ref` | Giai đoạn 6 |
 | F13 | POST của task, series, settings chưa có CSRF như GPU và ComfyUI | `studio/web/__init__.py` | Khi đụng tới các route đó |

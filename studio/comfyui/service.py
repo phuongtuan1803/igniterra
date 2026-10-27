@@ -376,9 +376,16 @@ class ComfyService:
             raise ComfyServiceError("profile không đạt: " + "; ".join(problems))
         result = {}
         for name in ("text2image", "reference"):
-            record = self.import_workflow(f"FLUX.2 Klein 4B · {name}", (folder / f"{name}.json").read_bytes())
+            raw = (folder / f"{name}.json").read_bytes()
+            parsed = self._parse(raw, None)
+            existing = self.duplicates(parsed["source_sha256"], parsed["api_sha256"])
+            if existing:                     # đã có bản cùng nội dung: dùng lại, không nhân bản (F21)
+                record = max(existing, key=lambda r: r.created_at)
+                result[name] = {"workflow_id": record.workflow_id, "revision": record.revision, "reused": True}
+                continue
+            record = self.import_workflow(f"FLUX.2 Klein 4B · {name}", raw)
             record = self.attach_manifest(record.workflow_id, record.revision, manifest)
-            result[name] = {"workflow_id": record.workflow_id, "revision": record.revision}
+            result[name] = {"workflow_id": record.workflow_id, "revision": record.revision, "reused": False}
         result["manifest_sha256"] = manifest.sha256()
         return result
 
@@ -476,8 +483,28 @@ class ComfyService:
     def revisions(self, workflow_id: str) -> list[WorkflowRevision]:
         return [_revision(row) for row in self.store.workflow_revisions(workflow_id)]
 
-    def library(self, kind: str | None = None) -> list[dict]:
-        """Mỗi workflow một dòng (S14): revision mới nhất, số revision, lần chạy gần nhất và trạng thái chạy được."""
+    def hidden(self, workflow_id: str) -> bool:
+        return workflow_id in self.store.hidden_ids("workflow")
+
+    def hide_workflow(self, workflow_id: str) -> None:
+        """Ẩn workflow khỏi thư viện; revision, run và bằng chứng giữ nguyên. Còn run hay nhóm tự kiểm đang mở thì từ chối."""
+        self.revision(workflow_id)
+        if any(r.status not in RUN_TERMINAL for r in self.runs(workflow_id=workflow_id)):
+            raise ComfyServiceError("workflow còn lượt chạy chưa xong; đợi xong hoặc đối soát trước khi ẩn")
+        if any(g.status in GROUP_OPEN for g in self.groups(workflow_id=workflow_id)):
+            raise ComfyServiceError("workflow còn nhóm tự kiểm đang mở; dừng nhóm trước khi ẩn")
+        self.store.hide_item("workflow", workflow_id)
+
+    def restore_workflow(self, workflow_id: str) -> None:
+        self.revision(workflow_id)
+        self.store.restore_item("workflow", workflow_id)
+
+    def library(self, kind: str | None = None, *, hidden: bool | None = False) -> list[dict]:
+        """Mỗi workflow một dòng (S14): revision mới nhất, số revision, lần chạy gần nhất và trạng thái chạy được.
+
+        ``hidden``: False chỉ mục đang hiện, True chỉ mục đã ẩn, None cả hai.
+        """
+        gone = self.store.hidden_ids("workflow")
         latest: dict[str, WorkflowRevision] = {}
         counts: dict[str, int] = {}
         for row in self.store.workflow_revisions():
@@ -491,6 +518,8 @@ class ComfyService:
         items = []
         for key, record in latest.items():
             if kind and record.kind != kind:
+                continue
+            if hidden is not None and (key in gone) != hidden:
                 continue
             last = last_runs.get(key)
             items.append({"latest": record, "revisions": counts[key], "last_run": last,
@@ -530,6 +559,8 @@ class ComfyService:
         if not outputs.RUN_ID.fullmatch(run_id):
             raise ComfyServiceError(f"run_id lạ: {run_id!r}")
         record = self.revision(workflow_id, revision)
+        if self.hidden(workflow_id) and group_id is None:
+            raise ComfyServiceError("workflow đang ẩn; khôi phục trước khi chạy")
         prompt = self._runnable(record)
         if values and not record.inputs:
             raise ComfyServiceError(f"{workflow_id} rev {revision} chưa khai input; không nhận giá trị nhập")

@@ -236,6 +236,12 @@ CREATE TABLE IF NOT EXISTS comfy_run_events (
     error_code TEXT,
     detail TEXT
 );
+CREATE TABLE IF NOT EXISTS hidden_items (
+    kind TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    hidden_at TEXT NOT NULL,
+    PRIMARY KEY (kind, item_id)
+);
 """
 
 # Cột thêm sau khi bảng đã phát hành (CREATE TABLE IF NOT EXISTS không sửa bảng cũ): (bảng, cột, kiểu).
@@ -305,6 +311,21 @@ class Store:
         task["brief"] = json.loads(task["brief"])
         task["overrides"] = json.loads(task["overrides"])
         return task
+
+    def hide_item(self, kind: str, item_id: str) -> bool:
+        """Ẩn khỏi danh sách (không xóa dữ liệu). False nếu đã ẩn từ trước."""
+        with self.connect() as db:
+            cur = db.execute("INSERT OR IGNORE INTO hidden_items (kind, item_id, hidden_at) VALUES (?, ?, ?)",
+                             (kind, item_id, now()))
+            return cur.rowcount == 1
+
+    def restore_item(self, kind: str, item_id: str) -> bool:
+        with self.connect() as db:
+            return db.execute("DELETE FROM hidden_items WHERE kind=? AND item_id=?", (kind, item_id)).rowcount == 1
+
+    def hidden_ids(self, kind: str) -> set[str]:
+        with self.connect() as db:
+            return {row["item_id"] for row in db.execute("SELECT item_id FROM hidden_items WHERE kind=?", (kind,))}
 
     def tasks(self) -> list[dict]:
         with self.connect() as db:

@@ -12,21 +12,22 @@
   <p class="small muted">Mẫu cho các loại khác (sửa ảnh, video từ ảnh, phóng to, giọng đọc, sửa dị dạng, giữ nhân vật) được thêm khi đã chạy thật trên GPU.</p>
 </section>
 <section class="card">
-  <div class="section-heading"><div><h2>Workflow của bạn</h2></div><span class="small muted">{{ library|length }} workflow</span></div>
+  <div class="section-heading"><div><h2>{{ "Workflow đã ẩn" if show_hidden else "Workflow của bạn" }}</h2></div><span class="small muted">{{ library|length }} workflow{% if show_hidden %} · <a href="/comfyui/workflows">← Về thư viện</a>{% elif hidden_count %} · <a href="/comfyui/workflows?hidden=1">Mục đã ẩn ({{ hidden_count }})</a>{% endif %}</span></div>
   <nav class="filter-row" aria-label="Lọc loại workflow">
-    <a class="filter{% if not kind %} active{% endif %}" href="/comfyui/workflows"{% if not kind %} aria-current="true"{% endif %}>Tất cả</a>
-    {% for key, label in kinds.items() %}<a class="filter{% if kind == key %} active{% endif %}" href="/comfyui/workflows?kind={{ key }}"{% if kind == key %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+    <a class="filter{% if not kind %} active{% endif %}" href="/comfyui/workflows{% if show_hidden %}?hidden=1{% endif %}"{% if not kind %} aria-current="true"{% endif %}>Tất cả</a>
+    {% for key, label in kinds.items() %}<a class="filter{% if kind == key %} active{% endif %}" href="/comfyui/workflows?kind={{ key }}{% if show_hidden %}&amp;hidden=1{% endif %}"{% if kind == key %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
   </nav>
   <div class="table-scroll"><table>
-    <thead><tr><th>Workflow</th><th>Loại</th><th>Revision</th><th>Chạy được?</th><th>Lần chạy gần nhất</th></tr></thead>
+    <thead><tr><th>Workflow</th><th>Loại</th><th>Revision</th><th>Chạy được?</th><th>Lần chạy gần nhất</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
     <tbody>
       {% for item in library %}{% set w = item.latest %}{% set ready = item.readiness %}
       <tr><td><a class="text-link" href="/comfyui/workflows/{{ w.workflow_id }}"><strong>{{ w.name }}</strong></a></td>
         <td>{% if w.kind %}<span class="type-pill">{{ kinds[w.kind] }}</span>{% else %}<span class="muted small">Chưa gắn</span>{% endif %}</td>
         <td>{{ w.revision }}{% if item.revisions > 1 %} <span class="muted small">/ {{ item.revisions }}</span>{% endif %}</td>
         <td><span class="chip {{ ready[1] }}">{{ ready[0] }}</span></td>
-        <td class="small muted">{% if item.last_run %}<a href="/comfyui/runs/{{ item.last_run.run_id }}">{{ item.last_run.run_id }}</a> · {{ run_labels.get(item.last_run.status, item.last_run.status) }}{% else %}Chưa chạy{% endif %}</td></tr>
-      {% else %}<tr><td colspan="5" class="muted small">{% if kind %}Chưa có workflow loại {{ kinds[kind] }}. <a href="/comfyui/workflows">Xem tất cả</a>{% else %}Chưa có workflow. Bấm Nhập workflow, hoặc lưu từ ComfyUI trên máy GPU.{% endif %}</td></tr>{% endfor %}
+        <td class="small muted">{% if item.last_run %}<a href="/comfyui/runs/{{ item.last_run.run_id }}">{{ item.last_run.run_id }}</a> · {{ run_labels.get(item.last_run.status, item.last_run.status) }}{% else %}Chưa chạy{% endif %}</td>
+        <td><form method="post" action="/comfyui/workflows/{{ w.workflow_id }}/{{ 'restore' if show_hidden else 'hide' }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button" type="submit" aria-label="{{ 'Khôi phục' if show_hidden else 'Ẩn' }} {{ w.name }}">{{ "Khôi phục" if show_hidden else "Ẩn" }}</button></form></td></tr>
+      {% else %}<tr><td colspan="6" class="muted small">{% if show_hidden %}Không có workflow nào bị ẩn.{% elif kind %}Chưa có workflow loại {{ kinds[kind] }}. <a href="/comfyui/workflows">Xem tất cả</a>{% else %}Chưa có workflow. Bấm Nhập workflow, hoặc lưu từ ComfyUI trên máy GPU.{% endif %}</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </section>
