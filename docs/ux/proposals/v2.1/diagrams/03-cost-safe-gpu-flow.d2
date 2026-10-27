@@ -1,0 +1,19 @@
+direction: down
+need: "Workflow needs GPU"
+pre: "Check provider, manifest, budget, worker"
+search: "Search verified offers (manual)"
+quote: "Confirm fresh quote + hourly and disk cost"
+create: "Create rental with idempotency label"
+result: "Create outcome known?" {shape: diamond}
+unknown: "create_unknown: reconcile by label" {style: {fill: "#FBEFEF"}}
+provision: "Provisioning: auth + stats + smoke"
+ready: "GPU ready"
+execute: "Run approved workflow"
+verify: "Download + verify outputs"
+cleanup: "Destroy / confirm data and unverified runs"
+final: "Provider confirms destroyed = billing end"
+destroyunknown: "destroy_unknown: reconcile (may bill)" {style: {fill: "#FBEFEF"}}
+need -> pre -> search -> quote -> create -> result
+result -> unknown -> result
+result -> provision -> ready -> execute -> verify -> cleanup -> final
+cleanup -> destroyunknown -> final

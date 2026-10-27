@@ -1,0 +1,27 @@
+direction: down
+classes: {
+  entry: {style: {fill: "#E8F1EB"; stroke: "#477B5C"}}
+  action: {style: {fill: "#F8F3EB"; stroke: "#8E867A"}}
+  money: {style: {fill: "#FFF3DD"; stroke: "#B7803D"}}
+  end: {style: {fill: "#EAF4F4"; stroke: "#307C78"}}
+}
+start: "Open Igniterra" {class: entry}
+readiness: "Check workspace readiness" {class: action}
+goal: "Choose goal" {shape: diamond}
+video: "Make AI video" {class: action}
+brief: "Create / select Brief" {class: action}
+series: "Optional Series Bible + reference images" {class: action}
+task: "Create Task / confirm possible API cost" {class: money}
+review: "Storyboard + final review" {class: action}
+mp4: "Download verified MP4" {class: end}
+workflow: "Run ComfyUI workflow" {class: action}
+import: "Import files (up to 2 steps) / use existing" {class: action}
+manifest: "Check and approve dependencies" {class: action}
+gpu: "Select / rent ready GPU with cost confirmation" {class: money}
+run: "Simple form (mapped inputs) + submit / monitor" {class: action}
+output: "Download verified image / motion output" {class: end}
+assets: "Manage reusable characters" {class: action}
+start -> readiness -> goal
+goal -> video -> brief -> series -> task -> review -> mp4
+goal -> workflow -> import -> manifest -> gpu -> run -> output
+goal -> assets -> series
