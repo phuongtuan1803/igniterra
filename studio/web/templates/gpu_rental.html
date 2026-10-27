@@ -2,6 +2,17 @@
 {% from "_macros.html" import rental_chip, icon %}
 {% block title %}{{ rental.rental_id }} · GPU{% endblock %}
 {% block body %}
+{% if fixed %}
+<div class="page-header">
+  <div><p class="eyebrow">GPU / MÁY CỐ ĐỊNH</p><h1>{{ rental.offer.offer_id }}</h1><div class="muted small">{{ rental.offer.num_gpus }}× {{ rental.offer.gpu_name }}{% if rental.offer.gpu_ram_gb %} · {{ "%g"|format(rental.offer.gpu_ram_gb) }} GB VRAM{% endif %} · {{ rental.rental_id }} · <span class="type-pill">Cố định · VPS</span></div></div>
+  <a class="button" href="/gpu">← Máy GPU</a>
+</div>
+<div class="status">
+  {{ rental_chip(rental.status) }}
+  <span class="small muted">{% if rental.offer.dph_total %}${{ "%.2f"|format(rental.offer.dph_total) }}/giờ tự khai, ngoài ngân sách{% else %}Không tính phí trong Igniterra{% endif %} · cập nhật {{ rental.updated_at.strftime("%Y-%m-%d %H:%M:%S") }} UTC</span>
+  {% if rental.status == "ready" %}<a class="button" href="/comfyui/workflows">{{ icon("flow") }} Chạy có kiểm</a>{% endif %}
+</div>
+{% else %}
 <div class="page-header">
   <div><p class="eyebrow">GPU RENTALS / {{ rental.rental_id }}</p><h1>{{ rental.offer.num_gpus }}× {{ rental.offer.gpu_name }}</h1><div class="muted small">{{ rental.rental_id }} · {{ rental.provider_key }}{% if rental.provider_instance_id %} · instance {{ rental.provider_instance_id }}{% endif %} · label <code>{{ rental.label }}</code></div></div>
   <a class="button" href="/gpu">← Tất cả GPU</a>
@@ -19,6 +30,45 @@
   {% endif %}
 </div>
 {% include "_gpu_limits.html" %}
+{% endif %}
+{% if rental.status in ("ready", "busy") %}
+<section class="card" aria-label="Mở ComfyUI">
+  <p class="eyebrow">COMFYUI GỐC</p><h2>Mở ComfyUI trên máy</h2>
+  <p><a class="button primary" href="/gpu/instances/{{ rental.rental_id }}/comfyui" target="_blank" rel="noopener noreferrer">{{ icon('arrow') }} Mở ComfyUI</a></p>
+  <p class="section-note">Link trực tiếp tới máy, mở ở tab mới. Chạy trong ComfyUI gốc thì Igniterra không kiểm output{% if not fixed %}, nhưng thời gian máy vẫn tính phí và vẫn bị giới hạn idle/ngân sách. Mỗi lần mở từ đây gia hạn idle{% endif %}. Muốn có output đã kiểm SHA-256, dùng Chạy có kiểm.</p>
+  {% if fixed %}
+  <p class="small muted">Trình duyệt dùng cách đăng nhập của chính máy này (mật khẩu bạn đã đặt trên VPS).</p>
+  {% elif web_login %}
+  <dl class="small" aria-label="Đăng nhập ComfyUI">
+    <dt>User</dt><dd><code>{{ web_login.username }}</code></dd>
+    <dt>Mật khẩu</dt><dd><code>{{ web_login.password }}</code></dd>
+  </dl>
+  <p class="small muted">Trình duyệt hỏi user và mật khẩu này khi mở ComfyUI. Mật khẩu chỉ hiện trong trang này, không nằm trong link.{% if web_login.self_signed_tls %} Máy dùng chứng chỉ tự ký nên trình duyệt có thể cảnh báo lần đầu.{% endif %}</p>
+  {% else %}
+  <form method="post" action="/gpu/instances/{{ rental.rental_id }}/login">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="button" type="submit">{{ icon('shield') }} Hiện mật khẩu đăng nhập</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% if fixed and rental.status == "ready" %}
+<section class="card" aria-label="Gỡ máy cố định">
+  <p class="eyebrow">ACTIONS</p><h2>Gỡ khỏi danh sách</h2>
+  <form method="post" action="/gpu/instances/{{ rental.rental_id }}/remove" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if unverified_runs %}
+    <p class="section-note" role="alert"><strong>Output chưa tải/kiểm.</strong> {{ unverified_runs|length }} run:
+      {% for r in unverified_runs %}<a href="/comfyui/runs/{{ r.run_id }}">{{ r.run_id }}</a> ({{ r.status }}){% if not loop.last %}, {% endif %}{% endfor %}.
+      Gỡ máy thì studio không tải được output đó nữa (file vẫn còn trên máy).</p>
+    <label><input type="checkbox" name="accept_unverified"> Tôi chấp nhận bỏ output chưa kiểm của {{ unverified_runs|length }} run trên</label>
+    {% endif %}
+    <label><input type="checkbox" name="confirm"> Xác nhận gỡ {{ rental.offer.offer_id }} (máy không bị tắt, token bị xóa khỏi studio)</label>
+    <button class="button" type="submit">Gỡ khỏi danh sách</button>
+  </form>
+</section>
+{% endif %}
+{% if not fixed %}
 {% if idle_deadline %}<p class="section-note">Hạn idle: {{ idle_deadline.strftime("%Y-%m-%d %H:%M:%S %z") }}.
   Theo dõi run hoặc tải output qua studio sẽ gia hạn idle; xem trang rental không gia hạn.</p>{% endif %}
 {% if breaches %}
@@ -96,14 +146,15 @@
   </table></div>
 </section>
 {% endif %}
+{% endif %}
 <div class="panel-grid">
-  <section class="card">
+  {% if not fixed %}<section class="card">
     <p class="eyebrow">PROVISIONING</p><h2>Timeline</h2>
     <ol class="provision-steps">
       {% for s in steps %}<li><span class="step-num {{ 'done' if s.status == 'done' }}">{{ icon('check') if s.status == 'done' else loop.index }}</span><div><strong>{{ s.step_key }}</strong><p><span class="chip {{ 'ok' if s.status == 'done' else ('bad' if s.status == 'failed' else 'warn') }}">{{ s.status }}</span> · lượt {{ s.attempt }}{% if s.finished_at %} · {{ s.finished_at.strftime('%H:%M:%S') }} UTC{% endif %}</p>{% if s.error_code %}<p class="form-error">{{ s.error_code }}</p>{% endif %}</div></li>
       {% else %}<li class="muted">Chưa có bằng chứng provisioning.</li>{% endfor %}
     </ol>
-  </section>
+  </section>{% endif %}
   <section class="card">
     <p class="eyebrow">AUDIT</p><h2>Events</h2>
     <div class="table-scroll"><table>

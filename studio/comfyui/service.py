@@ -316,7 +316,7 @@ class ComfyService:
         return f"cr_{secrets.token_hex(6)}"
 
     def ready_rentals(self) -> list:
-        return [r for r in self.gpu.rentals() if r.status == "ready"] if self.gpu else []
+        return [r for r in self.gpu.machines() if r.status == "ready"] if self.gpu else []
 
     def start_run(self, run_id: str, workflow_id: str, revision: int, rental_id: str) -> Run:
         """Chạy revision đã duyệt trên một rental ``ready``.

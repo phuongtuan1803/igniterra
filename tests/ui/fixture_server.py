@@ -46,6 +46,7 @@ fake.reset()
 fake.SCRIPT["plan"] = fake_plan_data()
 TEMP = tempfile.TemporaryDirectory(prefix="igniterra-ui-")
 env = Env(Path(TEMP.name))
+FIXED_TOKEN = "fixture-fixed-host-token"   # máy cố định (VPS) giả trên cùng server loopback
 
 
 class RuntimeHandler(runtime_fixture.Handler):
@@ -54,7 +55,7 @@ class RuntimeHandler(runtime_fixture.Handler):
     def handle_any(self):
         path = urlparse(self.path).path
         token = self.headers.get("authorization", "").removeprefix("Bearer ")
-        if token not in [spec.env["WEB_PASSWORD"] for spec in provider.specs.values()]:
+        if token not in [FIXED_TOKEN, *(spec.env["WEB_PASSWORD"] for spec in provider.specs.values())]:
             return self.reply(401, {"error": "unauthorized"})
         runtime_fixture.STATE.token = token
         if path in ("/capabilities", "/provisioning/status"):
@@ -120,13 +121,14 @@ def rent():
 ready = rent()
 gpu.reconcile(ready.rental_id)
 assert gpu.rental(ready.rental_id).status == "ready"
+fixed = gpu.add_fixed_host(gpu.new_rental_id(), "VPS Hà Nội · A5000", f"http://{address}", FIXED_TOKEN, 0.2)
 revision = comfy.import_workflow("Browser approved workflow", json.dumps(runtime_fixture.API_PROMPT).encode())
 revision = comfy.attach_manifest(revision.workflow_id, revision.revision, WorkflowManifest(models=[runtime_fixture.MODEL]))
 comfy.approve_manifest(revision.manifest_sha256)
 pending = comfy.import_workflow("Browser pending workflow", json.dumps(runtime_fixture.API_PROMPT).encode())
 
 metadata = {"keyframes": keyframes, "final": final, "failed": failed, "paused": paused,
-            "ready": ready.rental_id, "workflow": revision.workflow_id, "pending": pending.workflow_id}
+            "ready": ready.rental_id, "fixed": fixed.rental_id, "workflow": revision.workflow_id, "pending": pending.workflow_id}
 
 
 @app.get("/__fixture")

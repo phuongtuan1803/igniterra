@@ -1,31 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import metric, icon %}
-{% block title %}ComfyUI Workflows</section>
-<dialog class="dialog" id="import-workflow" aria-labelledby="import-workflow-title"><div class="dialog-heading"><h2 id="import-workflow-title">Nhập workflow JSON</h2><a class="button" href="#main" data-close-dialog aria-label="Đóng">{{ icon("close") }}</a></div>
-
-  <p class="section-note">GUI JSON (<em>Save</em>) cho phép trích dependency; API JSON (<em>Export (API)</em>) là bản chạy được nhưng không có metadata model/node, nên luôn <code>needs_review</code> tới khi có manifest khai tay và đã duyệt. Mỗi lần nhập là một revision bất biến.</p>
-  <form method="post" action="/comfyui/workflows" enctype="multipart/form-data" class="stack-form">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Tên <input name="name" maxlength="200"></label>
-    <label>Workflow JSON (GUI hoặc API) <input type="file" name="file" accept=".json,application/json" required></label>
-    <label>Kèm bản Export (API) nếu file trên là GUI <input type="file" name="api_file" accept=".json,application/json"></label>
-    <button class="button" type="submit">Nhập</button>
-  </form>
-</dialog>
-
-<details class="card"><summary>Profile ảnh · FLUX.2 Klein 4B</summary><section class="card">
-  <p class="eyebrow">IMAGE PROFILE</p><h2>FLUX.2 Klein 4B distilled</h2>
-  <p>Workflow text-to-image và một character sheet tham chiếu, model ghim revision và SHA-256.
-    Nhập profile chỉ tạo bản khai chờ duyệt. Việc thuê GPU, tải model và chạy cần thao tác riêng.</p>
-  <form method="post" action="/comfyui/image-profile" class="stack-form">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label><input type="checkbox" name="confirm"> Xác nhận nhập hai workflow và manifest model để xem xét</label>
-    <button class="button" type="submit">Nhập profile FLUX</button>
-  </form>
-  <p><a href="/monitor">Mở Monitor →</a></p>
-</section>
-</details>
-{% endblock %}
+{% block title %}ComfyUI Workflows{% endblock %}
 {% block body %}
 <div class="page-heading">
   <div><p class="eyebrow">INFRASTRUCTURE / COMFYUI</p><h1>Workflows dễ kiểm soát</h1><p class="page-subtitle">Nhập workflow, kiểm phụ thuộc, chọn GPU sẵn sàng và nhận kết quả đã xác minh.</p></div>

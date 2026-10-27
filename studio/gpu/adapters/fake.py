@@ -48,7 +48,8 @@ class FakeGPUProvider:
         self._next_id = 1
 
     def capabilities(self) -> Capabilities:
-        return Capabilities(supports_stop=True, price_components=("compute", "storage", "inet_up", "inet_down"))
+        return Capabilities(supports_stop=True, price_components=("compute", "storage", "inet_up", "inet_down"),
+                            display_name="Fake", web_username="fake")
 
     def search_offers(self, filters: OfferFilters) -> list[Offer]:
         self.calls.append(("search_offers",))

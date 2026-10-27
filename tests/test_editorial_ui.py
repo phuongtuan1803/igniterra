@@ -85,6 +85,20 @@ def test_monitor_task_attention_filter_and_refresh_controls(env):
     assert '<meta http-equiv="refresh" content="5">' in client.get("/monitor").text
 
 
+def test_monitor_refresh_now_keeps_auto_refresh_mode(env):
+    client = TestClient(create_app(env.config))
+    live = client.get("/monitor").text
+    assert 'href="/monitor?">' in live and "Làm mới bây giờ" in live
+    paused = client.get("/monitor", params={"refresh": "off"}).text
+    assert 'href="/monitor?refresh=off">' in paused
+
+
+def test_comfyui_library_title_is_text_and_dialog_is_unique(env):
+    page = TestClient(create_app(env.config)).get("/comfyui/workflows").text
+    assert "<title>ComfyUI Workflows · Igniterra</title>" in page
+    assert page.count('id="import-workflow"') == 1
+
+
 @pytest.mark.parametrize("htmx", [False, True])
 def test_scene_actions_keep_scene_and_feedback_in_redirect(env, htmx):
     from studio.contracts import ScenePlan

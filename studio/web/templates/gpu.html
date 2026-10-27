@@ -3,45 +3,48 @@
 {% block title %}GPU Rentals{% endblock %}
 {% block body %}
 <div class="page-heading">
-  <div><p class="eyebrow">INFRASTRUCTURE / GPU</p><h1>Kiểm soát GPU và chi phí</h1><p class="page-subtitle">Luôn biết máy nào có thể đang tính phí, trạng thái provisioning và hành động an toàn tiếp theo.</p></div>
-  {% if gpu %}<a class="button" href="/monitor">{{ icon("monitor") }} Mở Monitor</a>{% else %}<span class="chip warn">Provider off</span>{% endif %}
+  <div><p class="eyebrow">INFRASTRUCTURE / GPU</p><h1>Máy GPU</h1><p class="page-subtitle">Máy thuê theo giờ và máy cố định (VPS có GPU) dùng chung một danh sách. Luôn biết máy nào có thể đang tính phí.</p></div>
+  {% if gpu %}<div class="row"><a class="button" href="/gpu/hosts/new">{{ icon("plus") }} Thêm máy cố định</a>{% if gpu.can_rent %}<a class="button primary" href="/gpu?tab=offers">{{ icon("search") }} Tìm GPU thuê</a>{% endif %}</div>{% else %}<span class="chip warn">Provider off</span>{% endif %}
 </div>
 {% if not gpu %}
-<p class="section-note">GPU provider chưa bật. Đặt <code>[gpu] provider</code> trong studio.toml (D-05 chưa mở; <code>"fake"</code> để thử trang không tốn tiền) rồi khởi động lại web.</p>
+<p class="section-note">GPU provider chưa bật. Đặt <code>[gpu] provider</code> trong studio.toml rồi khởi động lại web: <code>"fixed"</code> để chỉ dùng máy cố định của bạn (VPS có GPU, không thuê), tên provider thuê theo giờ để thuê thêm (D-05; xem 09 · GPU và ComfyUI), hoặc <code>"fake"</code> để thử trang không tốn tiền.</p>
 {% else %}
 <section class="metrics" aria-label="GPU overview">
-  {{ metric('CÓ THỂ ĐANG TÍNH PHÍ', rentals|selectattr('status','in',billable)|list|length, 'Chưa được xác nhận destroyed', 'warn') }}
-  {{ metric('GPU SẴN SÀNG', rentals|selectattr('status','equalto','ready')|list|length, 'Đã qua health & smoke test') }}
+  {{ metric('MÁY THUÊ CÓ THỂ ĐANG TÍNH PHÍ', rentals|selectattr('status','in',billable)|list|length, 'Chưa được xác nhận destroyed', 'warn') }}
+  {% set ready_rented = rentals|selectattr('status','equalto','ready')|list|length %}{% set ready_fixed = fixed|selectattr('status','equalto','ready')|list|length %}
+  {{ metric('SẴN SÀNG', ready_rented + ready_fixed, '%d thuê · %d cố định'|format(ready_rented, ready_fixed)) }}
   {{ metric('CẦN ĐỐI SOÁT', rentals|selectattr('status','in',attention)|list|length, 'Không gửi lại lệnh khi chưa rõ') }}
-  {{ metric('CHI PHÍ ƯỚC TÍNH', '$%.3f'|format(rental_costs.values()|sum(attribute='accrued_est')), 'Không phải hóa đơn; chưa tính bandwidth') }}
+  {{ metric('CHI PHÍ ƯỚC TÍNH', '$%.3f'|format(rental_costs.values()|sum(attribute='accrued_est')), 'Máy thuê; không phải hóa đơn') }}
 </section>
 {% set unresolved = rentals|selectattr('status','in',attention)|list %}
 {% if unresolved %}<div class="alert red">{{ icon('alert') }}<div><strong>{{ unresolved|length }} GPU cần đối soát</strong><p>Có thể còn phát sinh chi phí. Kiểm tra kết quả với provider trước khi gửi thao tác khác.</p></div><a class="button danger" href="/gpu/instances/{{ unresolved[0].rental_id }}">Mở máy cần xử lý</a></div>{% endif %}
-<section class="card" data-tabs data-initial-tab="{{ 'gpu-offers' if request.query_params.get('tab') == 'offers' or request.query_params.get('search') else 'gpu-rentals' }}">
-<nav class="tabs" aria-label="GPU views"><a href="#gpu-rentals" data-tab="gpu-rentals">Máy của tôi</a><a href="#gpu-offers" data-tab="gpu-offers">Tìm GPU</a></nav>
+<section class="card" data-tabs data-initial-tab="{{ 'gpu-offers' if gpu.can_rent and (request.query_params.get('tab') == 'offers' or request.query_params.get('search')) else 'gpu-rentals' }}">
+<nav class="tabs" aria-label="GPU views"><a href="#gpu-rentals" data-tab="gpu-rentals">Máy của tôi</a>{% if gpu.can_rent %}<a href="#gpu-offers" data-tab="gpu-offers">Tìm GPU</a>{% endif %}</nav>
 <div id="gpu-rentals" data-tab-panel>
   <section class="production-list">
-    <div class="section-heading"><div><p class="eyebrow">YOUR RENTALS</p><h2>Máy đã thuê</h2></div><span class="muted small">{{ rentals|length }} rental(s)</span></div>
+    <div class="section-heading"><div><p class="eyebrow">YOUR MACHINES</p><h2>Danh sách máy</h2></div><span class="muted small">{{ machines|length }} máy</span></div>
     <div class="table-scroll rental-table">
       <table class="production-table">
-        <thead><tr><th>Rental / GPU</th><th>Trạng thái</th><th>Giá mỗi giờ</th><th>Ước tính đã dùng</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <thead><tr><th>Máy</th><th>Loại</th><th>Trạng thái</th><th>Giá mỗi giờ</th><th>Ước tính đã dùng</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
         <tbody>
-          {% for r in rentals %}
+          {% for r in machines %}{% set is_fixed = r.provider_key == "fixed" %}
           <tr>
-            <td class="story-cell"><span class="story-icon" aria-hidden="true">▣</span><span><a class="story-title" href="/gpu/instances/{{ r.rental_id }}">{{ r.offer.num_gpus }}× {{ r.offer.gpu_name }}</a><small>{{ r.rental_id }}{% if r.provider_instance_id %} · {{ r.provider_instance_id }}{% endif %}</small></span></td>
-            <td>{{ rental_chip(r.status) }}</td>
-            <td class="cost-cell">${{ "%.3f"|format(r.offer.dph_total) }}/giờ</td>
-            <td class="cost-cell">${{ "%.3f"|format(rental_costs[r.rental_id].accrued_est) }}</td>
-            <td><a class="text-link" href="/gpu/instances/{{ r.rental_id }}" aria-label="Chi tiết {{ r.rental_id }}">Chi tiết →</a></td>
+            <td class="story-cell"><span class="story-icon" aria-hidden="true">▣</span><span><a class="story-title" href="/gpu/instances/{{ r.rental_id }}">{% if is_fixed %}{{ r.offer.offer_id }}{% else %}{{ r.offer.num_gpus }}× {{ r.offer.gpu_name }}{% endif %}</a><small>{% if is_fixed %}{{ r.offer.num_gpus }}× {{ r.offer.gpu_name }} · {% endif %}{{ r.rental_id }}{% if r.provider_instance_id %} · {{ r.provider_instance_id }}{% endif %}</small></span></td>
+            <td><span class="type-pill">{% if is_fixed %}Cố định · VPS{% else %}Thuê · {{ provider_name or r.provider_key }}{% endif %}</span></td>
+            <td>{{ rental_chip(r.status) }}{% if not is_fixed and r.status in billable %} <span class="chip warn">có thể đang tính phí</span>{% endif %}</td>
+            <td class="cost-cell">{% if is_fixed %}{% if r.offer.dph_total %}${{ "%.2f"|format(r.offer.dph_total) }}/giờ <span class="small muted">(tự khai, ngoài ngân sách)</span>{% else %}Không tính{% endif %}{% else %}${{ "%.3f"|format(r.offer.dph_total) }}/giờ{% endif %}</td>
+            <td class="cost-cell">{% if is_fixed %}—{% else %}${{ "%.3f"|format(rental_costs[r.rental_id].accrued_est) }}{% endif %}</td>
+            <td>{% if r.status in ("ready", "busy") %}<a class="button primary" href="/gpu/instances/{{ r.rental_id }}/comfyui" target="_blank" rel="noopener noreferrer">{{ icon('arrow') }} Mở ComfyUI</a> {% endif %}<a class="text-link" href="/gpu/instances/{{ r.rental_id }}" aria-label="Chi tiết {{ r.rental_id }}">Chi tiết →</a></td>
           </tr>
           {% else %}
-          <tr><td colspan="5"><div class="empty-state"><strong>Chưa có GPU đã thuê.</strong><p>Chọn Tìm GPU để xem offer và xác nhận báo giá.</p></div></td></tr>
+          <tr><td colspan="6"><div class="empty-state"><strong>Chưa có máy GPU.</strong><p>{% if gpu.can_rent %}Chọn Tìm GPU để thuê, hoặc {% endif %}Thêm máy cố định nếu bạn có VPS có GPU đã cài ComfyUI.</p></div></td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% if fixed %}<p class="small muted">Máy cố định không có Stop/Destroy: Igniterra không quản lý vòng đời của nó, chỉ kết nối tới ComfyUI trên máy. Giá tự khai không cộng vào chi phí hay ngân sách.</p>{% endif %}
   </section>
-  </div><div id="gpu-offers" data-tab-panel>
+  </div>{% if gpu.can_rent %}<div id="gpu-offers" data-tab-panel>
   <section class="create-panel" id="find-offer">
     <div class="section-heading"><div><p class="eyebrow">FIND AN OFFER</p><h2>Tìm cấu hình phù hợp</h2></div></div>
     <form method="get" action="/gpu" class="stack-form" hx-get="/gpu/offers" hx-target="#offers" hx-swap="innerHTML" hx-indicator="#offer-loading">
@@ -59,7 +62,7 @@
 <section aria-live="polite">
   <div class="section-heading"><div><p class="eyebrow">OFFERS</p><h2>Offer từ provider</h2></div></div>
   <div id="offers">{% if offers is none and not offer_error %}<p class="muted small">Search to see offers. Không tìm tự động để tránh gọi provider mỗi lần mở trang.</p>{% else %}{% include "_gpu_offers.html" %}{% endif %}</div>
-</section></div></section>
+</section></div>{% endif %}</section>
 {% include "_gpu_limits.html" %}
 {% if over_limits %}
 <section class="card" aria-label="Rentals vượt giới hạn" role="alert">
@@ -75,14 +78,14 @@
   </ul>
 </section>
 {% endif %}
-<section class="card" aria-label="Provisioning manifest">
+{% if gpu.can_rent %}<section class="card" aria-label="Provisioning manifest">
   <p class="eyebrow">PROVISIONING MANIFEST</p>
   {% if manifest %}
   <p>Manifest đã duyệt <code>{{ manifest.manifest_sha256[:12] }}</code>: ComfyUI <code>{{ manifest_view.comfyui.ref[:12] }}</code>, {{ manifest_view.custom_nodes|length }} custom node, {{ manifest_view.downloads|length }} model · cần ~{{ "%g"|format(manifest_view.required_disk_gb()) }} GB disk · on_failure: {{ manifest_view.on_failure.action }} (max_retries {{ manifest_view.on_failure.max_retries }}).</p>
   {% else %}
   <p class="section-note">Chưa có manifest provisioning đã duyệt: chưa thuê được. Thêm bằng <code>python -m studio gpu manifest add FILE.json</code>, đọc lại bằng <code>gpu manifest show</code>, rồi <code>gpu manifest approve SHA</code>.</p>
   {% endif %}
-</section>
+</section>{% endif %}
 {% if orphans %}
 <section class="card" aria-label="Orphan instances">
   <div class="section-heading"><div><p class="eyebrow">ORPHANS</p><h2>Instance mang label của app nhưng không khớp rental</h2></div></div>

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import json
 import logging
 import math
@@ -37,6 +38,7 @@ import uuid
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
@@ -70,6 +72,9 @@ QUOTE_TTL_S = 300
 PROVISION_TIMEOUT_S = 3600             # quá hạn mà chưa ready → provision_failed, destroy
 GUARD_INTERVAL_S = 60                  # chu kỳ guardrail trong worker (poll + enforce_limits + reconcile destroy)
 PASSWORD_FILE = "web_password"
+URL_FILE = "comfy_url"                 # máy cố định: địa chỉ ComfyUI người vận hành khai
+FIXED = "fixed"                        # provider_key của máy cố định; vòng guardrail không bao giờ thấy nó
+TAILNET = ipaddress.ip_network("100.64.0.0/10")
 MANIFEST_FILE = "provisioning.yaml"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 HOST_DOWN = ("exited", "stopped", "offline", "error", "destroying", "destroyed")
@@ -157,6 +162,11 @@ class GPUService:
     @property
     def provider_key(self) -> str:
         return self.provider.key
+
+    @property
+    def can_rent(self) -> bool:
+        """False khi ``[gpu] provider = "fixed"``: chỉ máy cố định, trang ``/gpu`` ẩn phần tìm và thuê."""
+        return self.provider_key != "none"
 
     @property
     def supports_stop(self) -> bool:
@@ -368,6 +378,7 @@ class GPUService:
         thái cũ, operation ``unknown``, reconcile theo ``actual_status``; không gửi stop lần nữa.
         """
         rental = self.rental(rental_id)
+        _rented_only(rental, "stop")
         if not self.supports_stop:
             raise GPUServiceError(f"provider {self.provider_key} không hỗ trợ stop; dùng destroy")
         if "stopped" not in TRANSITIONS[rental.status] or not rental.provider_instance_id:
@@ -415,6 +426,7 @@ class GPUService:
                  reason: str | None = None) -> Rental:
         """Thân của ``destroy``. ``idle_before``/``reason`` chỉ guardrail dùng: điều kiện hạn idle đã qua nằm trong câu
         CAS, và lý do ghi vào sự kiện ``→destroying``. Guardrail không bao giờ truyền ``accept_unverified_output``."""
+        _rented_only(self.rental(rental_id), "destroy")
         unresolved = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
         if unresolved and not accept_unverified_output:
             raise UnverifiedOutput(rental_id, unresolved)
@@ -928,6 +940,8 @@ class GPUService:
         rental = self.rental(rental_id)
         if rental.status not in ("ready", "busy"):
             raise GPUServiceError(f"{rental_id} đang {rental.status}, không phải ready/busy")
+        if rental.provider_key == FIXED:
+            return self._fixed_runtime(rental_id)
         password = self._password(rental_id)
         if not password or not rental.provider_instance_id:
             raise GPUServiceError(f"{rental_id} thiếu instance hoặc {PASSWORD_FILE}")
@@ -962,7 +976,7 @@ class GPUService:
         if rental.status != "busy":
             return False
         moved = self.store.release_rental(rental_id, rental.version, run_id, RUN_EXECUTING,
-                                          idle_deadline=self._idle_deadline())
+                                          idle_deadline=None if rental.provider_key == FIXED else self._idle_deadline())
         if moved:
             self._sample_cost(rental_id)
         return moved
@@ -974,6 +988,153 @@ class GPUService:
     def redact(self, text: str) -> str:
         """Che ``WEB_PASSWORD`` của mọi rental và khóa API trước khi ghi sự kiện hay hiện lỗi."""
         return self._clean(text)
+
+    # ------------------------------------------------------------ mở ComfyUI gốc (IGN-UX giai đoạn 1)
+
+    def comfy_url(self, rental_id: str) -> str:
+        """Địa chỉ trực tiếp của ComfyUI gốc trên máy ``ready``/``busy`` (nút "Mở ComfyUI"; không proxy).
+
+        Máy thuê: hỏi provider cổng hiện tại (GET) và lùi hạn idle như mọi lần studio dùng máy. Máy cố định: địa chỉ
+        đã khai. URL không bao giờ chứa token; trình duyệt tự hỏi mật khẩu của máy.
+        """
+        rental = self.rental(rental_id)
+        if rental.status not in ("ready", "busy"):
+            raise GPUServiceError(f"{rental_id} đang {rental.status}; chỉ mở ComfyUI khi máy ready")
+        if rental.provider_key == FIXED:
+            return self._fixed_url(rental_id)
+        return self.comfy_runtime(rental_id).base_url
+
+    def web_login(self, rental_id: str) -> dict:
+        """User và mật khẩu Basic Auth để đăng nhập ComfyUI gốc của máy thuê trên trình duyệt.
+
+        Chỉ trang rental gọi, qua POST có CSRF; không ghi log, không vào sự kiện. Máy cố định dùng mật khẩu người vận
+        hành đã tự đặt nên không có hàm này.
+        """
+        rental = self.rental(rental_id)
+        _rented_only(rental, "hiện mật khẩu")
+        if rental.status not in ("ready", "busy"):
+            raise GPUServiceError(f"{rental_id} đang {rental.status}; chỉ hiện mật khẩu khi máy ready")
+        capabilities = self.provider.capabilities()
+        if rental.provider_key != self.provider_key or not capabilities.web_username:
+            raise GPUServiceError(f"provider {rental.provider_key} không có đăng nhập web cho ComfyUI gốc")
+        password = self._password(rental_id)
+        if not password:
+            raise GPUServiceError(f"{rental_id} thiếu {PASSWORD_FILE}")
+        return {"username": capabilities.web_username, "password": password,
+                "self_signed_tls": capabilities.self_signed_tls}
+
+    # ------------------------------------------------------------ máy cố định: VPS có GPU (IGN-UX giai đoạn 1)
+
+    def check_fixed_host(self, url: str, token: str | None) -> dict:
+        """Kiểm địa chỉ và kết nối của máy cố định; chỉ GET ``/system_stats``, không đổi gì trên máy.
+
+        Từ chối khi: URL không phải https mà cũng không phải địa chỉ nội bộ (loopback, LAN, Tailscale); máy công
+        khai trả lời không cần xác thực; có token mà lượt gọi kèm token không qua. Trả GPU, VRAM, phiên bản ComfyUI.
+        """
+        url, private = _normalize_fixed_url(url)
+        token = (token or "").strip() or None
+        anonymous_open = True
+        try:
+            comfy.ComfyUIRuntime(url, None, timeout_s=15).system_stats()
+        except comfy.ComfyUIAuthError:
+            anonymous_open = False
+        except comfy.ComfyUIError as exc:
+            if token is None:
+                raise GPUServiceError(_unreachable(self._clean(str(exc)))) from None
+            anonymous_open = False
+        if anonymous_open and not private:
+            raise GPUServiceError("ComfyUI trên địa chỉ công khai trả lời khi không có token: ai cũng chạy được trên "
+                                  "máy này. Bật xác thực (reverse proxy có mật khẩu) hoặc dùng địa chỉ Tailscale/LAN")
+        if token is None and not anonymous_open:
+            raise GPUServiceError("máy cần xác thực: nhập token hoặc mật khẩu truy cập")
+        try:
+            stats = comfy.ComfyUIRuntime(url, token, timeout_s=15).system_stats()
+        except comfy.ComfyUIAuthError:
+            raise GPUServiceError("token hoặc mật khẩu bị từ chối (HTTP 401/403)") from None
+        except comfy.ComfyUIError as exc:
+            message = str(exc).replace(token, "<token>") if token else str(exc)
+            raise GPUServiceError(_unreachable(self._clean(message))) from None
+        devices = [d for d in stats.get("devices") or [] if isinstance(d, dict)]
+        gpus = [d for d in devices if str(d.get("type", "")).lower() != "cpu"] or devices
+        first = gpus[0] if gpus else {}
+        return {"url": url, "private": private, "anonymous_open": anonymous_open, "auth": token is not None,
+                "gpu_name": _device_name(first.get("name")), "num_gpus": max(len(gpus), 1),
+                "gpu_ram_gb": round(float(first.get("vram_total") or 0) / 1024 ** 3, 1),
+                "comfyui_version": str(stats["system"].get("comfyui_version") or "?"),
+                "python_version": str(stats["system"].get("python_version") or "?").split(" ")[0]}
+
+    def add_fixed_host(self, rental_id: str, name: str, url: str, token: str | None,
+                       hourly_usd: float | None = None) -> Rental:
+        """Khai máy cố định: kiểm kết nối rồi mới lưu, vào thẳng ``ready``.
+
+        Máy cố định là một dòng ``gpu_rentals`` với ``provider_key = "fixed"``: ComfyService chạy trên nó qua đúng đường
+        ``claim_for_run``/``comfy_runtime``/``release_after_run`` (một run mỗi máy, G11 khi gỡ). Nó không qua
+        ``TRANSITIONS`` của máy thuê lúc vào và ra (không có create, provisioning, destroy phía provider) và không bao
+        giờ vào ``rentals()``, nên guardrail idle/thời gian/chi phí không đụng tới. Giá tự khai chỉ để hiện, không
+        vào chi phí ước tính hay ngân sách (Q-UX-03). Token ghi ``data/gpu/<rental_id>/web_password`` quyền 600.
+        """
+        if not RENTAL_ID.fullmatch(rental_id):
+            raise GPUServiceError(f"rental_id lạ: {rental_id!r}")
+        name = " ".join((name or "").split())
+        if not 1 <= len(name) <= 60:
+            raise GPUServiceError("tên máy cần 1–60 ký tự")
+        if any(h.offer.offer_id == name for h in self.fixed_hosts()):
+            raise GPUServiceError(f"đã có máy cố định tên {name!r}")
+        if hourly_usd is not None and not (math.isfinite(hourly_usd) and 0 <= hourly_usd <= 100):
+            raise GPUServiceError("giá USD/giờ phải từ 0 tới 100")
+        token = (token or "").strip() or None
+        found = self.check_fixed_host(url, token)
+        offer = Offer(provider_key=FIXED, offer_id=name, gpu_name=found["gpu_name"], num_gpus=found["num_gpus"],
+                      gpu_ram_gb=found["gpu_ram_gb"], disk_space_gb=0, dph_total=hourly_usd or 0.0,
+                      quoted_at=self.clock())
+        try:
+            self.store.add_rental(rental_id, FIXED, f"{FIXED}:{rental_id}", offer.model_dump_json(), ())
+        except sqlite3.IntegrityError:
+            raise GPUServiceError(f"{rental_id} đã được dùng; không tạo lại (bấm hai lần?)") from None
+        self._write_private(rental_id, URL_FILE, found["url"])
+        if token:
+            self._write_private(rental_id, PASSWORD_FILE, token)
+            self._secrets.add(token)
+        rental = self.rental(rental_id)
+        detail = (f"máy cố định: ComfyUI {found['comfyui_version']}, {found['num_gpus']}× {found['gpu_name']} "
+                  f"{found['gpu_ram_gb']:g} GB" + ("" if found["auth"] else ", không xác thực (địa chỉ nội bộ)"))
+        if not self.store.transition_rental(rental_id, rental.version, "ready", expect="draft", detail=detail):
+            raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
+        return self.rental(rental_id)
+
+    def remove_fixed_host(self, rental_id: str, *, accept_unverified_output: bool = False) -> Rental:
+        """Gỡ máy cố định khỏi danh sách; không gọi gì tới máy. G11 như destroy: còn run có output chưa tải/kiểm thì
+        từ chối trừ khi người vận hành xác nhận bỏ (output vẫn còn trên máy, chỉ studio không tải được nữa)."""
+        rental = self.rental(rental_id)
+        if rental.provider_key != FIXED:
+            raise GPUServiceError(f"{rental_id} không phải máy cố định")
+        if rental.status != "ready":
+            raise GPUServiceError(f"máy đang {rental.status}; chờ run xong rồi gỡ")
+        unresolved = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
+        if unresolved and not accept_unverified_output:
+            raise UnverifiedOutput(rental_id, unresolved)
+        detail = "người vận hành gỡ máy cố định, bỏ output chưa tải/kiểm" if accept_unverified_output else None
+        if self.store.begin_destroy(rental_id, rental.version, expect="ready", unresolved=RUN_UNRESOLVED,
+                                    abandon_detail=detail, detail="gỡ máy cố định") is None:
+            current = self.store.comfy_runs(rental_id=rental_id, statuses=RUN_UNRESOLVED)
+            if current and not accept_unverified_output:
+                raise UnverifiedOutput(rental_id, current)
+            raise GPUServiceError(f"{rental_id} đã đổi trạng thái ở nơi khác")
+        rental = self.rental(rental_id)
+        self.store.transition_rental(rental_id, rental.version, "destroyed", expect="destroying",
+                                     detail="đã gỡ khỏi danh sách; máy không bị tắt")
+        for name in (PASSWORD_FILE, URL_FILE):
+            (self.rental_dir(rental_id) / name).unlink(missing_ok=True)
+        return self.rental(rental_id)
+
+    def _fixed_url(self, rental_id: str) -> str:
+        path = self.rental_dir(rental_id) / URL_FILE
+        if not path.is_file():
+            raise GPUServiceError(f"{rental_id} thiếu {URL_FILE}")
+        return path.read_text(encoding="utf-8").strip()
+
+    def _fixed_runtime(self, rental_id: str) -> comfy.ComfyUIRuntime:
+        return comfy.ComfyUIRuntime(self._fixed_url(rental_id), self._password(rental_id))
 
     # ------------------------------------------------------------ guardrail: idle TTL, thời gian thuê, chi phí (lát E)
 
@@ -1094,6 +1255,8 @@ class GPUService:
     def _sample_cost(self, rental_id: str) -> None:
         """Mẫu mới mỗi lần đổi trạng thái: cộng dồn theo tốc độ cũ tới nay, ghi tốc độ theo trạng thái mới."""
         rental = self.rental(rental_id)
+        if rental.provider_key == FIXED:     # Q-UX-03: máy cố định không vào chi phí ước tính hay ngân sách
+            return
         now = self.clock()
         samples = self._cost_samples(rental_id)
         compute, disk = costs.rates(rental)
@@ -1110,7 +1273,7 @@ class GPUService:
         """CAS từ bản ghi đã đọc; False khi bên khác đã đổi trước. Chuyển trái TRANSITIONS là lỗi lập trình."""
         if status not in TRANSITIONS[rental.status]:
             raise GPUServiceError(f"chuyển trạng thái không hợp lệ: {rental.status}→{status}")
-        if status == "ready":
+        if status == "ready" and rental.provider_key != FIXED:
             fields.setdefault("idle_deadline", self._idle_deadline())     # idle TTL tính từ lúc vào ready
         moved = self.store.transition_rental(rental.rental_id, rental.version, status, expect=rental.status,
                                              error_code=error_code, detail=self._clean(detail) if detail else None,
@@ -1132,10 +1295,20 @@ class GPUService:
         return _rental(self.store.rental(rental_id))
 
     def rentals(self) -> list[Rental]:
+        """Máy thuê của provider hiện tại. Guardrail, đối soát và orphan chỉ đi qua danh sách này."""
         return [_rental(row) for row in self.store.rentals() if row["provider_key"] == self.provider_key]
+
+    def fixed_hosts(self, *, include_removed: bool = False) -> list[Rental]:
+        return [_rental(row) for row in self.store.rentals()
+                if row["provider_key"] == FIXED and (include_removed or row["status"] != "destroyed")]
+
+    def machines(self) -> list[Rental]:
+        """Máy thuê và máy cố định (đang dùng) trong một danh sách, cho trang ``/gpu`` và form chạy workflow."""
+        return self.rentals() + self.fixed_hosts()
 
     def timeline(self, rental_id: str) -> dict:
         rental = self.rental(rental_id)
+        fixed = rental.provider_key == FIXED
         record = None
         if rental.manifest_sha256:
             try:
@@ -1148,14 +1321,56 @@ class GPUService:
                 "operations": self.store.gpu_operations(rental_id),
                 "cost": self.cost(rental_id),
                 "unverified_runs": self.unverified_runs(rental_id),
-                "limits": self.limits, "breaches": self.breaches(rental),
+                "limits": self.limits, "breaches": [] if fixed else self.breaches(rental), "fixed": fixed,
                 "idle_deadline": limits.idle_deadline(rental, self.limits)
-                if rental.status in limits.IDLE_STATES else None}
+                if rental.status in limits.IDLE_STATES and not fixed else None}
 
 
 def _rental(row: dict) -> Rental:
     data = {k: v for k, v in row.items() if k != "offer_json"}
     return Rental(**data, offer=Offer.model_validate_json(row["offer_json"]))
+
+
+def _rented_only(rental: Rental, action: str) -> None:
+    if rental.provider_key == FIXED:
+        raise GPUServiceError(f"máy cố định không có {action}: Igniterra không quản lý vòng đời của nó; dùng Gỡ khỏi "
+                              "danh sách")
+
+
+def _normalize_fixed_url(url: str) -> tuple[str, bool]:
+    """(URL đã chuẩn hóa, có phải địa chỉ nội bộ). http chỉ nhận cho loopback, LAN, Tailscale (IP 100.64/10 hoặc
+    ``*.ts.net``): đường đó không đi qua internet công khai. Từ chối user:pass trong URL, query và fragment."""
+    url = (url or "").strip()
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise GPUServiceError("địa chỉ ComfyUI phải dạng https://máy:cổng")
+    if parts.username or parts.password or parts.query or parts.fragment:
+        raise GPUServiceError("địa chỉ không được chứa mật khẩu, query hay #; nhập token ở ô riêng")
+    host = parts.hostname.lower()
+    try:
+        address = ipaddress.ip_address(host)
+        private = address.is_loopback or address.is_private or address in TAILNET
+    except ValueError:
+        private = host == "localhost" or host.endswith(".ts.net")
+    if parts.scheme == "http" and not private:
+        raise GPUServiceError("địa chỉ công khai phải dùng https; http chỉ nhận cho LAN, Tailscale hoặc localhost")
+    try:
+        parts.port
+    except ValueError:
+        raise GPUServiceError("cổng trong địa chỉ không hợp lệ") from None
+    return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}", private
+
+
+def _unreachable(detail: str) -> str:
+    return ("không kết nối được ComfyUI ở địa chỉ này: máy tắt, sai cổng, hoặc tường lửa chặn. "
+            f"Chi tiết: {detail[:160]}")
+
+
+def _device_name(raw) -> str:
+    """``cuda:0 NVIDIA RTX A5000 : cudaMallocAsync`` → ``NVIDIA RTX A5000``."""
+    name = str(raw or "GPU")
+    name = re.sub(r"^\S+:\d+\s+", "", name).split(" : ")[0].strip()
+    return name[:60] or "GPU"
 
 
 def _orphan(instance: Instance, reason: str) -> Orphan:

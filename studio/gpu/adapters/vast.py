@@ -93,7 +93,9 @@ class VastGPUProvider:
     # ------------------------------------------------------------ Protocol
 
     def capabilities(self) -> Capabilities:
-        return Capabilities(supports_stop=True, price_components=("compute", "storage", "inet_up", "inet_down"))
+        # Caddy của base-image: Basic Auth user "vastai" (WEB_USERNAME mặc định), mật khẩu WEB_PASSWORD; TLS tự ký.
+        return Capabilities(supports_stop=True, price_components=("compute", "storage", "inet_up", "inet_down"),
+                            display_name="Vast.ai", web_username="vastai", self_signed_tls=True)
 
     def search_offers(self, filters: OfferFilters) -> list[Offer]:
         """``POST /bundles/``. Service vẫn kiểm lại từng offer (G02); bộ lọc ở đây chỉ để giảm số dòng.

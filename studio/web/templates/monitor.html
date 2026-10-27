@@ -4,7 +4,7 @@
 {% block body %}
 <div class="page-heading"><div><p class="eyebrow">OPERATIONS / MONITOR</p><h1>Tình trạng toàn hệ thống</h1>
   <p class="page-subtitle">Trạng thái từ SQLite; worker cập nhật tiến độ. Mở Monitor không submit hay poll provider.</p></div>
-  <div class="row"><a class="button" href="/monitor?{{ 'task=' ~ (task_filter|urlencode) ~ '&' if task_filter else '' }}refresh=off">{{ icon('refresh') }} Làm mới</a><a class="button" href="/comfyui/workflows">Thư viện workflow →</a></div></div>
+  <div class="row"><a class="button" href="/monitor?{{ 'task=' ~ (task_filter|urlencode) ~ '&' if task_filter else '' }}{{ '' if auto_refresh else 'refresh=off' }}">{{ icon('refresh') }} Làm mới bây giờ</a><a class="button" href="/comfyui/workflows">Thư viện workflow →</a></div></div>
 <p class="small muted">{% if auto_refresh %}Tự cập nhật mỗi 5 giây · <a href="?{{ 'task=' ~ (task_filter|urlencode) ~ '&' if task_filter else '' }}refresh=off">Tạm dừng cập nhật để thao tác</a>{% else %}Đã tạm dừng tự cập nhật · <a href="?{{ 'task=' ~ (task_filter|urlencode) if task_filter else '' }}">Bật lại</a>{% endif %}</p>
 {% if task_filter %}<p class="section-note">Đang lọc task {{ task_filter }} · <a href="/monitor">Xem tất cả</a></p>{% endif %}
 <section class="metrics" aria-label="Monitor overview">

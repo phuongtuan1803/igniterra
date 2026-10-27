@@ -2,16 +2,17 @@
 id: IGN-UX
 title: Igniterra — UX cho người mới và ComfyUI độc lập
 type: design
-ver: "1.2"
+ver: "1.3"
 status: draft
 date: 2026-10-27
 owner: Tuan
 sum: Hành trình J01–J15 cho người không rành kỹ thuật, ưu tiên ComfyUI chạy độc lập trên máy thuê Vast.ai hoặc VPS có GPU, hai chế độ chạy (ComfyUI gốc và chạy có kiểm), vòng lặp tự kiểm nằm ở Igniterra, và bộ 14 màn hình chuẩn dạng hình để AI review sản phẩm.
-kv: [[Trạng thái, "Thiết kế; giai đoạn 0 (tài liệu); chưa có code"], [Màn hình chuẩn, "docs/ux/spec (14 màn × 3 độ rộng)"], [Thay cho, "docs/ux/proposals/v2.1 (đề xuất, chưa merge)"], [Liên quan, "06 · Giao diện, 09 · GPU và ComfyUI"]]
+kv: [[Trạng thái, "Giai đoạn 0 và 1 xong; giai đoạn 2–6 là thiết kế"], [Màn hình chuẩn, "docs/ux/spec (14 màn × 3 độ rộng)"], [Thay cho, "docs/ux/proposals/v2.1 (đề xuất, chưa merge)"], [Liên quan, "06 · Giao diện, 09 · GPU và ComfyUI"]]
 rev:
   - ["1.0", 2026-10-27, "Chuyển đề xuất UX v2.1 vào bộ thiết kế: thu gọn phạm vi, thêm J06–J15, máy cố định, hai chế độ ComfyUI, tự kiểm và chạy lại, loại workflow, màn hình chuẩn và quy trình review bằng AI"]
   - ["1.1", 2026-10-27, "Tuan chốt: máy cố định chưa tính vào ngân sách; đề xuất VieNeu-TTS cho giọng đọc và cách chấm lượt tự kiểm"]
   - ["1.2", 2026-10-27, "Tuan chốt Q-UX-01 (VieNeu-TTS) và Q-UX-02 (model vision qua OmniRoute, người chọn kết quả cuối)"]
+  - ["1.3", 2026-10-27, "Giai đoạn 1 có code: máy cố định, provider \"fixed\", nút Mở ComfyUI, hiện mật khẩu máy thuê qua POST; F09 và F10 đã sửa"]
 ---
 
 <!-- id:s1 -->
@@ -19,7 +20,7 @@ rev:
 
 <!-- id:s1.b1 -->
 > [!IMPORTANT]
-> Tài liệu này là thiết kế, chưa có code. Thứ tự làm do Tuan chốt ngày 2026-10-27: ComfyUI làm trước, Brief và Series làm sau. Mỗi giai đoạn là một PR riêng và dừng lại cho Tuan duyệt.
+> Giai đoạn 0 (tài liệu) và 1 (máy cố định, Mở ComfyUI, F09, F10) đã có; từ giai đoạn 2 trở đi là thiết kế, chưa có code. Thứ tự làm do Tuan chốt ngày 2026-10-27: ComfyUI làm trước, Brief và Series làm sau. Mỗi giai đoạn là một PR riêng và dừng lại cho Tuan duyệt.
 
 <!-- id:s1.b2 -->
 Persona chính là người biết mình muốn video hay ảnh gì nhưng không biết JSON, CLI, SHA-256, provisioning hay API export. Tài liệu trả lời ba việc:
@@ -114,15 +115,27 @@ ready -> run
 Table: Khác nhau giữa hai loại máy
 | Khía cạnh | Máy thuê Vast.ai | Máy cố định (VPS có GPU) |
 | --- | --- | --- |
-| Có sẵn chưa | Có (lát A–E) | Chưa; giai đoạn 1 |
+| Có sẵn chưa | Có (lát A–E) | Có (giai đoạn 1) |
 | Vòng đời | Thuê, provisioning, stop, destroy, reconcile | Igniterra không quản lý; chỉ thêm, kiểm, gỡ khỏi danh sách |
 | Lên ready khi | Đủ bằng chứng provisioning và smoke (09) | Từ chối request không token, nhận token, `/system_stats` trả lời |
 | Chi phí | Ước tính theo giá offer, giới hạn idle, giờ chạy, ngân sách | Giá USD/giờ tự khai (tùy chọn), chỉ để ước tính; chưa tính vào ngân sách 5 USD (Tuan chốt 2026-10-27) |
 | Cài model thiếu | Qua provisioning manifest mới (giai đoạn 5) | Hướng dẫn cài tay, không cài tự động |
-| Mở ComfyUI | Cổng 8188 qua Caddy có xác thực `WEB_PASSWORD` | URL người dùng khai |
+| Mở ComfyUI | Cổng 8188 qua Caddy; trình duyệt hỏi user `vastai` và `WEB_PASSWORD`, bấm Hiện mật khẩu để xem | URL người dùng khai; đăng nhập theo cách của chính máy đó |
 
 <!-- id:s4.b3 -->
-Mở ComfyUI là link trực tiếp tới máy, mở ở tab mới; Igniterra không làm proxy (Tuan chốt). Cần kiểm trong giai đoạn 1: Caddy của base-image Vast.ai nhận xác thực từ trình duyệt bằng cách nào, để người dùng không phải gõ token mỗi lần, đồng thời token không bị in ra trên trang.
+Mở ComfyUI là link trực tiếp tới máy, mở ở tab mới; Igniterra không làm proxy (Tuan chốt). Caddy của base-image Vast.ai nhận Basic Auth (user `vastai`, mật khẩu `WEB_PASSWORD`) hoặc Bearer, không nhận token trong query. Vì vậy link không bao giờ chứa mật khẩu: trình duyệt tự hỏi, và trang máy có nút Hiện mật khẩu đăng nhập. Nút đó là POST có CSRF, trả mật khẩu ngay trong response với `Cache-Control: no-store`, nên mật khẩu không nằm trong URL, lịch sử hay log. Lấy link máy thuê là một lượt GET tới provider và gia hạn idle như mọi lần studio dùng máy.
+
+<!-- id:s4.b4 -->
+Table: Code của máy cố định (giai đoạn 1)
+| Phần | Cách làm |
+| --- | --- |
+| Lưu ở đâu | Một dòng `gpu_rentals` với `provider_key = "fixed"`, label `fixed:<rental_id>`, tên máy ở `offer.offer_id`. Địa chỉ ở `data/gpu/<rental_id>/comfy_url`, token ở `web_password`, cả hai quyền 600 |
+| Thêm | `GPUService.add_fixed_host`: kiểm địa chỉ, gọi `/system_stats` không token rồi có token, lưu, vào thẳng `ready`. Kiểm hỏng thì không lưu gì |
+| Địa chỉ nhận | https, hoặc http cho loopback, LAN, Tailscale (`100.64.0.0/10`, `*.ts.net`). Từ chối user:pass, query, # trong URL, và máy công khai trả lời khi không có token |
+| Chạy | Đúng đường của máy thuê: `claim_for_run`, `comfy_runtime`, `release_after_run`, một run mỗi máy |
+| Guardrail | `rentals()` chỉ trả máy thuê, nên idle TTL, giờ chạy, giá giờ, orphan và reconcile không đụng tới máy cố định. Không có mẫu chi phí, không vào ngân sách |
+| Gỡ | `remove_fixed_host`: chỉ khi `ready`, chặn theo G11 như destroy, `ready→destroying→destroyed` không gọi gì tới máy, xóa token và địa chỉ |
+| Chỉ máy cố định | `[gpu] provider = "fixed"` bật trang GPU mà không có provider thuê; phần tìm và thuê bị ẩn |
 
 <!-- id:s5 -->
 ## Hai chế độ chạy ComfyUI
@@ -327,8 +340,8 @@ Rà trên `main@7d80e07` ngày 2026-10-27, đọc code, chưa chạy app.
 Table: Phát hiện còn hiệu lực
 | ID | Phát hiện | Bằng chứng | Xử lý |
 | --- | --- | --- | --- |
-| F09 | Block title của trang ComfyUI chứa cả dialog nhập workflow, dialog lặp lại trong body | `studio/web/templates/comfyui.html` dòng 3 | Giai đoạn 1: title chỉ là chữ, một dialog; thêm test |
-| F10 | Nút "Làm mới" trên Monitor tắt luôn tự cập nhật | `monitor.html` dòng 7 trỏ `?refresh=off` | Giai đoạn 1: S21 |
+| F09 | Block title của trang ComfyUI chứa cả dialog nhập workflow, dialog lặp lại trong body | `studio/web/templates/comfyui.html` dòng 3 | Đã sửa ở giai đoạn 1: title chỉ là chữ, một dialog, có test |
+| F10 | Nút "Làm mới" trên Monitor tắt luôn tự cập nhật | `monitor.html` dòng 7 trỏ `?refresh=off` | Đã sửa ở giai đoạn 1: Làm mới bây giờ giữ chế độ tự cập nhật, có test |
 | F20 | Run không nhận input; muốn đổi prompt phải nhập revision mới | `ComfyService.start_run(run_id, workflow_id, revision, rental_id)` | Giai đoạn 3: input mapping |
 | F19 | `Scene.mode = "motion"` chỉ có adapter `video.fake` | `studio/providers/__init__.py` | Sau giai đoạn 3: `VideoProvider` qua ComfyService |
 | F21 | Chống trùng chỉ so với revision mới nhất của cùng workflow | `ComfyService.import_workflow` | Giai đoạn 3: cảnh báo trùng toàn thư viện (S15), không tự xóa |

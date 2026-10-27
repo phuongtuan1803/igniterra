@@ -351,8 +351,11 @@ def create_app(config: dict | None = None) -> FastAPI:
     def gpu_page(request: Request):
         filters, offers, offer_error = gpu_offers(request.query_params)
         rentals = gpu.rentals() if gpu else []
+        fixed = gpu.fixed_hosts() if gpu else []
         manifest = gpu.approved_manifest() if gpu else None
-        return page(request, "gpu.html", gpu=gpu, rentals=rentals, filters=filters, offers=offers,
+        return page(request, "gpu.html", gpu=gpu, rentals=rentals, fixed=fixed, machines=rentals + fixed,
+                    provider_name=gpu.provider.capabilities().display_name if gpu else "",
+                    filters=filters, offers=offers,
                     offer_error=offer_error, csrf=csrf, attention=ATTENTION, billable=BILLABLE, manifest=manifest,
                     manifest_view=gpu.manifest_view(manifest) if manifest else None,
                     new_rental_id=gpu.new_rental_id if gpu else None, orphans=gpu.orphans if gpu else [],
@@ -381,8 +384,7 @@ def create_app(config: dict | None = None) -> FastAPI:
             return back("/gpu", err=str(exc)[:500], request=request)
         return back(f"/gpu/instances/{rental.rental_id}", msg=f"{rental.rental_id}: {rental.status}", request=request)
 
-    @app.get("/gpu/instances/{rental_id}", response_class=HTMLResponse)
-    def gpu_rental_page(request: Request, rental_id: str):
+    def gpu_rental_view(request: Request, rental_id: str, **extra) -> Response:
         if gpu is None:
             return Response("GPU provider chưa bật", status_code=404)
         try:
@@ -393,12 +395,63 @@ def create_app(config: dict | None = None) -> FastAPI:
         return page(request, "gpu_rental.html", **data, csrf=csrf, attention=ATTENTION, billable=BILLABLE,
                     transitions=TRANSITIONS, supports_stop=gpu.supports_stop,
                     last_destroy=next((op for op in reversed(operations) if op["action"] == "destroy"), None),
-                    stop_unknown=any(op["action"] == "stop" and op["status"] == "unknown" for op in operations))
+                    stop_unknown=any(op["action"] == "stop" and op["status"] == "unknown" for op in operations),
+                    **extra)
+
+    @app.get("/gpu/instances/{rental_id}", response_class=HTMLResponse)
+    def gpu_rental_page(request: Request, rental_id: str):
+        return gpu_rental_view(request, rental_id)
+
+    @app.get("/gpu/instances/{rental_id}/comfyui")
+    def gpu_open_comfyui(request: Request, rental_id: str):
+        """Nút "Mở ComfyUI": chuyển thẳng tới ComfyUI gốc trên máy (link trực tiếp, không proxy, không token)."""
+        if gpu is None:
+            return Response(status_code=404)
+        try:
+            target = gpu.comfy_url(rental_id)
+        except (gpu_service.GPUServiceError, KeyError) as exc:
+            return back(f"/gpu/instances/{rental_id}", err=str(exc)[:500], request=request)
+        return RedirectResponse(target + "/", status_code=303)
+
+    @app.get("/gpu/hosts/new", response_class=HTMLResponse)
+    def gpu_host_form(request: Request):
+        if gpu is None:
+            return Response("GPU provider chưa bật", status_code=404)
+        return page(request, "gpu_host.html", csrf=csrf, new_rental_id=gpu.new_rental_id(), form={}, check=None)
+
+    @app.post("/gpu/hosts", response_class=HTMLResponse)
+    async def gpu_host_add(request: Request):
+        """Thêm máy cố định. ``intent=check`` chỉ kiểm kết nối (HTMX trả khối kết quả); lưu luôn kiểm lại trước."""
+        form = await request.form()
+        if not gpu_csrf_ok(form):
+            return Response("CSRF token sai; tải lại trang", status_code=403)
+        if gpu is None:
+            return Response(status_code=404)
+        fields = {key: str(form.get(key, "")).strip() for key in ("rental_id", "name", "url", "hourly")}
+        token = str(form.get("token", ""))
+        check, error = None, None
+        try:
+            hourly = float(fields["hourly"]) if fields["hourly"] else None
+            if form.get("intent") == "check":
+                check = gpu.check_fixed_host(fields["url"], token)
+            else:
+                rental = gpu.add_fixed_host(fields["rental_id"], fields["name"], fields["url"], token, hourly)
+                return back(f"/gpu/instances/{rental.rental_id}", msg=f"Đã thêm {fields['name']}", request=request)
+        except (gpu_service.GPUServiceError, ValueError) as exc:
+            error = gpu.redact(str(exc).replace(token, "<token>") if token.strip() else str(exc))[:500]
+        if request.headers.get("hx-request"):
+            return page(request, "_gpu_host_check.html", check=check, check_error=error)
+        return page(request, "gpu_host.html", csrf=csrf, new_rental_id=fields["rental_id"] or gpu.new_rental_id(),
+                    form=fields, check=check, check_error=error)
 
     @app.post("/gpu/instances/{rental_id}/{action}")
     async def gpu_rental_action(request: Request, rental_id: str, action: str):
-        """reconcile | stop | destroy. Stop và destroy cần ô xác nhận; cả ba cần CSRF token."""
-        if action not in ("reconcile", "stop", "destroy"):
+        """reconcile | stop | destroy | remove | login. Stop, destroy, remove cần ô xác nhận; tất cả cần CSRF token.
+
+        ``remove`` gỡ máy cố định khỏi danh sách. ``login`` hiện user/mật khẩu ComfyUI của máy thuê ngay trong
+        response (không redirect, không cache), để mật khẩu không nằm trong URL hay lịch sử trình duyệt.
+        """
+        if action not in ("reconcile", "stop", "destroy", "remove", "login"):
             return Response(status_code=404)
         form = await request.form()
         if not gpu_csrf_ok(form):
@@ -406,16 +459,27 @@ def create_app(config: dict | None = None) -> FastAPI:
         if gpu is None:
             return Response(status_code=404)
         url = f"/gpu/instances/{rental_id}"
+        if action == "login":
+            try:
+                login = gpu.web_login(rental_id)
+            except (gpu_service.GPUServiceError, KeyError) as exc:
+                return back(url, err=str(exc)[:500], request=request)
+            response = gpu_rental_view(request, rental_id, web_login=login)
+            response.headers["Cache-Control"] = "no-store"
+            return response
         if action != "reconcile" and form.get("confirm") != "on":
             return back(url, err=f"{action} cần xác nhận", request=request)
         try:
-            if action == "destroy":
+            if action in ("destroy", "remove"):
                 # G11: còn run có output chưa tải/kiểm thì service từ chối, trừ khi đã tick ô bỏ output riêng.
-                rental = gpu.destroy(rental_id, accept_unverified_output=form.get("accept_unverified") == "on")
+                fn = gpu.destroy if action == "destroy" else gpu.remove_fixed_host
+                rental = fn(rental_id, accept_unverified_output=form.get("accept_unverified") == "on")
             else:
                 rental = getattr(gpu, action)(rental_id)
         except (gpu_service.GPUServiceError, KeyError) as exc:
             return back(url, err=str(exc)[:500], request=request)
+        if action == "remove":
+            return back("/gpu", msg=f"Đã gỡ {rental.offer.offer_id} khỏi danh sách", request=request)
         return back(url, msg=f"{rental_id}: {rental.status}", request=request)
 
     # ------------------------------------------------------------ ComfyUI Workflows (Gate 4, lát D)
