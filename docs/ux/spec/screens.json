@@ -5,7 +5,7 @@
   "must_not": ["Nút khởi động worker hoặc thuê GPU ngay trên trang này", "Gọi provider khi mở trang", "Hiện chi phí 0 khi chưa biết giá"]},
  {"id": "S10-gpu-machines", "title": "Máy GPU", "group": "gpu", "journeys": ["J04", "J06"], "phase": 1, "state": "sửa",
   "purpose": "Một danh sách chung cho máy thuê Vast.ai và máy cố định (VPS có GPU).",
-  "must": ["Cột Loại phân biệt Thuê (Vast.ai) và Cố định (VPS)", "Máy ready có nút Mở ComfyUI", "Máy thuê hiện trạng thái tính phí và hạn idle; máy cố định hiện giá tự khai hoặc Không tính", "Nút Thêm máy cố định cạnh Tìm GPU thuê"],
+  "must": ["Cột Loại phân biệt Thuê (Vast.ai) và Cố định (VPS)", "Máy ready có nút Mở ComfyUI", "Máy thuê hiện trạng thái tính phí và hạn idle; máy cố định hiện giá tự khai hoặc Không tính, và không cộng vào ngân sách", "Nút Thêm máy cố định cạnh Tìm GPU thuê"],
   "must_not": ["Nút Stop/Destroy cho máy cố định", "Gộp máy cố định vào số 'có thể đang tính phí' của Vast.ai"]},
  {"id": "S11-machine-add", "title": "Thêm máy cố định", "group": "gpu", "journeys": ["J06"], "phase": 1, "state": "mới",
   "purpose": "Khai một VPS có GPU đã cài ComfyUI để Igniterra dùng như máy ready.",

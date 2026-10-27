@@ -26,7 +26,7 @@ Phải có:
 
 - [ ] Cột Loại phân biệt Thuê (Vast.ai) và Cố định (VPS)
 - [ ] Máy ready có nút Mở ComfyUI
-- [ ] Máy thuê hiện trạng thái tính phí và hạn idle; máy cố định hiện giá tự khai hoặc Không tính
+- [ ] Máy thuê hiện trạng thái tính phí và hạn idle; máy cố định hiện giá tự khai hoặc Không tính, và không cộng vào ngân sách
 - [ ] Nút Thêm máy cố định cạnh Tìm GPU thuê
 
 Không được có:
