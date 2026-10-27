@@ -220,7 +220,8 @@ CREATE TABLE IF NOT EXISTS comfy_run_events (
 
 # Cột thêm sau khi bảng đã phát hành (CREATE TABLE IF NOT EXISTS không sửa bảng cũ): (bảng, cột, kiểu).
 ADDED_COLUMNS = (("gpu_rentals", "disk_gb", "REAL"), ("gpu_rentals", "manifest_sha256", "TEXT"),
-                 ("gpu_rentals", "provision_deadline", "TEXT"))
+                 ("gpu_rentals", "provision_deadline", "TEXT"),
+                 ("gpu_rentals", "native_activity_at", "TEXT"), ("gpu_rentals", "native_history_head", "TEXT"))
 
 WAIT_REASONS = {"gate:keyframes", "gate:final", "unknown_call", "retries_exhausted", "duration_exceeded", "paused"}
 
@@ -560,6 +561,23 @@ class Store:
         chạm chen giữa lượt đọc và CAS làm destroy đó thua thay vì hủy máy vừa được dùng.
         """
         with self.connect() as db:
+            return bool(db.execute(
+                "UPDATE gpu_rentals SET idle_deadline=? WHERE rental_id=? AND status IN ('ready','busy') "
+                "AND (idle_deadline IS NULL OR julianday(idle_deadline) < julianday(?))",
+                (idle_deadline, rental_id, idle_deadline)).rowcount)
+
+    def note_native_activity(self, rental_id: str, history_head: str | None, *, active_at: str | None,
+                             idle_deadline: str | None) -> bool:
+        """Ghi lượt worker đọc hàng đợi ComfyUI gốc (IGN-UX giai đoạn 2). Luôn lưu ``history_head`` (prompt mới nhất
+        trong ``/history``); có hoạt động (``active_at``) thì ghi thời điểm và lùi hạn idle như ``touch_rental_idle``.
+        Không tăng ``version`` vì cùng lý do với ``touch_rental_idle``."""
+        with self.connect() as db:
+            db.execute("UPDATE gpu_rentals SET native_history_head=? WHERE rental_id=?", (history_head, rental_id))
+            if active_at is None:
+                return False
+            db.execute("UPDATE gpu_rentals SET native_activity_at=? WHERE rental_id=?", (active_at, rental_id))
+            if idle_deadline is None:
+                return False
             return bool(db.execute(
                 "UPDATE gpu_rentals SET idle_deadline=? WHERE rental_id=? AND status IN ('ready','busy') "
                 "AND (idle_deadline IS NULL OR julianday(idle_deadline) < julianday(?))",

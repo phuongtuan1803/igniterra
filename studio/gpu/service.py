@@ -942,6 +942,15 @@ class GPUService:
             raise GPUServiceError(f"{rental_id} đang {rental.status}, không phải ready/busy")
         if rental.provider_key == FIXED:
             return self._fixed_runtime(rental_id)
+        runtime = self._rented_runtime(rental)
+        deadline = self._idle_deadline()
+        if deadline is not None:           # studio đang dùng rental (chạy, theo dõi, tải output): lùi hạn idle
+            self.store.touch_rental_idle(rental_id, deadline)
+        return runtime
+
+    def _rented_runtime(self, rental: Rental) -> comfy.ComfyUIRuntime:
+        """Client ComfyUI của máy thuê, không chạm hạn idle (guardrail đọc hàng đợi dùng đường này)."""
+        rental_id = rental.rental_id
         password = self._password(rental_id)
         if not password or not rental.provider_instance_id:
             raise GPUServiceError(f"{rental_id} thiếu instance hoặc {PASSWORD_FILE}")
@@ -952,13 +961,39 @@ class GPUService:
         if instance is None:
             raise RentalUnreachable(f"provider không còn instance {rental.provider_instance_id}")
         try:
-            runtime = self.probe_factory(instance, password).comfy
+            return self.probe_factory(instance, password).comfy
         except ProbeUnavailable as exc:
             raise RentalUnreachable(f"{rental_id}: {exc}") from None
-        deadline = self._idle_deadline()
-        if deadline is not None:           # studio đang dùng rental (chạy, theo dõi, tải output): lùi hạn idle
-            self.store.touch_rental_idle(rental_id, deadline)
-        return runtime
+
+    def watch_native_activity(self) -> list[str]:
+        """Một lượt của guardrail (IGN-UX giai đoạn 2): máy thuê ``ready`` có job trong ComfyUI gốc thì lùi hạn idle.
+
+        Chỉ GET ``/queue`` và ``/history?max_items=1``. Có hoạt động khi hàng đợi có job (đang chạy hoặc chờ), hoặc
+        prompt mới nhất trong history khác lượt đọc trước (job đã chạy xong giữa hai lượt). Lượt đọc đầu tiên chỉ ghi
+        mốc. Mở tab ComfyUI mà không chạy gì thì không tính, để máy bị quên vẫn tắt đúng hạn. Máy không đọc được thì bỏ
+        qua lượt này: hạn idle giữ nguyên, nghĩa là guardrail nghiêng về tắt máy chứ không về giữ máy. Trả các rental
+        có hoạt động.
+        """
+        active = []
+        for rental in self.rentals():
+            if rental.status != "ready":
+                continue
+            try:
+                runtime = self._rented_runtime(rental)
+                busy = runtime.busy_elsewhere()
+                head = runtime.history_head()
+            except Exception as exc:  # noqa: BLE001 — đọc hàng đợi lỗi không được chặn enforce_limits ngay sau
+                log.info("đọc hàng đợi ComfyUI gốc %s: %s", rental.rental_id, self._clean(str(exc))[:200])
+                continue
+            head = head or ""                  # "" = đã đọc, history rỗng; None = chưa đọc lần nào
+            seen = rental.native_history_head
+            moved = seen is not None and head != seen
+            stamp = self.clock().isoformat(timespec="seconds") if (busy or moved) else None
+            self.store.note_native_activity(rental.rental_id, head, active_at=stamp,
+                                            idle_deadline=self._idle_deadline() if stamp else None)
+            if stamp:
+                active.append(rental.rental_id)
+        return active
 
     def claim_for_run(self, rental_id: str, run_id: str) -> bool:
         """``ready→busy`` bằng CAS: tối đa một run trên một instance. False khi rental không ``ready`` hoặc thua race."""
@@ -1225,6 +1260,7 @@ class GPUService:
             if rental.status == "create_unknown":
                 self.reconcile(rental.rental_id)
         polled = self.poll()
+        native = self.watch_native_activity()       # trước enforce_limits: job trong ComfyUI gốc lùi hạn idle trước
         enforced = self.enforce_limits()
         for rental in self.rentals():
             if rental.status in ("destroying", "destroy_unknown"):
@@ -1232,7 +1268,7 @@ class GPUService:
                     self.reconcile(rental.rental_id)
                 except (GPUServiceError, GPUError) as exc:
                     log.warning("reconcile %s: %s", rental.rental_id, self._clean(str(exc)))
-        return {"polled": polled, "enforced": enforced}
+        return {"polled": polled, "native_activity": native, "enforced": enforced}
 
     def _note_once(self, rental_id: str, transition: str, code: str, detail: str) -> None:
         """Sự kiện lặp mỗi lượt poll (cùng ``transition`` và mã với sự kiện cuối) chỉ ghi một lần: ``gpu_events`` chỉ

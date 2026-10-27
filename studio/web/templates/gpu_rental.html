@@ -34,8 +34,9 @@
 {% if rental.status in ("ready", "busy") %}
 <section class="card" aria-label="Mở ComfyUI">
   <p class="eyebrow">COMFYUI GỐC</p><h2>Mở ComfyUI trên máy</h2>
-  <p><a class="button primary" href="/gpu/instances/{{ rental.rental_id }}/comfyui" target="_blank" rel="noopener noreferrer">{{ icon('arrow') }} Mở ComfyUI</a></p>
-  <p class="section-note">Link trực tiếp tới máy, mở ở tab mới. Chạy trong ComfyUI gốc thì Igniterra không kiểm output{% if not fixed %}, nhưng thời gian máy vẫn tính phí và vẫn bị giới hạn idle/ngân sách. Mỗi lần mở từ đây gia hạn idle{% endif %}. Muốn có output đã kiểm SHA-256, dùng Chạy có kiểm.</p>
+  <div class="row"><a class="button primary" href="/gpu/instances/{{ rental.rental_id }}/comfyui" target="_blank" rel="noopener noreferrer">{{ icon('arrow') }} Mở ComfyUI</a><a class="button" href="/gpu/instances/{{ rental.rental_id }}/workflows">{{ icon('download') }} Lưu workflow từ máy về thư viện</a></div>
+  <p class="section-note">Link trực tiếp tới máy, mở ở tab mới. Chạy trong ComfyUI gốc thì Igniterra không kiểm output{% if not fixed %}, nhưng thời gian máy vẫn tính phí và vẫn bị giới hạn idle/ngân sách. Khi có job chạy hoặc chờ trong ComfyUI gốc, worker gia hạn idle mỗi phút; chỉ mở tab mà không chạy gì thì không gia hạn{% endif %}. Muốn có output đã kiểm SHA-256, dùng Chạy có kiểm.</p>
+  {% if not fixed %}<p class="small muted">{% if idle_deadline %}Hạn idle {{ idle_deadline.strftime("%H:%M") }} UTC. {% endif %}Lần cuối thấy job trong ComfyUI gốc: {{ rental.native_activity_at.strftime("%H:%M:%S") ~ " UTC" if rental.native_activity_at else "chưa thấy" }}.</p>{% endif %}
   {% if fixed %}
   <p class="small muted">Trình duyệt dùng cách đăng nhập của chính máy này (mật khẩu bạn đã đặt trên VPS).</p>
   {% elif web_login %}
@@ -70,7 +71,7 @@
 {% endif %}
 {% if not fixed %}
 {% if idle_deadline %}<p class="section-note">Hạn idle: {{ idle_deadline.strftime("%Y-%m-%d %H:%M:%S %z") }}.
-  Theo dõi run hoặc tải output qua studio sẽ gia hạn idle; xem trang rental không gia hạn.</p>{% endif %}
+  Chạy, theo dõi run hoặc tải output qua studio, và job trong ComfyUI gốc, sẽ gia hạn idle; xem trang rental không gia hạn.</p>{% endif %}
 {% if breaches %}
 <section class="card" aria-label="Rental vượt giới hạn" role="alert">
   <h2>Rental vượt giới hạn</h2>
@@ -119,7 +120,7 @@
         Destroy sẽ mất output đó trên máy. Tải output trước (trang run → Tải lại output), hoặc tick ô bên dưới để bỏ.</p>
       <label><input type="checkbox" name="accept_unverified"> Tôi chấp nhận bỏ output chưa kiểm của {{ unverified_runs|length }} run trên</label>
       {% endif %}
-      <label><input type="checkbox" name="confirm"> Xác nhận destroy instance {{ rental.provider_instance_id }} (mất mọi dữ liệu trên máy)</label>
+      <label><input type="checkbox" name="confirm"> Xác nhận destroy instance {{ rental.provider_instance_id }} (mất mọi dữ liệu trên máy, kể cả workflow chưa lưu về thư viện)</label>
       <button class="button danger" type="submit">Destroy</button>
     </form>
     {% endif %}

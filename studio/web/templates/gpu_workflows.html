@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Lưu workflow từ máy · GPU{% endblock %}
+{% block body %}
+{% set machine = rental.offer.offer_id if rental.provider_key == "fixed" else rental.offer.num_gpus ~ "× " ~ rental.offer.gpu_name %}
+<div class="page-header"><div><p class="eyebrow">GPU / {{ rental.rental_id|upper }}</p><h1>Lưu workflow từ máy</h1><p class="page-subtitle muted">Chọn workflow bạn đã Save trong ComfyUI trên {{ machine }}. Không tốn phí.</p></div><a class="button" href="/gpu/instances/{{ rental.rental_id }}">← Về máy</a></div>
+<section class="card">
+  <div class="section-heading"><div><h2>Workflow trên máy</h2><p class="small muted">Đọc từ thư mục workflow của ComfyUI (menu Workflow → Save trong ComfyUI).</p></div><span class="small muted">{{ files|length }} file</span></div>
+  {% if files %}
+  <form method="post" action="/gpu/instances/{{ rental.rental_id }}/workflows/import" class="stack-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="table-scroll"><table>
+      <thead><tr><th>Chọn</th><th>Tên file</th><th>Sửa lúc (UTC)</th></tr></thead>
+      <tbody>
+        {% for f in files %}
+        <tr><td><input type="radio" name="path" id="wf-{{ loop.index }}" value="{{ f.path }}"{% if loop.first %} checked{% endif %} aria-label="Chọn {{ f.path }}"></td><td><label for="wf-{{ loop.index }}">{{ f.path }}</label></td><td class="small muted">{{ f.modified|utc_time if f.modified else "—" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <label for="wf-target">Lưu thành</label>
+    <select id="wf-target" name="target">
+      <option value="new">Workflow mới</option>
+      {% for item in library %}<option value="{{ item.latest.workflow_id }}">Revision mới của: {{ item.latest.name }}</option>{% endfor %}
+    </select>
+    <p class="small muted">Luôn tạo revision mới, không ghi đè bản cũ. Workflow lưu từ máy là bản GUI: Igniterra trích dependency để bạn duyệt; muốn chạy có kiểm thì nhập thêm bản Export (API) ở trang workflow.</p>
+    <div class="row"><button class="button primary" type="submit">{{ icon('download') }} Lưu về thư viện</button><a class="text-link" href="/comfyui/workflows">Hoặc tải file JSON lên</a></div>
+  </form>
+  {% else %}
+  <div class="empty-state"><strong>Chưa có workflow nào được Save trên máy.</strong><p>Trong ComfyUI, mở Workflow → Save, rồi quay lại trang này. Hoặc <a href="/comfyui/workflows">tải file JSON lên</a>.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

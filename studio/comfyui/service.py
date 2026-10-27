@@ -155,6 +155,25 @@ class ComfyService:
                 record = self.revision(workflow_id, revision)
         return record
 
+    def machine_workflows(self, rental_id: str) -> list[dict]:
+        """Workflow đã Save trong ComfyUI gốc trên máy ``ready``/``busy`` (S13); chỉ GET, gia hạn idle như mọi lần
+        studio dùng máy."""
+        try:
+            return self._gpu().comfy_runtime(rental_id).saved_workflows()
+        except comfy.ComfyUIError as exc:
+            raise ComfyServiceError(f"không đọc được workflow trên máy: {self._clean(str(exc))[:300]}") from None
+
+    def import_from_machine(self, rental_id: str, path: str, *, name: str | None = None,
+                            workflow_id: str | None = None) -> WorkflowRevision:
+        """Lưu một workflow từ máy về thư viện: workflow mới, hoặc revision mới của ``workflow_id`` (không bao giờ ghi
+        đè revision cũ). Đi đúng đường ``import_workflow``: trích dependency, ``needs_review`` hoặc chờ duyệt."""
+        try:
+            raw = self._gpu().comfy_runtime(rental_id).read_saved_workflow(path)
+        except comfy.ComfyUIError as exc:
+            raise ComfyServiceError(f"không đọc được {path} trên máy: {self._clean(str(exc))[:300]}") from None
+        title = name or (self.revision(workflow_id).name if workflow_id else path.rsplit("/", 1)[-1].removesuffix(".json"))
+        return self.import_workflow(title, raw, workflow_id=workflow_id, note=f"lưu từ máy {rental_id}: {path}")
+
     def attach_manifest(self, workflow_id: str, revision: int, manifest: WorkflowManifest,
                         note: str | None = None) -> WorkflowRevision:
         """Người vận hành khai manifest cho revision (bắt buộc với ``needs_review``); vào ``pending_review``."""

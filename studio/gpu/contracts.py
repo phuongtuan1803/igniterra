@@ -171,6 +171,8 @@ class Rental(BaseModel):
     provision_deadline: datetime | None = None  # quá hạn mà chưa ready → provision_failed, destroy
     idle_deadline: datetime | None = None
     destroy_confirmed_at: datetime | None = None
+    native_activity_at: datetime | None = None   # lần cuối worker thấy job trong ComfyUI gốc (giai đoạn 2)
+    native_history_head: str | None = None       # prompt mới nhất trong /history ở lượt đọc trước
     created_at: datetime
     updated_at: datetime
 

@@ -2,17 +2,18 @@
 id: IGN-UX
 title: Igniterra — UX cho người mới và ComfyUI độc lập
 type: design
-ver: "1.3"
+ver: "1.4"
 status: draft
 date: 2026-10-27
 owner: Tuan
 sum: Hành trình J01–J15 cho người không rành kỹ thuật, ưu tiên ComfyUI chạy độc lập trên máy thuê Vast.ai hoặc VPS có GPU, hai chế độ chạy (ComfyUI gốc và chạy có kiểm), vòng lặp tự kiểm nằm ở Igniterra, và bộ 14 màn hình chuẩn dạng hình để AI review sản phẩm.
-kv: [[Trạng thái, "Giai đoạn 0 và 1 xong; giai đoạn 2–6 là thiết kế"], [Màn hình chuẩn, "docs/ux/spec (14 màn × 3 độ rộng)"], [Thay cho, "docs/ux/proposals/v2.1 (đề xuất, chưa merge)"], [Liên quan, "06 · Giao diện, 09 · GPU và ComfyUI"]]
+kv: [[Trạng thái, "Giai đoạn 0–2 xong; giai đoạn 3–6 là thiết kế"], [Màn hình chuẩn, "docs/ux/spec (14 màn × 3 độ rộng)"], [Thay cho, "docs/ux/proposals/v2.1 (đề xuất, chưa merge)"], [Liên quan, "06 · Giao diện, 09 · GPU và ComfyUI"]]
 rev:
   - ["1.0", 2026-10-27, "Chuyển đề xuất UX v2.1 vào bộ thiết kế: thu gọn phạm vi, thêm J06–J15, máy cố định, hai chế độ ComfyUI, tự kiểm và chạy lại, loại workflow, màn hình chuẩn và quy trình review bằng AI"]
   - ["1.1", 2026-10-27, "Tuan chốt: máy cố định chưa tính vào ngân sách; đề xuất VieNeu-TTS cho giọng đọc và cách chấm lượt tự kiểm"]
   - ["1.2", 2026-10-27, "Tuan chốt Q-UX-01 (VieNeu-TTS) và Q-UX-02 (model vision qua OmniRoute, người chọn kết quả cuối)"]
   - ["1.3", 2026-10-27, "Giai đoạn 1 có code: máy cố định, provider \"fixed\", nút Mở ComfyUI, hiện mật khẩu máy thuê qua POST; F09 và F10 đã sửa"]
+  - ["1.4", 2026-10-27, "Giai đoạn 2 có code: idle tính theo job trong ComfyUI gốc, Lưu workflow từ máy qua userdata API"]
 ---
 
 <!-- id:s1 -->
@@ -20,7 +21,7 @@ rev:
 
 <!-- id:s1.b1 -->
 > [!IMPORTANT]
-> Giai đoạn 0 (tài liệu) và 1 (máy cố định, Mở ComfyUI, F09, F10) đã có; từ giai đoạn 2 trở đi là thiết kế, chưa có code. Thứ tự làm do Tuan chốt ngày 2026-10-27: ComfyUI làm trước, Brief và Series làm sau. Mỗi giai đoạn là một PR riêng và dừng lại cho Tuan duyệt.
+> Giai đoạn 0 (tài liệu), 1 (máy cố định, Mở ComfyUI, F09, F10) và 2 (idle theo ComfyUI gốc, Lưu workflow từ máy) đã có; từ giai đoạn 3 trở đi là thiết kế, chưa có code. Thứ tự làm do Tuan chốt ngày 2026-10-27: ComfyUI làm trước, Brief và Series làm sau. Mỗi giai đoạn là một PR riêng và dừng lại cho Tuan duyệt.
 
 <!-- id:s1.b2 -->
 Persona chính là người biết mình muốn video hay ảnh gì nhưng không biết JSON, CLI, SHA-256, provisioning hay API export. Tài liệu trả lời ba việc:
@@ -178,7 +179,10 @@ Table: Hai chế độ
 | Idle | Hoạt động trong ComfyUI gốc gia hạn idle | Như hiện tại: run giành và nhả máy |
 
 <!-- id:s5.b3 -->
-Để chế độ tự do không bị destroy giữa chừng, worker cần coi hàng đợi hoặc lịch sử ComfyUI có thay đổi là "có hoạt động". Đọc `/queue` và `/history` là GET tới máy đã thuê, không phải gọi provider Vast.ai.
+Để chế độ tự do không bị destroy giữa chừng, mỗi lượt guardrail (`GPUService.watch_native_activity`, chạy trong `tick` trước `enforce_limits`) đọc `/queue` và `/history?max_items=1` của từng máy thuê `ready`. Đây là GET tới máy đã thuê, không phải gọi provider. Có hoạt động khi hàng đợi có job đang chạy hoặc chờ, hoặc prompt mới nhất trong history khác lượt đọc trước; lúc đó hạn idle lùi như mọi lần studio dùng máy, và `native_activity_at` ghi thời điểm để trang máy hiện. Lượt đọc đầu chỉ ghi mốc. Mở tab mà không chạy gì không tính, và máy không đọc được thì giữ nguyên hạn: guardrail nghiêng về tắt máy. Máy cố định không có idle nên không bị đọc.
+
+<!-- id:s5.b4 -->
+Lưu workflow từ máy (S13) đọc `GET /api/userdata?dir=workflows` (workflow đã Save trong ComfyUI, thư mục `user/default/workflows`) rồi `GET /api/userdata/workflows%2F<file>`, tối đa 5 MB, từ chối đường dẫn có `..` hay `/` đầu. File đi qua `ComfyService.import_workflow` như nhập tay: luôn là workflow mới hoặc revision mới, ghi chú nguồn là máy nào, file nào. Bản Save là GUI JSON, nên muốn chạy có kiểm vẫn cần thêm bản Export (API) và duyệt dependency.
 
 <!-- id:s6 -->
 ## Tự kiểm và chạy lại
